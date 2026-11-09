@@ -1,0 +1,21 @@
+{
+  "name": "pitstop",
+  "owner": {
+    "name": "AkitaOnRails",
+    "url": "https://github.com/akitaonrails"
+  },
+  "description": "pitstop plugins: lifecycle capture and memory tools for coding agents, backed by your own pitstop server.",
+  "plugins": [
+    {
+      "name": "pitstop",
+      "description": "Long-term memory across sessions and harnesses.",
+      "version": "3.4.3",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/akitaonrails/ai-memory.git",
+        "path": "plugins/claude-code",
+        "ref": "v3.4.3"
+      }
+    }
+  ]
+}

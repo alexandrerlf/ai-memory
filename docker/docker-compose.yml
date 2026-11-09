@@ -1,0 +1,49 @@
+# docker-compose.yml for pitstop.
+#
+# Run from this directory:
+#   docker compose up -d
+# Attach Claude Code (or any MCP HTTP client) at
+#   http://localhost:49374/mcp
+# State persists in the `pitstop-data` volume. Use `pitstop backup`
+# for an online snapshot, or stop the container before copying the volume.
+# See docs/backup.md for moving a backup to another host.
+
+services:
+  pitstop:
+    image: pitstop:local
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: pitstop
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - pitstop-data:/data
+    ports:
+      # Bind to loopback by default; flip to 0.0.0.0:49374 when serving
+      # the homelab LAN. Keep behind a reverse proxy if you do.
+      - "127.0.0.1:49374:49374"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - RUST_LOG=pitstop=info,pitstop_store=info,pitstop_wiki=info,pitstop_mcp=info,tracing_appender=warn
+      # LLM provider configured via docker/.env (gitignored). Options:
+      # anthropic | openai | openai-oauth | anthropic-oauth | copilot |
+      # gemini | openai-compat | opencode
+      # See .env.production.example for the full reference.
+      #
+      # Extra headers on every LLM chat request, for a gateway that requires
+      # a caller-identifying one. Comma-separated `Name=Value` entries; the
+      # default `User-Agent: pitstop/<version>` needs no configuration.
+      # - PITSTOP_LLM_HEADERS=x-opencode-session=homelab-01
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pitstop", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  pitstop-data:
+    name: pitstop-data

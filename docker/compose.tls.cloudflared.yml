@@ -1,0 +1,106 @@
+# docker compose template — pitstop + Cloudflare Tunnel.
+#
+# Outbound-only tunnel from the homelab to Cloudflare's edge. TLS is
+# terminated at the edge with a Cloudflare cert (universally trusted
+# everywhere). No ports exposed on the host, no public IP needed,
+# no DNS records to set up (Cloudflare manages the CNAME).
+#
+# Pairs especially well with the multi-user homelab case from
+# docs/users.md — every per-user token rides encrypted from each
+# client through Cloudflare to the tunnel.
+#
+# Prerequisites (one-time, in the Cloudflare dashboard):
+#   1. Have a domain on Cloudflare (DNS hosted there; registrar
+#      doesn't matter).
+#   2. Zero Trust → Networks → Tunnels → Create a tunnel → name it
+#      `pitstop-homelab` → save.
+#   3. Copy the token Cloudflare gives you into .env as
+#      CLOUDFLARE_TUNNEL_TOKEN.
+#   4. In the tunnel's "Public hostnames" tab: add `memory.example.com`
+#      pointing at service `http://pitstop:49374`.
+#   5. (Optional, recommended) Wrap that hostname in a Cloudflare
+#      Access application for SSO on top of pitstop's bearer auth.
+#
+# Adjacent files this compose expects:
+#   ./.env.production        — PITSTOP_AUTH_TOKEN +
+#                              PITSTOP_ALLOWED_HOSTS +
+#                              CLOUDFLARE_TUNNEL_TOKEN. NOT committed.
+#
+# Walkthrough + client-side install:
+#   docs/https-via-proxy.md
+
+name: pitstop-cloudflared
+
+services:
+  pitstop:
+    image: akitaonrails/ai-memory:latest
+    container_name: pitstop
+    restart: unless-stopped
+    # No host port. The tunnel reaches pitstop over the internal
+    # docker network — nothing inbound from the public internet.
+    expose:
+      - "49374"
+    volumes:
+      - pitstop-data:/data
+    env_file:
+      - .env.production
+    environment:
+      - RUST_LOG=pitstop=info,pitstop_store=info,pitstop_wiki=info,pitstop_mcp=info,tracing_appender=warn
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pitstop", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pitstop-tunnel
+    restart: unless-stopped
+    depends_on:
+      - pitstop
+    command: tunnel --no-autoupdate run
+    # `cloudflared` exits with code 1 on token rejection, which the
+    # `restart: unless-stopped` policy will loop on. Watch the logs
+    # the first time you start it — `docker compose logs -f cloudflared`
+    # — to confirm registration succeeded.
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+
+volumes:
+  pitstop-data:
+    name: pitstop-data
+
+
+# ──────────────────────────────────────────────────────────────────────
+# .env.production minimum content (DO NOT COMMIT THIS FILE):
+# ──────────────────────────────────────────────────────────────────────
+#
+#     PITSTOP_AUTH_TOKEN=<long-random-token-from-`pitstop generate-auth-token`>
+#     PITSTOP_ALLOWED_HOSTS=memory.example.com,localhost,127.0.0.1
+#     PITSTOP_BIND=0.0.0.0:49374
+#
+#     CLOUDFLARE_TUNNEL_TOKEN=eyJ...<long-base64-from-the-cf-dashboard>...
+#
+#     # Optional LLM provider — see docker-compose.yml for the catalogue.
+#     # PITSTOP_LLM_PROVIDER=anthropic
+#     # ANTHROPIC_API_KEY=sk-ant-...
+#
+# `PITSTOP_ALLOWED_HOSTS` MUST include the public hostname that
+# Cloudflare forwards under, or pitstop's DNS-rebinding guard will
+# reject the tunneled requests.
+#
+# ──────────────────────────────────────────────────────────────────────
+# Client config after the tunnel is up
+# ──────────────────────────────────────────────────────────────────────
+#
+#     pitstop install-mcp   --client claude-code --apply \
+#         --server-url "https://memory.example.com/mcp" \
+#         --auth-token "$PITSTOP_AUTH_TOKEN"
+#
+#     pitstop install-hooks --agent  claude-code --apply \
+#         --server-url "https://memory.example.com" \
+#         --auth-token "$PITSTOP_AUTH_TOKEN"
+#
+# (Substitute codex / cursor / gemini-cli / antigravity / opencode /
+# omp / openclaw — same shape, see docs/install.md for the catalogue.)

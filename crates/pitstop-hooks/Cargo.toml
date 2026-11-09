@@ -1,0 +1,50 @@
+[package]
+name = "pitstop-hooks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Hook payload schemas, sanitisation, and HTTP ingress for agent lifecycle hooks."
+# One integration-test binary instead of one per file. Each binary
+# statically links the whole dep graph and gets scanned by macOS on
+# first run.
+
+[dependencies]
+pitstop-core.workspace = true
+pitstop-store.workspace = true
+pitstop-wiki.workspace = true
+pitstop-consolidate.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# Parse the per-event `?event=…` query of each spooled URL in `/hook/batch`,
+# the same crate (and version) axum's `Query` extractor uses for `/hook`.
+serde_urlencoded = "0.7"
+# Unicode composition (NFC) for comparing paths on a case-folding macOS host;
+# already built into the binary through `url`/`idna`, at this version.
+icu_normalizer = "2.2"
+tokio.workspace = true
+tracing.workspace = true
+jiff.workspace = true
+uuid.workspace = true
+axum.workspace = true
+sha2.workspace = true
+base64.workspace = true
+
+libc.workspace = true
+
+[dev-dependencies]
+pitstop-test-support.workspace = true
+tempfile.workspace = true
+git2.workspace = true
+pitstop-llm.workspace = true
+async-trait.workspace = true
+rusqlite.workspace = true
+# Drive the real `/hook` route in the idle-end race tests.
+tower.workspace = true
+
+[lints]
+workspace = true

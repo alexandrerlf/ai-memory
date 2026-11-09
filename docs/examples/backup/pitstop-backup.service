@@ -1,0 +1,22 @@
+[Unit]
+Description=pitstop snapshot + push to remote git
+Documentation=file://%h/.local/share/pitstop/docs/backup.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Point ExecStart at wherever you dropped pitstop-snapshot.sh — this path
+# is only a sample. Adjust the environment overrides if the defaults in the
+# script do not match your install.
+ExecStart=%h/.local/bin/pitstop-snapshot.sh
+# Environment=REPO_DIR=%h/pitstop-backup
+# Environment=DATA_SRC=%h/.local/share/pitstop
+# Environment=CFG_SRC=%h/.config/pitstop
+# Environment=TARBALL_DIR=%h/backups/pitstop
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=default.target

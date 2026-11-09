@@ -1,0 +1,24 @@
+[Unit]
+Description=pitstop MCP server
+Documentation=https://github.com/akitaonrails/ai-memory
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pitstop
+Group=pitstop
+EnvironmentFile=-/etc/pitstop/env
+ExecStart=/usr/bin/pitstop --data-dir /var/lib/pitstop --config /etc/pitstop/config.toml serve --transport http --enable-web
+Restart=on-failure
+RestartSec=5s
+StateDirectory=pitstop
+StateDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pitstop
+
+[Install]
+WantedBy=multi-user.target

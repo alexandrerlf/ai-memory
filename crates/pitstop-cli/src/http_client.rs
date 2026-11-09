@@ -1,0 +1,1626 @@
+//! Shared HTTP-client glue for thin-client CLI subcommands.
+//!
+//! Every state-touching subcommand (status, search, bootstrap, …) goes
+//! through these helpers so URL resolution + bearer-auth handling stays
+//! consistent in one place.
+//!
+//! ## Configuration
+//!
+//! [`crate::config::Config`] captures `PITSTOP_SERVER_URL` and
+//! `PITSTOP_AUTH_TOKEN` exactly once; this module consumes those values
+//! and can fall back to the stored OIDC device-flow token used by native hooks.
+
+use std::fmt;
+use std::io::{BufWriter, Write as _};
+use std::path::Path;
+use std::time::Duration;
+
+use anyhow::{Context, Result};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
+use crate::config::{Config, DEFAULT_SERVER_URL};
+use crate::server_profiles::Route;
+use pitstop_web::normalize_prefix;
+
+/// [`pitstop_hooks::CLIENT_MARKER_HEADER`] value for CLI subcommands.
+const CLI_CLIENT_KIND: &str = "cli";
+
+/// Non-success response returned by the configured pitstop server.
+#[derive(Debug)]
+pub(crate) struct ServerResponseError {
+    i18n: pitstop_core::i18n::Localizer,
+    method: reqwest::Method,
+    path: String,
+    status: reqwest::StatusCode,
+    body: String,
+}
+
+impl ServerResponseError {
+    #[must_use]
+    pub(crate) const fn status(&self) -> reqwest::StatusCode {
+        self.status
+    }
+
+    #[must_use]
+    pub(crate) fn body(&self) -> &str {
+        &self.body
+    }
+}
+
+impl fmt::Display for ServerResponseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.i18n.format(
+            "cli-http-server-response",
+            &[
+                ("method", self.method.to_string()),
+                ("path", self.path.clone()),
+                ("status", self.status.to_string()),
+                ("detail", crate::commands::show::terminal_body(&self.body)),
+            ],
+        ))
+    }
+}
+
+impl std::error::Error for ServerResponseError {}
+
+fn server_response_error(
+    i18n: &pitstop_core::i18n::Localizer,
+    method: reqwest::Method,
+    url: &reqwest::Url,
+    status: reqwest::StatusCode,
+    body: String,
+) -> anyhow::Error {
+    ServerResponseError {
+        i18n: i18n.clone(),
+        method,
+        path: url.path().to_owned(),
+        status,
+        body,
+    }
+    .into()
+}
+
+#[cfg(test)]
+pub(crate) fn server_response_error_for_test(
+    method: reqwest::Method,
+    path: &str,
+    status: reqwest::StatusCode,
+    body: String,
+) -> anyhow::Error {
+    ServerResponseError {
+        i18n: pitstop_core::i18n::Localizer::default(),
+        method,
+        path: path.to_owned(),
+        status,
+        body,
+    }
+    .into()
+}
+
+/// Pass a 2xx response through, else consume the body into a
+/// [`ServerResponseError`].
+///
+/// Only the request path reaches the error, so userinfo and query
+/// credentials in the URL never land in a message. `reqwest` does not carry
+/// the request method on the response, so callers supply it.
+async fn require_success(
+    i18n: &pitstop_core::i18n::Localizer,
+    method: reqwest::Method,
+    resp: reqwest::Response,
+) -> Result<reqwest::Response> {
+    let status = resp.status();
+    if status.is_success() {
+        return Ok(resp);
+    }
+    let url = resp.url().clone();
+    let body = resp.text().await.unwrap_or_default();
+    Err(server_response_error(i18n, method, &url, status, body))
+}
+
+/// Resolved server target — origin URL + base-path prefix + optional bearer token.
+#[derive(Debug, Clone)]
+pub struct ServerEndpoint {
+    /// Human error/output language inherited from the command.
+    pub i18n: pitstop_core::i18n::Localizer,
+    /// Origin only (scheme + authority), any trailing slash and path
+    /// stripped, e.g. `http://127.0.0.1:49374` or `http://192.168.0.90:49374`.
+    pub url: String,
+    /// Normalised base-path prefix the server is mounted under, e.g.
+    /// `/wiki`, or empty when serving at the root. Always either empty or
+    /// `/`-prefixed with no trailing slash (normalised by `normalize_prefix`).
+    pub base_path: String,
+    /// Bearer token when present, else `None`.
+    pub auth_token: Option<String>,
+    url_configured: bool,
+}
+
+impl ServerEndpoint {
+    /// Build the endpoint from config, resolving bearer auth and base path.
+    ///
+    /// Bearer precedence matches hooks: static config/env token first, stored
+    /// OIDC device token second, no token last.
+    ///
+    /// The base-path prefix the server is mounted under, so client routes
+    /// resolve as `<origin><base><path>` instead of 404ing) is resolved
+    /// from, in order of precedence:
+    /// 1. the **path component of `PITSTOP_SERVER_URL`** (the remote-client
+    ///    case — `http://host:49374/wiki` → origin `http://host:49374`,
+    ///    base `/wiki`), then
+    /// 2. **`Config::base_path`** (the in-pod case — figment populates the
+    ///    field from `PITSTOP_BASE_PATH` inside `Config::load`, keeping the
+    ///    "one config-read path" invariant; the CLI runs in the same
+    ///    container as `serve`, which already reads the same env var via
+    ///    clap to nest its router).
+    pub async fn from_config_resolving_auth(config: &Config) -> Self {
+        let client = http_client();
+        let token = crate::auth_bearer::resolve_bearer(
+            &client,
+            &config.oidc_device_token_path(),
+            config.auth.bearer_token.as_deref(),
+        )
+        .await;
+        let mut endpoint = Self::build(
+            Some(config.server_url.clone()),
+            token,
+            config.server_url_configured(),
+            Some(config.base_path.clone()).filter(|s| !s.is_empty()),
+        );
+        endpoint.i18n = config.i18n.clone();
+        endpoint
+    }
+
+    /// Build the endpoint for a command that works on the checkout it runs
+    /// in (#2016): the server the hooks capture to from the same directory.
+    ///
+    /// Precedence: `PITSTOP_SERVER_URL` in the environment, then the server
+    /// profile the nearest marker selects (its URL and stored token, never the
+    /// config bearer, which belongs to another server), then config, as
+    /// [`Self::from_config_resolving_auth`]. `PITSTOP_IGNORE_MARKER` skips
+    /// the marker here as it does for scope.
+    ///
+    /// # Errors
+    /// A marker that selects a profile which does not resolve fails closed,
+    /// like the hook drops the event: falling back to config would send this
+    /// checkout's requests to another team's server.
+    pub(crate) async fn for_checkout(config: &Config) -> Result<Self> {
+        match checkout_route(config) {
+            Route::InstallDefault => Ok(Self::from_config_resolving_auth(config).await),
+            Route::Profile(profile) => {
+                let mut endpoint = Self::build(Some(profile.url), Some(profile.token), true, None);
+                endpoint.i18n = config.i18n.clone();
+                Ok(endpoint)
+            }
+            Route::Rejected { name, reason } => Err(anyhow::anyhow!(
+                "this checkout's .pitstop.toml selects server profile {}, which was refused \
+                 ({}); nothing was sent. Run `pitstop hook --check-capture` here or \
+                 `pitstop server list` to see why, or set PITSTOP_SERVER_URL to choose \
+                 a server for this command",
+                name.map_or_else(
+                    || "(unreadable marker)".to_owned(),
+                    |name| format!("`{name}`")
+                ),
+                reason.as_str(),
+            )),
+        }
+    }
+
+    /// Build for a target the spawning hook already resolved: its URL
+    /// (including any mount path, as `install-hooks` rendered it) and the
+    /// bearer it authenticates with. No config or environment is consulted.
+    #[must_use]
+    pub(crate) fn for_hook_target(url: String, token: Option<String>) -> Self {
+        Self::build(Some(url), token, true, None)
+    }
+
+    /// Build from an explicit URL + token pair (useful for tests that
+    /// cannot safely mutate the process environment).
+    ///
+    /// `url` defaults to `http://127.0.0.1:49374` when `None` or empty;
+    /// trailing slashes are stripped. `token` is treated as absent when
+    /// `None` or empty. No environment is read — the env base-path fallback
+    /// is `None`; use [`from_pair_with_base`] to exercise that path.
+    #[must_use]
+    #[cfg(test)]
+    pub(crate) fn from_pair(url: Option<String>, token: Option<String>) -> Self {
+        let url_configured = url.as_deref().is_some_and(|s| !s.is_empty());
+        Self::build(url, token, url_configured, None)
+    }
+
+    /// Like [`from_pair`] but with an explicit `PITSTOP_BASE_PATH` env
+    /// fallback value, so the env-fallback branch is testable hermetically.
+    #[must_use]
+    #[cfg(test)]
+    pub(crate) fn from_pair_with_base(
+        url: Option<String>,
+        token: Option<String>,
+        env_base: Option<String>,
+    ) -> Self {
+        let url_configured = url.as_deref().is_some_and(|s| !s.is_empty());
+        Self::build(url, token, url_configured, env_base)
+    }
+
+    fn build(
+        url: Option<String>,
+        token: Option<String>,
+        url_configured: bool,
+        env_base: Option<String>,
+    ) -> Self {
+        let raw = url
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| DEFAULT_SERVER_URL.to_string());
+        let (origin, url_path) = split_origin_and_path(&raw);
+        // The URL path component wins over the env var: it is the more
+        // explicit, request-target-level statement of where the server is.
+        let base_path = if url_path.is_empty() {
+            env_base.map_or_else(String::new, |s| normalize_prefix(&s))
+        } else {
+            normalize_prefix(&url_path)
+        };
+        Self {
+            i18n: pitstop_core::i18n::Localizer::default(),
+            url: origin,
+            base_path,
+            auth_token: token.filter(|s| !s.is_empty()),
+            url_configured,
+        }
+    }
+
+    /// Join the resolved origin + base-path prefix + a root-absolute route
+    /// `path` (e.g. `/admin/status`) into the full request URL. When no base
+    /// path is configured this is byte-identical to the old
+    /// `format!("{origin}{path}")`.
+    pub(crate) fn build_url(&self, path: &str) -> String {
+        format!("{}{}{path}", self.url, self.base_path)
+    }
+
+    /// Stable, credential-free identity for client-local state tied to this
+    /// server. The normalized mount path is part of the identity; bearer
+    /// material deliberately is not.
+    pub(crate) fn identity(&self) -> String {
+        let raw = format!("{}{}", self.url.trim_end_matches('/'), self.base_path);
+        let Ok(mut parsed) = reqwest::Url::parse(&raw) else {
+            return "<invalid-server-url>".to_owned();
+        };
+        let _ = parsed.set_username("");
+        let _ = parsed.set_password(None);
+        parsed.set_query(None);
+        parsed.set_fragment(None);
+        parsed.as_str().trim_end_matches('/').to_owned()
+    }
+
+    /// Mark a request to this server as first-party
+    /// ([`pitstop_hooks::CLIENT_MARKER_HEADER`]) and attach the bearer when a
+    /// token is set.
+    pub(crate) fn authenticate(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        let req = req.header(pitstop_hooks::CLIENT_MARKER_HEADER, CLI_CLIENT_KIND);
+        match &self.auth_token {
+            Some(t) => req.bearer_auth(t),
+            None => req,
+        }
+    }
+}
+
+/// The server route for the directory this command runs in; see
+/// [`ServerEndpoint::for_checkout`].
+pub(crate) fn checkout_route(config: &Config) -> Route {
+    let env = &config.runtime_env;
+    if env.server_url().is_some() || env.ignore_marker() {
+        return Route::InstallDefault;
+    }
+    let Some((_, lookup_cwd)) = crate::commands::scope_directories(config) else {
+        return Route::InstallDefault;
+    };
+    // The hooks route the harness's logical cwd, so match a profile's roots
+    // against the same spelling of this directory (#2016).
+    let lookup_cwd = crate::commands::path_util::logical_dir(
+        Path::new(&lookup_cwd),
+        env.var_os("PWD").as_deref(),
+    );
+    crate::server_profiles::route_for_cwd(
+        &config.data_dir,
+        &lookup_cwd.to_string_lossy(),
+        env.home_dir().map(Path::new),
+    )
+}
+
+/// Split a server URL into `(origin, path)` where `origin` is
+/// scheme+authority (`http://host:port`) and `path` is everything from the
+/// first `/` after the authority (`/wiki`, possibly empty). Trailing slashes
+/// are trimmed from both. A URL with no scheme separator is treated as an
+/// opaque origin with no path.
+pub(crate) fn split_origin_and_path(raw: &str) -> (String, String) {
+    let trimmed = raw.trim_end_matches('/');
+    if let Some(scheme_end) = trimmed.find("://") {
+        let after_scheme = scheme_end + 3;
+        if let Some(rel_slash) = trimmed[after_scheme..].find('/') {
+            let split = after_scheme + rel_slash;
+            return (
+                trimmed[..split].to_string(),
+                trimmed[split..].trim_end_matches('/').to_string(),
+            );
+        }
+    }
+    (trimmed.to_string(), String::new())
+}
+
+/// `url` as a log line or error message may print it: without the
+/// `user:pass@` userinfo a URL can carry, and never the raw text of one that
+/// does not parse (it could hold that userinfo in a form the parser rejects).
+pub(crate) fn display_url(url: &str) -> String {
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return "an unparsable URL".to_owned();
+    };
+    let _ = parsed.set_username("");
+    let _ = parsed.set_password(None);
+    parsed.to_string()
+}
+
+/// Whether `url` names a server on this machine: an `http`/`https` URL whose
+/// host is `localhost`, an address in `127.0.0.0/8`, or `[::1]`, carrying no
+/// user information.
+///
+/// Parsed the way the HTTP client parses it, so the host checked here is the
+/// host a request would reach. Text before an `@` is user information, not
+/// the host, and a URL that has any is refused outright rather than
+/// interpreted. `localhost.` (trailing dot) is refused too: a fully qualified
+/// name can be answered by a DNS server instead of the local resolver. This
+/// gates the install's own root token (`config.rs`, `mcp-bridge`), so an
+/// unparsable or ambiguous URL is never treated as local.
+pub(crate) fn is_loopback_url(url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    if !matches!(parsed.scheme(), "http" | "https")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+    {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    if let Some(v6) = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')) {
+        return v6
+            .parse::<std::net::Ipv6Addr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    }
+    host.parse::<std::net::Ipv4Addr>()
+        .map_or(host == "localhost", |ip| ip.is_loopback())
+}
+
+/// Shared reqwest client for thin-client CLI subcommands. Redirects are
+/// disabled so a 3xx from an SSO portal or proxy cannot be followed: JSON
+/// GET/POST would otherwise consume a login page, a 307/308 would replay the
+/// body, and [`post_to_file`] would write that page as a backup tarball.
+pub(crate) fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// GET `<endpoint>{path}` with optional query params, deserialise JSON.
+///
+/// # Errors
+/// Returns an error when the connection fails, the response is non-2xx,
+/// or the body can't be deserialised into `T`.
+pub async fn get_json<T: DeserializeOwned>(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    query: &[(&str, &str)],
+) -> Result<T> {
+    let client = http_client();
+    let url = endpoint.build_url(path);
+    let mut req = client.get(&url);
+    if !query.is_empty() {
+        req = req.query(query);
+    }
+    req = endpoint.authenticate(req);
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    let resp = require_success(&endpoint.i18n, reqwest::Method::GET, resp).await?;
+    resp.json::<T>()
+        .await
+        .with_context(|| format!("parsing JSON body from GET {}", display_url(&url)))
+}
+
+/// PATCH JSON body to `<endpoint>{path}`, deserialise JSON response.
+///
+/// # Errors
+/// Same as [`get_json`].
+pub async fn patch_json<B: Serialize, T: DeserializeOwned>(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    body: &B,
+) -> Result<T> {
+    let client = http_client();
+    let url = endpoint.build_url(path);
+    let req = endpoint.authenticate(client.patch(&url).json(body));
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    let resp = require_success(&endpoint.i18n, reqwest::Method::PATCH, resp).await?;
+    resp.json::<T>()
+        .await
+        .with_context(|| format!("parsing JSON body from PATCH {}", display_url(&url)))
+}
+
+/// POST JSON body to `<endpoint>{path}`, deserialise JSON response.
+///
+/// # Errors
+/// Same as [`get_json`].
+pub async fn post_json<B: Serialize, T: DeserializeOwned>(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    body: &B,
+) -> Result<T> {
+    post_json_with_query(endpoint, path, &[], body).await
+}
+
+/// POST JSON and require a successful response without decoding its body.
+pub async fn post_json_no_content<B: Serialize>(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    body: &B,
+) -> Result<()> {
+    let client = http_client();
+    let url = endpoint.build_url(path);
+    let req = endpoint.authenticate(client.post(&url).json(body));
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    require_success(&endpoint.i18n, reqwest::Method::POST, resp).await?;
+    Ok(())
+}
+
+/// POST an empty body and require a successful response.
+pub async fn post_empty(endpoint: &ServerEndpoint, path: &str) -> Result<()> {
+    let client = http_client();
+    let url = endpoint.build_url(path);
+    let req = endpoint.authenticate(client.post(&url));
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    require_success(&endpoint.i18n, reqwest::Method::POST, resp).await?;
+    Ok(())
+}
+
+/// POST JSON body to `<endpoint>{path}` with URL-encoded query params.
+///
+/// # Errors
+/// Same as [`post_json`].
+pub async fn post_json_with_query<B: Serialize, T: DeserializeOwned>(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    query: &[(&str, &str)],
+    body: &B,
+) -> Result<T> {
+    let client = http_client();
+    let url = build_url_with_query(endpoint, path, query)?;
+    let req = client.post(&url);
+    let req = endpoint.authenticate(req.json(body));
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    let resp = require_success(&endpoint.i18n, reqwest::Method::POST, resp).await?;
+    resp.json::<T>()
+        .await
+        .with_context(|| format!("parsing JSON body from POST {}", display_url(&url)))
+}
+
+fn build_url_with_query(
+    endpoint: &ServerEndpoint,
+    path: &str,
+    query: &[(&str, &str)],
+) -> Result<String> {
+    let mut url = reqwest::Url::parse(&endpoint.build_url(path))?;
+    if !query.is_empty() {
+        url.query_pairs_mut().extend_pairs(query.iter().copied());
+    }
+    Ok(url.to_string())
+}
+
+/// Turn a low-level reqwest connect/timeout error into a friendlier
+/// message that surfaces the resolved server URL. The common cases are
+/// "Connection refused", a connect that never completes, and a peer that
+/// closes before sending an HTTP response. They all mean the same operator
+/// problem: the CLI was pointed at an endpoint where no server answered.
+pub(crate) fn augment_connect_error(
+    err: reqwest::Error,
+    endpoint: &ServerEndpoint,
+    url: &str,
+) -> anyhow::Error {
+    let i18n = &endpoint.i18n;
+    if error_chain_indicates_no_answer(&err) {
+        let hint = i18n.one(
+            if endpoint.url_configured {
+                "cli-http-configured-server-hint"
+            } else {
+                "cli-http-default-server-hint"
+            },
+            display_url(&endpoint.url),
+        );
+        anyhow::Error::new(err).context(i18n.two("cli-http-unreachable", display_url(url), hint))
+    } else {
+        anyhow::Error::new(err).context(i18n.one("cli-http-request-failed", display_url(url)))
+    }
+}
+
+/// Whether a request failed because nothing answered — a refused connection
+/// or a timeout — rather than because the server answered with an error.
+pub(crate) fn server_unreachable(err: &anyhow::Error) -> bool {
+    let answered = err
+        .chain()
+        .any(|cause| cause.downcast_ref::<ServerResponseError>().is_some());
+    !answered && err.chain().any(error_chain_indicates_no_answer)
+}
+
+/// Whether an error chain means "nothing answered at the transport layer".
+/// reqwest may classify this as a connect/timeout failure or wrap the socket
+/// error deeply. A peer can also accept and close before the HTTP response,
+/// which is equally unreachable from the caller's perspective.
+fn error_chain_indicates_no_answer(err: &(dyn std::error::Error + 'static)) -> bool {
+    if let Some(req) = err.downcast_ref::<reqwest::Error>()
+        && (req.is_connect() || req.is_timeout())
+    {
+        return true;
+    }
+    let mut src: Option<&dyn std::error::Error> = Some(err);
+    while let Some(e) = src {
+        if let Some(io) = e.downcast_ref::<std::io::Error>()
+            && matches!(
+                io.kind(),
+                std::io::ErrorKind::ConnectionRefused
+                    | std::io::ErrorKind::ConnectionReset
+                    | std::io::ErrorKind::ConnectionAborted
+                    | std::io::ErrorKind::BrokenPipe
+                    | std::io::ErrorKind::UnexpectedEof
+                    | std::io::ErrorKind::TimedOut
+            )
+        {
+            return true;
+        }
+        let wording = e.to_string().to_ascii_lowercase();
+        if wording.contains("connection refused")
+            || wording.contains("connection reset")
+            || wording.contains("connection aborted")
+            || wording.contains("connection closed before message completed")
+            || wording.contains("unexpected eof")
+            || wording.contains("broken pipe")
+            || wording.contains("timed out")
+        {
+            return true;
+        }
+        src = e.source();
+    }
+    false
+}
+
+/// Outcome of a server reachability probe: did anything answer on the
+/// configured endpoint?
+#[derive(Debug)]
+pub(crate) enum ServerProbe {
+    /// The server answered. Any HTTP status counts — a build older than
+    /// `/healthz` still answers 404/405, and what the probe needs to know is
+    /// that something is listening, not that it is healthy.
+    Reachable,
+    /// Nothing answered (connect error or timeout). Carries the underlying
+    /// reqwest error so callers can reuse [`augment_connect_error`]'s
+    /// diagnosis verbatim.
+    Unreachable(reqwest::Error),
+}
+
+/// How long a reachability probe waits for an answer. Short on purpose: the
+/// probe sits on the launch hot path, so an unresponsive host (a homelab down
+/// for maintenance) must be classified in ~2s rather than the OS-level TCP
+/// timeout a plain request would pay.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// GET `{origin}{base}/healthz` with a short timeout to decide whether a
+/// managed launch may proceed without the server.
+///
+/// Any HTTP response — 200 or 404/405 from a pre-`/healthz` server — means
+/// `Reachable`; only connect errors and timeouts mean `Unreachable`. The
+/// probe never inspects the body, so it cannot be wrong about health vs
+/// absence, only about presence.
+pub(crate) async fn probe_server(endpoint: &ServerEndpoint) -> ServerProbe {
+    probe_server_with_timeout(endpoint, PROBE_TIMEOUT).await
+}
+
+async fn probe_server_with_timeout(endpoint: &ServerEndpoint, timeout: Duration) -> ServerProbe {
+    let client = http_client();
+    let url = endpoint.build_url("/healthz");
+    match client.get(&url).timeout(timeout).send().await {
+        Ok(_) => ServerProbe::Reachable,
+        Err(error) => ServerProbe::Unreachable(error),
+    }
+}
+
+/// POST an empty body to `<endpoint>{path}`, streaming the response to `dest`.
+///
+/// Intended for routes whose response is binary (e.g. `POST /admin/backup`
+/// returns an `application/gzip` tarball). On non-2xx the response body is
+/// consumed and returned as an error string. Returns bytes written. A completed
+/// download atomically replaces the destination path; a destination symlink is
+/// replaced rather than modifying the file it points to. Replacement symlinks
+/// and new destinations use private permissions; only existing regular files
+/// retain their permissions.
+///
+/// # Errors
+/// Returns an error when the connection fails, the response is non-2xx,
+/// or the body cannot be read or written.
+pub async fn post_to_file(endpoint: &ServerEndpoint, path: &str, dest: &Path) -> Result<u64> {
+    let client = http_client();
+    let url = endpoint.build_url(path);
+    let req = endpoint.authenticate(client.post(&url));
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| augment_connect_error(e, endpoint, &url))?;
+    let mut resp = require_success(&endpoint.i18n, reqwest::Method::POST, resp).await?;
+    let permissions = checked_output_permissions(dest)?;
+    let mut temporary = private_output_file(dest)
+        .with_context(|| format!("creating temporary output beside {}", dest.display()))?;
+    let mut writer = BufWriter::new(temporary.as_file_mut());
+    let mut written = 0_u64;
+    while let Some(chunk) = resp
+        .chunk()
+        .await
+        .with_context(|| format!("reading response chunk from POST {}", display_url(&url)))?
+    {
+        writer
+            .write_all(&chunk)
+            .with_context(|| format!("writing response chunk to {}", dest.display()))?;
+        written += chunk.len() as u64;
+    }
+    writer
+        .flush()
+        .with_context(|| format!("flushing {}", dest.display()))?;
+    drop(writer);
+    // A failed response must leave the previous archive usable. The temporary
+    // file stays private until the entire response has arrived.
+    if let Some(permissions) = permissions {
+        temporary
+            .as_file()
+            .set_permissions(permissions)
+            .with_context(|| format!("preserving permissions for {}", dest.display()))?;
+    }
+    temporary
+        .as_file()
+        .sync_all()
+        .with_context(|| format!("syncing temporary output beside {}", dest.display()))?;
+    let persisted = temporary
+        .persist(dest)
+        .map_err(|error| error.error)
+        .with_context(|| format!("replacing output file {}", dest.display()))?;
+    persisted
+        .sync_all()
+        .with_context(|| format!("syncing output file {}", dest.display()))?;
+    if let Ok(directory) = std::fs::File::open(output_parent(dest)) {
+        let _ = directory.sync_all();
+    }
+    Ok(written)
+}
+
+/// Atomic replacement still requires permission to write an existing regular
+/// file. Opening without create or truncate checks OS permissions and ACLs
+/// without changing the archive before the response is complete.
+fn checked_output_permissions(dest: &Path) -> Result<Option<std::fs::Permissions>> {
+    match std::fs::symlink_metadata(dest) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Ok(None),
+        Ok(metadata) if metadata.is_file() => {
+            let probe = std::fs::OpenOptions::new()
+                .write(true)
+                .open(dest)
+                .with_context(|| {
+                    format!(
+                        "checking output file write permission for {}",
+                        dest.display()
+                    )
+                })?;
+            drop(probe);
+            Ok(Some(metadata.permissions()))
+        }
+        Ok(metadata) if metadata.is_dir() => {
+            anyhow::bail!("output path is a directory: {}", dest.display());
+        }
+        Ok(_) => anyhow::bail!("output path is not a regular file: {}", dest.display()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error).context("reading output file permissions"),
+    }
+}
+
+/// Download beside the destination so publication is an atomic rename on the
+/// same filesystem. NamedTempFile removes an incomplete response on every exit.
+fn private_output_file(path: &Path) -> std::io::Result<tempfile::NamedTempFile> {
+    tempfile::Builder::new()
+        .prefix(".pitstop-download.")
+        .tempfile_in(output_parent(path))
+}
+
+fn output_parent(path: &Path) -> &Path {
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// The host checked must be the host a request reaches: user
+    /// information before an `@` is refused, never read as the host.
+    #[test]
+    fn loopback_url_is_decided_by_the_parsed_host() {
+        for url in [
+            "http://127.0.0.1:49374",
+            "http://localhost:49374/mcp",
+            "http://LOCALHOST:1",
+            "https://localhost",
+            "http://[::1]:49374",
+            "http://[::1]",
+            "http://127.0.0.2:1",
+            "http://127.255.255.254/",
+        ] {
+            assert!(is_loopback_url(url), "{url} is loopback");
+        }
+        for url in [
+            "http://localhost:80@attacker.example/",
+            "http://127.0.0.1:1@evil.example/",
+            "http://u:p@[::1]:49374@evil.example/",
+            "http://user@localhost:49374",
+            "http://user:pw@127.0.0.1:49374",
+            "http://evil.example#@localhost:1",
+            "http://evil.example/?@localhost:1",
+            "http://localhost.evil.example",
+            "http://127.0.0.1.evil.example",
+            "http://localhost.:49374",
+            "http://0.0.0.0:49374",
+            "http://192.168.1.10:49374",
+            "http://[::ffff:127.0.0.1]:49374",
+            "ftp://localhost/",
+            "localhost:49374",
+            "not a url",
+            "",
+        ] {
+            assert!(!is_loopback_url(url), "{url} is not loopback");
+        }
+    }
+
+    #[test]
+    fn only_an_unanswered_request_is_unreachable() {
+        let refused =
+            anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::ConnectionRefused))
+                .context("HTTP request to http://127.0.0.1:1/admin/status failed");
+        assert!(server_unreachable(&refused));
+        let answered = server_response_error_for_test(
+            reqwest::Method::GET,
+            "/admin/status",
+            reqwest::StatusCode::SERVICE_UNAVAILABLE,
+            "down for maintenance".to_owned(),
+        );
+        assert!(!server_unreachable(&answered));
+        assert!(!server_unreachable(&anyhow::anyhow!(
+            "malformed response body"
+        )));
+    }
+
+    #[test]
+    fn output_write_permission_probe_never_truncates_existing_bytes() {
+        let temp = tempfile::tempdir().unwrap();
+        let output = temp.path().join("backup.tar.gz");
+        std::fs::write(&output, b"previous usable archive").unwrap();
+        assert!(
+            super::checked_output_permissions(&output)
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(std::fs::read(&output).unwrap(), b"previous usable archive");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn downloaded_backup_output_is_private_when_created() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp = tempfile::tempdir().unwrap();
+        let output = temp.path().join("backup.tar.gz");
+        let temporary = private_output_file(&output).unwrap();
+        assert!(
+            !output.exists(),
+            "download is not published before completion"
+        );
+        assert_eq!(
+            temporary.as_file().metadata().unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
+    #[test]
+    fn response_errors_include_method_and_credential_free_path() {
+        let url = reqwest::Url::parse(
+            "https://username:password@example.test/workstream/runs?access_token=secret",
+        )
+        .expect("test URL parses");
+        let error = server_response_error(
+            &pitstop_core::i18n::Localizer::default(),
+            reqwest::Method::POST,
+            &url,
+            reqwest::StatusCode::NOT_FOUND,
+            "missing".to_owned(),
+        );
+
+        assert_eq!(
+            error.to_string(),
+            "POST /workstream/runs: server returned 404 Not Found: missing"
+        );
+        let structured = error
+            .downcast_ref::<ServerResponseError>()
+            .expect("response errors retain their structured type");
+        assert_eq!(structured.status(), reqwest::StatusCode::NOT_FOUND);
+        assert_eq!(structured.body(), "missing");
+        assert!(!error.to_string().contains("username"));
+        assert!(!error.to_string().contains("password"));
+        assert!(!error.to_string().contains("access_token"));
+        assert!(!error.to_string().contains("secret"));
+    }
+
+    // ----------------------------------------------------------------
+    // ServerEndpoint::from_pair
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn from_pair_defaults_to_loopback_when_none() {
+        let ep = ServerEndpoint::from_pair(None, None);
+        assert_eq!(ep.url, "http://127.0.0.1:49374");
+        assert!(ep.auth_token.is_none());
+    }
+
+    #[test]
+    fn from_pair_defaults_to_loopback_when_empty() {
+        let ep = ServerEndpoint::from_pair(Some(String::new()), None);
+        assert_eq!(ep.url, "http://127.0.0.1:49374");
+    }
+
+    #[test]
+    fn from_pair_strips_trailing_slash() {
+        let ep = ServerEndpoint::from_pair(Some("http://10.0.0.1:8080/".to_string()), None);
+        assert_eq!(ep.url, "http://10.0.0.1:8080");
+    }
+
+    #[test]
+    fn from_pair_strips_multiple_trailing_slashes() {
+        let ep = ServerEndpoint::from_pair(Some("http://10.0.0.1:8080///".to_string()), None);
+        assert_eq!(ep.url, "http://10.0.0.1:8080");
+    }
+
+    #[test]
+    fn from_pair_empty_token_treated_as_none() {
+        let ep = ServerEndpoint::from_pair(None, Some(String::new()));
+        assert!(ep.auth_token.is_none());
+    }
+
+    #[test]
+    fn from_pair_non_empty_token_preserved() {
+        let ep = ServerEndpoint::from_pair(None, Some("secret".to_string()));
+        assert_eq!(ep.auth_token.as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn client_state_identity_normalizes_mounts_and_never_contains_credentials() {
+        let first = ServerEndpoint::from_pair(
+            Some("http://alice:secret@MEMORY.example:49374/wiki/".to_owned()),
+            None,
+        );
+        let second = ServerEndpoint::from_pair(
+            Some("http://memory.example:49374/wiki".to_owned()),
+            Some("bearer-secret".to_owned()),
+        );
+
+        assert_eq!(first.identity(), second.identity());
+        assert!(!first.identity().contains("alice"));
+        assert!(!first.identity().contains("secret"));
+    }
+
+    // ----------------------------------------------------------------
+    // Base-path awareness — graduated from the Docker live exploration of
+    // the CLI-client-under-PITSTOP_BASE_PATH bug. The server nests every
+    // route under `--base-path` (`/wiki/admin/status`), but the thin client
+    // baked root-absolute paths (`/admin/status`) → 404. Each test below
+    // pins one hypothesis that the live run validated end-to-end.
+    // ----------------------------------------------------------------
+
+    /// H1 — no base path configured: the joined URL is byte-identical to the
+    /// old `format!("{origin}{path}")`. The regression guard for the OFF-by-
+    /// default promise.
+    #[test]
+    fn build_url_without_base_is_byte_identical() {
+        let ep = ServerEndpoint::from_pair(Some("http://h:49374".to_string()), None);
+        assert_eq!(ep.base_path, "");
+        assert_eq!(ep.build_url("/admin/status"), "http://h:49374/admin/status");
+    }
+
+    /// H4/H9 — remote client: the base path comes from the **path component
+    /// of the server URL**, which is split off the origin and normalised
+    /// (trailing slash trimmed).
+    #[test]
+    fn server_url_path_becomes_base_path() {
+        let ep = ServerEndpoint::from_pair(Some("http://h:49374/wiki".to_string()), None);
+        assert_eq!(ep.url, "http://h:49374");
+        assert_eq!(ep.base_path, "/wiki");
+        assert_eq!(
+            ep.build_url("/admin/status"),
+            "http://h:49374/wiki/admin/status"
+        );
+
+        // Trailing slash on the URL path normalises away (H9).
+        let ep = ServerEndpoint::from_pair(Some("http://h:49374/wiki/".to_string()), None);
+        assert_eq!(ep.url, "http://h:49374");
+        assert_eq!(ep.base_path, "/wiki");
+    }
+
+    /// H3 — in-pod client: no path on the server URL, base path falls back to
+    /// the `PITSTOP_BASE_PATH` env value (passed explicitly here to stay
+    /// hermetic).
+    #[test]
+    fn env_base_path_used_when_url_has_no_path() {
+        let ep = ServerEndpoint::from_pair_with_base(None, None, Some("/wiki".to_string()));
+        assert_eq!(ep.url, "http://127.0.0.1:49374");
+        assert_eq!(ep.base_path, "/wiki");
+        assert_eq!(
+            ep.build_url("/admin/write-page"),
+            "http://127.0.0.1:49374/wiki/admin/write-page"
+        );
+    }
+
+    /// H8 — precedence: when BOTH a URL path and an env base are present, the
+    /// URL path wins (it is the more explicit, request-target-level value).
+    #[test]
+    fn url_path_wins_over_env_base() {
+        let ep = ServerEndpoint::from_pair_with_base(
+            Some("http://h:49374/url-base".to_string()),
+            None,
+            Some("/env-base".to_string()),
+        );
+        assert_eq!(ep.base_path, "/url-base");
+    }
+
+    /// H11 — multi-segment base path is preserved verbatim.
+    #[test]
+    fn multi_segment_base_path_is_preserved() {
+        let ep = ServerEndpoint::from_pair_with_base(None, None, Some("/a/b".to_string()));
+        assert_eq!(ep.base_path, "/a/b");
+        assert_eq!(
+            ep.build_url("/admin/status"),
+            "http://127.0.0.1:49374/a/b/admin/status"
+        );
+    }
+
+    /// H10 — a traversal-y base (`/wiki/../etc`) is neutralised by
+    /// `normalize_prefix` to empty (it rejects dot-segments), so the client
+    /// falls back to the root rather than emitting `/wiki/../etc/...`. The
+    /// client then 404s consistently instead of walking out of the prefix.
+    #[test]
+    fn traversal_base_path_is_neutralised_to_root() {
+        let ep = ServerEndpoint::from_pair_with_base(None, None, Some("/wiki/../etc".to_string()));
+        assert_eq!(ep.base_path, "");
+        let joined = ep.build_url("/admin/status");
+        assert!(
+            !joined.contains("/../") && !joined.contains("/etc/admin"),
+            "traversal must not leak into the request URL; got {joined}"
+        );
+        assert_eq!(joined, "http://127.0.0.1:49374/admin/status");
+    }
+
+    /// A bare base value without a leading slash is normalised to `/<core>`,
+    /// matching the server's own `normalize_prefix` so the two agree.
+    #[test]
+    fn bare_env_base_gets_leading_slash() {
+        let ep = ServerEndpoint::from_pair_with_base(None, None, Some("wiki".to_string()));
+        assert_eq!(ep.base_path, "/wiki");
+    }
+
+    /// `/` and empty both mean "root" — no prefix added.
+    #[test]
+    fn root_like_base_values_mean_no_prefix() {
+        for raw in ["", "/", "//", "  /  "] {
+            let ep = ServerEndpoint::from_pair_with_base(None, None, Some(raw.to_string()));
+            assert_eq!(ep.base_path, "", "{raw:?} should normalise to no prefix");
+            assert_eq!(
+                ep.build_url("/admin/status"),
+                "http://127.0.0.1:49374/admin/status"
+            );
+        }
+    }
+
+    #[test]
+    fn build_url_with_query_url_encodes_values() {
+        let ep = ServerEndpoint::from_pair(Some("http://h:49374/wiki".to_string()), None);
+        let url = super::build_url_with_query(
+            &ep,
+            "/admin/pending-writes/id/approve",
+            &[("workspace", "default workspace"), ("project", "a/b & c")],
+        )
+        .unwrap();
+        assert_eq!(
+            url,
+            "http://h:49374/wiki/admin/pending-writes/id/approve?workspace=default+workspace&project=a%2Fb+%26+c"
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // split_origin_and_path
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn split_origin_and_path_cases() {
+        assert_eq!(
+            split_origin_and_path("http://h:49374"),
+            ("http://h:49374".to_string(), String::new())
+        );
+        assert_eq!(
+            split_origin_and_path("http://h:49374/"),
+            ("http://h:49374".to_string(), String::new())
+        );
+        assert_eq!(
+            split_origin_and_path("http://h:49374/wiki"),
+            ("http://h:49374".to_string(), "/wiki".to_string())
+        );
+        assert_eq!(
+            split_origin_and_path("http://h:49374/wiki/"),
+            ("http://h:49374".to_string(), "/wiki".to_string())
+        );
+        assert_eq!(
+            split_origin_and_path("https://h:49374/a/b"),
+            ("https://h:49374".to_string(), "/a/b".to_string())
+        );
+        // No scheme separator → opaque origin, no path split.
+        assert_eq!(
+            split_origin_and_path("127.0.0.1:49374"),
+            ("127.0.0.1:49374".to_string(), String::new())
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // ServerEndpoint::authenticate
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn authenticate_no_token_sets_only_the_client_marker() {
+        let ep = ServerEndpoint::from_pair(None, None);
+        let client = reqwest::Client::new();
+        // Build a request, authenticate it, then build to inspect.
+        let req = ep
+            .authenticate(client.get("http://localhost"))
+            .build()
+            .unwrap();
+        // No Authorization header should be present.
+        assert!(
+            req.headers().get("authorization").is_none(),
+            "no Authorization header expected"
+        );
+        // An unauthenticated server reached by a LAN name refuses a handoff
+        // fetch without the marker, so every CLI request carries it.
+        assert_eq!(
+            req.headers()
+                .get(pitstop_hooks::CLIENT_MARKER_HEADER)
+                .and_then(|v| v.to_str().ok()),
+            Some("cli")
+        );
+    }
+
+    #[test]
+    fn authenticate_with_token_sets_bearer_header() {
+        let ep = ServerEndpoint::from_pair(None, Some("tok123".to_string()));
+        let client = reqwest::Client::new();
+        let req = ep
+            .authenticate(client.get("http://localhost"))
+            .build()
+            .unwrap();
+        let auth = req
+            .headers()
+            .get("authorization")
+            .expect("Authorization header must be set")
+            .to_str()
+            .unwrap();
+        assert_eq!(auth, "Bearer tok123");
+    }
+
+    // ----------------------------------------------------------------
+    // Server reachability probe
+    // ----------------------------------------------------------------
+
+    /// Keep a listener bound and close every accepted connection so parallel
+    /// tests cannot reuse an allegedly closed ephemeral port.
+    fn no_answer_endpoint() -> ServerEndpoint {
+        ServerEndpoint::from_pair(Some(pitstop_test_support::dead_http_endpoint()), None)
+    }
+
+    #[tokio::test]
+    async fn probe_reports_an_accept_then_close_peer_as_unreachable_with_the_diagnosis() {
+        let endpoint = no_answer_endpoint();
+        let ServerProbe::Unreachable(error) = probe_server(&endpoint).await else {
+            panic!("a peer that closes before responding must be Unreachable");
+        };
+        let url = endpoint.build_url("/workstream/runs");
+        let augmented = augment_connect_error(error, &endpoint, &url);
+        let message = format!("{augmented:#}");
+        assert!(
+            message.contains("could not reach"),
+            "the probe error must feed augment_connect_error: {message}"
+        );
+        assert!(
+            message.contains(&endpoint.url),
+            "the diagnosis names the resolved server URL: {message}"
+        );
+    }
+
+    /// A connect that is accepted but never answered ends as a reqwest
+    /// timeout — the variant windows-latest produces when its firewall
+    /// drops a loopback connect instead of refusing it. The operator
+    /// problem ("nothing at this URL") is identical to a refusal, so the
+    /// diagnosis must be too.
+    #[tokio::test]
+    async fn probe_timeout_error_carries_the_same_reachability_diagnosis() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            // Accept connections and hold them open without answering: the
+            // client's only way out is its own timeout.
+            let mut held = Vec::new();
+            while let Ok((stream, _)) = listener.accept().await {
+                held.push(stream);
+            }
+        });
+        let endpoint = ServerEndpoint::from_pair(Some(format!("http://{address}")), None);
+
+        let ServerProbe::Unreachable(error) =
+            probe_server_with_timeout(&endpoint, Duration::from_millis(150)).await
+        else {
+            panic!("an accept-and-hold socket must end Unreachable via the probe timeout");
+        };
+        assert!(
+            error.is_timeout(),
+            "accept-and-hold must produce the timeout variant, got: {error}"
+        );
+        let url = endpoint.build_url("/workstream/runs");
+        let augmented = augment_connect_error(error, &endpoint, &url);
+        let message = format!("{augmented:#}");
+        assert!(
+            message.contains("could not reach"),
+            "the timeout variant must keep the reachability diagnosis: {message}"
+        );
+        assert!(
+            message.contains(&endpoint.url),
+            "the diagnosis names the resolved server URL: {message}"
+        );
+    }
+
+    /// The no-answer detection must recognize every platform's wording of
+    /// "nothing answered": the typed io kinds, and the free-text variants
+    /// hyper buries below reqwest on each OS. windows-latest says
+    /// "operation timed out (os error 10060)" where Linux says
+    /// "Connection refused (os error 111)".
+    #[test]
+    fn no_answer_detection_covers_refused_and_timeout_wording() {
+        #[derive(Debug)]
+        struct Wrapped(&'static str);
+        impl std::fmt::Display for Wrapped {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+        impl std::error::Error for Wrapped {}
+
+        assert!(error_chain_indicates_no_answer(&std::io::Error::from(
+            std::io::ErrorKind::ConnectionRefused
+        )));
+        assert!(error_chain_indicates_no_answer(&std::io::Error::from(
+            std::io::ErrorKind::TimedOut
+        )));
+        assert!(error_chain_indicates_no_answer(&Wrapped(
+            "error sending request for url (http://127.0.0.1:49374/healthz): operation timed \
+             out (os error 10060)"
+        )));
+        assert!(error_chain_indicates_no_answer(&Wrapped(
+            "error sending request for url (http://127.0.0.1:49374/healthz): Connection refused \
+             (os error 111)"
+        )));
+        // Unrelated transport failures keep the generic HTTP-failure
+        // message: a decode error answered, it did not go unanswered.
+        assert!(!error_chain_indicates_no_answer(&Wrapped(
+            "error decoding response body"
+        )));
+    }
+
+    /// A server that answers 404 for `/healthz` (older than the route) is
+    /// still reachable: presence, not health, is what the probe decides.
+    #[tokio::test]
+    async fn probe_reports_any_http_answer_as_reachable() {
+        for status in [
+            axum::http::StatusCode::OK,
+            axum::http::StatusCode::NOT_FOUND,
+            axum::http::StatusCode::METHOD_NOT_ALLOWED,
+        ] {
+            let app =
+                axum::Router::new().fallback(axum::routing::get(move || async move { status }));
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let endpoint = ServerEndpoint::from_pair(Some(format!("http://{address}")), None);
+
+            assert!(matches!(
+                probe_server(&endpoint).await,
+                ServerProbe::Reachable
+            ));
+
+            server.abort();
+        }
+    }
+
+    /// A listener that accepts but never answers must be given up on within
+    /// the probe timeout, not a TCP or default-client timeout.
+    #[tokio::test]
+    async fn probe_gives_up_within_its_own_timeout() {
+        async fn accept_and_hold() -> std::net::SocketAddr {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            tokio::spawn(async move {
+                // Accept connections, hold them open, and answer nothing —
+                // the streams must outlive the accept so the client's only
+                // way out is its own timeout.
+                let mut held = Vec::new();
+                while let Ok((stream, _)) = listener.accept().await {
+                    held.push(stream);
+                }
+            });
+            address
+        }
+        let address = accept_and_hold().await;
+        let endpoint = ServerEndpoint::from_pair(Some(format!("http://{address}")), None);
+
+        let started = Instant::now();
+        assert!(matches!(
+            probe_server_with_timeout(&endpoint, Duration::from_millis(150)).await,
+            ServerProbe::Unreachable(_)
+        ));
+        let elapsed = started.elapsed();
+        assert!(elapsed >= Duration::from_millis(150), "gave up too early");
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "the probe timeout, not a transport default, bounds the wait ({elapsed:?})"
+        );
+    }
+
+    /// The production probe stays bounded by design: a homelab down for
+    /// maintenance must be classified in ~2s, never by an OS TCP timeout.
+    #[test]
+    fn probe_timeout_is_bounded_to_about_two_seconds() {
+        assert!(PROBE_TIMEOUT <= Duration::from_secs(2));
+        assert!(!PROBE_TIMEOUT.is_zero());
+    }
+
+    /// A checkout whose marker selects a server profile, the profile
+    /// registered with a token, and an install whose own server and bearer
+    /// are something else (#2016).
+    struct ProfiledCheckout {
+        _tmp: tempfile::TempDir,
+        home: std::path::PathBuf,
+        repo: std::path::PathBuf,
+        data_dir: std::path::PathBuf,
+    }
+
+    impl ProfiledCheckout {
+        fn new(marker: &str) -> Self {
+            let tmp = tempfile::tempdir().unwrap();
+            let home = tmp.path().join("home");
+            let repo = home.join("work").join("team-b").join("repo");
+            let data_dir = home.join("data");
+            std::fs::create_dir_all(&repo).unwrap();
+            std::fs::create_dir_all(&data_dir).unwrap();
+            std::fs::write(repo.join(".pitstop.toml"), marker).unwrap();
+            let name = crate::server_profiles::ProfileName::parse("team-b").unwrap();
+            crate::server_profiles::add(
+                &data_dir,
+                &name,
+                "https://b.example/memory",
+                &[home
+                    .join("work")
+                    .join("team-b")
+                    .to_string_lossy()
+                    .into_owned()],
+                Some("PROFILE-TOKEN"),
+            )
+            .unwrap();
+            Self {
+                _tmp: tmp,
+                home,
+                repo,
+                data_dir,
+            }
+        }
+
+        fn config_in(&self, cwd: &Path, server_url: Option<&str>, ignore_marker: bool) -> Config {
+            let mut config = Config {
+                data_dir: self.data_dir.clone(),
+                server_url: server_url.unwrap_or("https://install.example").to_owned(),
+                runtime_env: crate::config::RuntimeEnv::for_checkout_tests(
+                    cwd.to_string_lossy(),
+                    self.home.to_string_lossy(),
+                    server_url,
+                    ignore_marker,
+                ),
+                ..Config::default()
+            };
+            config.auth.bearer_token = Some("INSTALL-TOKEN".to_owned());
+            config
+        }
+
+        fn config(&self, server_url: Option<&str>, ignore_marker: bool) -> Config {
+            self.config_in(&self.repo, server_url, ignore_marker)
+        }
+    }
+
+    /// The marker's profile decides the server and the bearer, the same way
+    /// the hook routes capture from this directory; the install's own bearer
+    /// never travels to the profile's server.
+    #[tokio::test]
+    async fn a_checkout_command_uses_the_marker_profile_like_the_hook() {
+        let checkout = ProfiledCheckout::new("server = \"team-b\"\n");
+        let config = checkout.config(None, false);
+        let hook = crate::server_profiles::route_for_cwd(
+            &checkout.data_dir,
+            &checkout.repo.to_string_lossy(),
+            Some(&checkout.home),
+        );
+        assert_eq!(hook.resolution(), "marker");
+
+        let ep = ServerEndpoint::for_checkout(&config).await.unwrap();
+        assert_eq!(ep.url, "https://b.example");
+        assert_eq!(ep.base_path, "/memory");
+        assert_eq!(ep.auth_token.as_deref(), Some("PROFILE-TOKEN"));
+
+        // A subdirectory inherits the routing.
+        let nested = checkout.repo.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+        let ep = ServerEndpoint::for_checkout(&checkout.config_in(&nested, None, false))
+            .await
+            .unwrap();
+        assert_eq!(ep.auth_token.as_deref(), Some("PROFILE-TOKEN"));
+    }
+
+    /// `PITSTOP_SERVER_URL` outranks the marker, and
+    /// `PITSTOP_IGNORE_MARKER` skips it; both keep the install's bearer.
+    /// Without a `server` key the command keeps its config.
+    #[tokio::test]
+    async fn explicit_env_and_unrouted_checkouts_keep_the_config_server() {
+        let checkout = ProfiledCheckout::new("server = \"team-b\"\n");
+        let ep = ServerEndpoint::for_checkout(&checkout.config(Some("https://env.example"), false))
+            .await
+            .unwrap();
+        assert_eq!(ep.url, "https://env.example");
+        assert_eq!(ep.auth_token.as_deref(), Some("INSTALL-TOKEN"));
+
+        let ep = ServerEndpoint::for_checkout(&checkout.config(None, true))
+            .await
+            .unwrap();
+        assert_eq!(ep.url, "https://install.example");
+        assert_eq!(ep.auth_token.as_deref(), Some("INSTALL-TOKEN"));
+
+        let unrouted = ProfiledCheckout::new("workspace = \"team-b\"\n");
+        let ep = ServerEndpoint::for_checkout(&unrouted.config(None, false))
+            .await
+            .unwrap();
+        assert_eq!(ep.url, "https://install.example");
+        assert_eq!(ep.auth_token.as_deref(), Some("INSTALL-TOKEN"));
+    }
+
+    /// A selection the hook would refuse fails the command closed; it never
+    /// falls back to the install's server with this checkout's request.
+    #[tokio::test]
+    async fn a_refused_marker_profile_fails_closed() {
+        for (marker, reason) in [
+            ("server = \"nobody\"\n", "rejected-unknown-profile"),
+            ("server = \"../x\"\n", "rejected-invalid-profile-name"),
+        ] {
+            let checkout = ProfiledCheckout::new(marker);
+            let error = ServerEndpoint::for_checkout(&checkout.config(None, false))
+                .await
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains(reason), "{error}");
+            assert!(!error.contains("install.example"), "{error}");
+            assert!(!error.contains("TOKEN"), "{error}");
+        }
+
+        // The profile's roots do not admit a checkout outside them.
+        let checkout = ProfiledCheckout::new("server = \"team-b\"\n");
+        let outside = checkout.home.join("work").join("team-c");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join(".pitstop.toml"), "server = \"team-b\"\n").unwrap();
+        let error = ServerEndpoint::for_checkout(&checkout.config_in(&outside, None, false))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("rejected-outside-roots"), "{error}");
+
+        // A profile without a stored token is refused too.
+        let checkout = ProfiledCheckout::new("server = \"team-b\"\n");
+        std::fs::remove_file(checkout.data_dir.join("auth-tokens").join("team-b")).unwrap();
+        let error = ServerEndpoint::for_checkout(&checkout.config(None, false))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("rejected-no-token"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn from_config_resolving_auth_uses_stored_oidc_for_authorization_header() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = Config {
+            data_dir: tmp.path().to_path_buf(),
+            ..Config::default()
+        };
+        config.auth.bearer_token = None;
+        pitstop_llm::OidcToken {
+            access: secrecy::SecretString::from("oidc-access".to_string()),
+            refresh: secrecy::SecretString::from("refresh-token".to_string()),
+            expires_at_ms: u64::MAX,
+            extra: pitstop_llm::OidcExtras {
+                issuer: "https://issuer.example.com/realms/team".to_string(),
+                client_id: "pitstop-cli".to_string(),
+                token_endpoint: "https://issuer.example.com/token".to_string(),
+            },
+        }
+        .save(&config.oidc_device_token_path())
+        .expect("save test OIDC token");
+
+        let ep = ServerEndpoint::from_config_resolving_auth(&config).await;
+        let client = reqwest::Client::new();
+        let req = ep
+            .authenticate(client.get("http://localhost"))
+            .build()
+            .unwrap();
+        let auth = req
+            .headers()
+            .get("authorization")
+            .expect("Authorization header must be set")
+            .to_str()
+            .unwrap();
+
+        assert_eq!(auth, "Bearer oidc-access");
+    }
+
+    // ----------------------------------------------------------------
+    // Redirect refusal (parity with hook_capture::build_client)
+    // ----------------------------------------------------------------
+
+    async fn redirect_server(status: &'static str, target_url: &str) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let target = target_url.to_owned();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0_u8; 1024];
+            let _ = stream.read(&mut buf).await;
+            let response = format!(
+                "HTTP/1.1 {status}\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        });
+        format!("http://{addr}")
+    }
+
+    /// An origin that answers `200` with HTML if anyone connects, so a test
+    /// that accidentally follows the redirect fails closed instead of hanging.
+    async fn login_origin() -> (String, Arc<AtomicBool>) {
+        let contacted = Arc::new(AtomicBool::new(false));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/login", listener.local_addr().unwrap());
+        let flag = Arc::clone(&contacted);
+        tokio::spawn(async move {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                flag.store(true, Ordering::SeqCst);
+                let mut buf = [0_u8; 1024];
+                let _ = stream.read(&mut buf).await;
+                let body = "<html>login</html>";
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+        (url, contacted)
+    }
+
+    #[tokio::test]
+    async fn http_client_refuses_redirects() {
+        let (target_url, contacted) = login_origin().await;
+        let source_url = redirect_server("307 Temporary Redirect", &target_url).await;
+
+        let response = http_client().get(&source_url).send().await.unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::TEMPORARY_REDIRECT);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            !contacted.load(Ordering::SeqCst),
+            "redirect target must never be contacted"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_json_does_not_follow_redirect() {
+        let (target_url, contacted) = login_origin().await;
+        let source_url = redirect_server("302 Found", &target_url).await;
+        let endpoint = ServerEndpoint::from_pair(Some(source_url), None);
+        let err = get_json::<serde_json::Value>(&endpoint, "/admin/status", &[])
+            .await
+            .unwrap_err();
+        assert!(
+            err.downcast_ref::<ServerResponseError>()
+                .is_some_and(|error| error.status() == reqwest::StatusCode::FOUND),
+            "302 must fail closed, got: {err:#}"
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            !contacted.load(Ordering::SeqCst),
+            "redirect target must never be contacted"
+        );
+    }
+
+    #[tokio::test]
+    async fn post_json_no_content_does_not_follow_redirect() {
+        let (target_url, contacted) = login_origin().await;
+        let source_url = redirect_server("307 Temporary Redirect", &target_url).await;
+        let endpoint = ServerEndpoint::from_pair(Some(source_url), None);
+        let err = post_json_no_content(&endpoint, "/admin/write-page", &())
+            .await
+            .unwrap_err();
+        assert!(
+            err.downcast_ref::<ServerResponseError>()
+                .is_some_and(|error| error.status() == reqwest::StatusCode::TEMPORARY_REDIRECT),
+            "307 must fail closed, got: {err:#}"
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            !contacted.load(Ordering::SeqCst),
+            "redirect target must never be contacted"
+        );
+    }
+
+    #[tokio::test]
+    async fn post_to_file_does_not_follow_a_redirect_or_write_the_target_body() {
+        let (target_url, contacted) = login_origin().await;
+        let source_url = redirect_server("302 Found", &target_url).await;
+        let endpoint = ServerEndpoint::from_pair(Some(source_url), None);
+        let temp = tempfile::tempdir().unwrap();
+        let dest = temp.path().join("backup.tar.gz");
+        std::fs::write(&dest, b"previous usable archive").unwrap();
+        let err = post_to_file(&endpoint, "/admin/backup", &dest)
+            .await
+            .unwrap_err();
+        assert!(
+            err.downcast_ref::<ServerResponseError>()
+                .is_some_and(|error| error.status() == reqwest::StatusCode::FOUND),
+            "302 must fail closed, got: {err:#}"
+        );
+        assert_eq!(std::fs::read(&dest).unwrap(), b"previous usable archive");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            !contacted.load(Ordering::SeqCst),
+            "redirect target must never be contacted"
+        );
+    }
+}

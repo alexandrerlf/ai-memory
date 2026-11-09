@@ -1,0 +1,22 @@
+{
+  "name": "pitstop",
+  "interface": {
+    "displayName": "pitstop"
+  },
+  "plugins": [
+    {
+      "name": "pitstop",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/akitaonrails/ai-memory.git",
+        "path": "plugins/codex",
+        "ref": "v3.4.3"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
