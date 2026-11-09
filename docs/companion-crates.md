@@ -82,12 +82,12 @@ All five slices of #986 have shipped. Slice 1 (read-only export) came first,
 in 2.x. Slice 2 (the compare-and-write seam in core), slice 3 (two-way sync
 through the MCP write tool), slice 4 (conditional writes and opt-in deletes)
 and slice 5 (the CI check and post-merge hook) ship in 3.0. The companion is
-[`pitstop-wikisync`](#pitstop-wikisync-team-wiki-export-and-sync)
+[`ai-memory-wikisync`](#ai-memory-wikisync-team-wiki-export-and-sync)
 below.
 
-## `pitstop-client`: shared private capture privacy
+## `ai-memory-client`: shared private capture privacy
 
-[`pitstop-client`](../companions/pitstop-client) supplies four privacy
+[`ai-memory-client`](../companions/ai-memory-client) supplies four privacy
 functions consumed by both the relay and external-conversation importer. New
 bodies are scrubbed before serialization, hashes and local persistence; native
 identities containing credentials are refused without being renamed. A relay
@@ -96,9 +96,9 @@ locally with a `dropped_policy` receipt, so its session keeps flowing. The packa
 server dependency. Server authorization and capture exclusions remain the
 authoritative boundaries.
 
-## `pitstop-relay`: external lifecycle delivery
+## `ai-memory-relay`: external lifecycle delivery
 
-[`pitstop-relay`](../companions/pitstop-relay) delivers events collected by
+[`ai-memory-relay`](../companions/ai-memory-relay) delivers events collected by
 an external orchestrator through `/hook/batch`. Its own local queue records events
 before sending and retains unacknowledged entries for a later flush. It does not
 launch agents, claim handoffs, or open pitstop's database or wiki.
@@ -113,10 +113,10 @@ The package has its own workspace, tests and CLI. Its README defines queue limit
 local data handling and recovery, with an executable test against the real
 pitstop server. Root workspace tests do not run the companion's unit tests.
 
-## `pitstop-importer`: migration and ingestion companion
+## `ai-memory-importer`: migration and ingestion companion
 
 This is the companion shape for PR #118. The first implemented companion lives
-at [`companions/pitstop-importer`](../companions/pitstop-importer) as a
+at [`companions/ai-memory-importer`](../companions/ai-memory-importer) as a
 standalone Cargo package with its own `[workspace]`; it is not a member of the
 root workspace and is not covered by root `cargo test --workspace`.
 
@@ -170,9 +170,9 @@ Future sources can include:
 Run companion checks explicitly from the repository root:
 
 ```bash
-cargo fmt --check --manifest-path companions/pitstop-importer/Cargo.toml
-cargo test --manifest-path companions/pitstop-importer/Cargo.toml
-cargo clippy --manifest-path companions/pitstop-importer/Cargo.toml --all-targets -- -D warnings
+cargo fmt --check --manifest-path companions/ai-memory-importer/Cargo.toml
+cargo test --manifest-path companions/ai-memory-importer/Cargo.toml
+cargo clippy --manifest-path companions/ai-memory-importer/Cargo.toml --all-targets -- -D warnings
 ```
 
 Root hygiene checks remain separate:
@@ -187,7 +187,7 @@ git diff --check
 Prefer a separate repository and binary crate, for example:
 
 ```text
-companions/pitstop-importer/
+companions/ai-memory-importer/
 ├── Cargo.toml
 ├── src/main.rs
 └── README.md
@@ -264,10 +264,10 @@ Re-home by kind:
    imports. Add another public mutation surface only when repeated use proves
    that this generic batch cannot preserve the required safety contract.
 
-## `pitstop-wikisync`: team-wiki export and sync
+## `ai-memory-wikisync`: team-wiki export and sync
 
 Slices 1, 3, 4 and 5 of the accepted [team-wiki sync](#team-wiki-sync-986)
-shape, implemented at [`companions/pitstop-wikisync`](../companions/pitstop-wikisync)
+shape, implemented at [`companions/ai-memory-wikisync`](../companions/ai-memory-wikisync)
 as a standalone Cargo package with its own `[workspace]` (mirroring the
 importer): it is not a member of the root workspace and is not covered by
 root `cargo test --workspace`.
@@ -306,7 +306,7 @@ directions are family-scoped and dry-run by default.
   write round-trips (`title`, `tags`, `pinned`, and `tier` when not the
   default), never server-generated or attribution keys. All local bookkeeping
   lives in one state file under the destination
-  (`.pitstop-wikisync/state.json`, 0600, atomically replaced after each
+  (`.ai-memory-wikisync/state.json`, 0600, atomically replaced after each
   successful write batch). The directory ignores itself with a `.gitignore`
   of `*`, so the state stays per clone and never reaches a commit.
 
@@ -365,9 +365,9 @@ directions are family-scoped and dry-run by default.
 ### Validation
 
 ```bash
-cargo fmt --check --manifest-path companions/pitstop-wikisync/Cargo.toml
-cargo test --manifest-path companions/pitstop-wikisync/Cargo.toml
-cargo clippy --manifest-path companions/pitstop-wikisync/Cargo.toml --all-targets -- -D warnings
+cargo fmt --check --manifest-path companions/ai-memory-wikisync/Cargo.toml
+cargo test --manifest-path companions/ai-memory-wikisync/Cargo.toml
+cargo clippy --manifest-path companions/ai-memory-wikisync/Cargo.toml --all-targets -- -D warnings
 ```
 
 Unit tests cover the path-safety matrix, the allowlist rules, state
@@ -400,10 +400,10 @@ never reaches the hook file.
 5. Post-merge hook / CI integration (shipped: `install-hook`,
    `uninstall-hook`, `sync --check`).
 
-## `pitstop-macos`: menu bar wrapper
+## `ai-memory-macos`: menu bar wrapper
 
 Self-contained macOS accessory app at
-[`companions/pitstop-macos`](../companions/pitstop-macos). It is a
+[`companions/ai-memory-macos`](../companions/ai-memory-macos). It is a
 **wrapper** rather than a data-seam dashboard: it ships the `pitstop` binary and
 `hooks/` tree inside an `.app`, governs the existing LaunchAgent, and opens
 `/web`, `pitstop status`, `config.toml`, the data directory, and logs.
@@ -411,8 +411,8 @@ Self-contained macOS accessory app at
 It is not a root workspace member. Build and test it separately:
 
 ```bash
-./companions/pitstop-macos/build.sh
-swift test --package-path companions/pitstop-macos
+./companions/ai-memory-macos/build.sh
+swift test --package-path companions/ai-memory-macos
 ```
 
 ### Goal
@@ -450,10 +450,10 @@ override is written only into the rendered LaunchAgent plist
 
 See [`docs/macos.md`](macos.md#scenario-d-menu-bar-app).
 
-## `pitstop-desktop`: desktop installer
+## `ai-memory-desktop`: desktop installer
 
 A [Tauri v2](https://v2.tauri.app) app at
-[`companions/pitstop-desktop`](../companions/pitstop-desktop) for people
+[`companions/ai-memory-desktop`](../companions/ai-memory-desktop) for people
 who would rather not open a terminal (#1273, RFC #878 Phase 4). Its window
 starts on a plain HTML page and then shows the page `pitstop setup --web`
 serves, so the whole setup UI and its safety rules stay in the CLI. There is
@@ -462,8 +462,8 @@ no npm or JavaScript toolchain.
 It is not a root workspace member. Check it separately:
 
 ```bash
-cargo clippy --locked --manifest-path companions/pitstop-desktop/Cargo.toml --all-targets -- -D warnings
-cargo test --locked --manifest-path companions/pitstop-desktop/Cargo.toml
+cargo clippy --locked --manifest-path companions/ai-memory-desktop/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path companions/ai-memory-desktop/Cargo.toml
 ```
 
 ### How it talks to pitstop
@@ -498,14 +498,14 @@ attached to releases until the project has an Apple Developer ID with
 notarization and a Windows Authenticode certificate. That decision, and its
 cost, belong to the maintainers (RFC #878).
 
-## `pitstop-ts`: TypeScript client SDK
+## `ai-memory-ts`: TypeScript client SDK
 
 A typed client for programs that are not coding-agent harnesses (issue #1165):
 custom agents and bots, editor and app extensions (RFC #1166) and automation
-scripts. It lives at [`companions/pitstop-ts`](../companions/pitstop-ts),
+scripts. It lives at [`companions/ai-memory-ts`](../companions/ai-memory-ts),
 has no runtime dependencies, and talks to pitstop only through the public
 MCP tools at `/mcp`, the read-only `/api/v1` routes, `GET /identity` and, from
-the separate `pitstop-ts/admin` entry point, the root-only `/admin/*`
+the separate `ai-memory-ts/admin` entry point, the root-only `/admin/*`
 lifecycle routes. It adds no core surface. Python is a later, separate
 decision.
 
@@ -516,7 +516,7 @@ referencing it. It is unpublished until the maintainer picks the npm name and
 owner. Build and test it separately:
 
 ```bash
-cd companions/pitstop-ts
+cd companions/ai-memory-ts
 npm ci --ignore-scripts
 npm run check                                        # typecheck, unit, schema, docs
 PITSTOP_BIN=../../target/debug/pitstop npm run test:integration
@@ -526,7 +526,7 @@ CI runs its integration tests, schema drift test and examples against the
 server built in the `test` job, so a change to an MCP tool schema fails until
 the SDK's `schema/tools.json` is updated. The design, test plan and decisions
 are in [design-client-sdk.md](design-client-sdk.md); usage is in the package
-[README](../companions/pitstop-ts/README.md).
+[README](../companions/ai-memory-ts/README.md).
 
 ## `pitstop-web-editor`: browser chat/editor companion
 
@@ -686,7 +686,7 @@ and preference for a separate repository above remain unchanged.
 
 ## Two kinds of companion: data-seam vs. independent hook consumer
 
-`pitstop-importer` and `pitstop-web-editor` are *data-seam* companions: they
+`ai-memory-importer` and `pitstop-web-editor` are *data-seam* companions: they
 talk to pitstop's public HTTP/MCP surfaces and build on the data it stores.
 Not every adjacent tool is that shape.
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Shared by the server sanitizer (crates/pitstop-core/src/sanitize.rs) and the client scrub (companions/pitstop-client/src/scrub.rs) so the two copies cannot drift. Every value is a FAKE shape.",
+  "_comment": "Shared by the server sanitizer (crates/pitstop-core/src/sanitize.rs) and the client scrub (companions/ai-memory-client/src/scrub.rs) so the two copies cannot drift. Every value is a FAKE shape.",
   "credentials": [
     "sk-leak-0123456789abcdef0123",
     "ghp_FAKE0123456789ABCDEFGHIJ0123",

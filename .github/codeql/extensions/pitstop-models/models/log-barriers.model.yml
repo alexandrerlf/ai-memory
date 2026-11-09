@@ -5,7 +5,7 @@
 #
 # `display_session_id` is the one helper that renders a session id for
 # terminal output (the CLI's, and the companions' copy in the
-# `pitstop-client` library crate, since the companions are a separate
+# `ai-memory-client` library crate, since the companions are a separate
 # workspace that cannot call the CLI; a model path in a binary-only crate does
 # not resolve); declaring its return value
 # a log barrier clears those alerts while a real secret (an `api_key`, a
@@ -25,4 +25,4 @@ extensions:
     data:
       - ["pitstop_cli::commands::run::display_session_id", "ReturnValue", "log-injection", "manual"]
       - ["pitstop_cli::commands::user::display_username", "ReturnValue", "log-injection", "manual"]
-      - ["pitstop_client::display_session_id", "ReturnValue", "log-injection", "manual"]
+      - ["ai_memory_client::display_session_id", "ReturnValue", "log-injection", "manual"]

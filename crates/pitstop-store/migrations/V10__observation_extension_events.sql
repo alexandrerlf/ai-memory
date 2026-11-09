@@ -1,6 +1,6 @@
 -- Optional third-party event metadata.
 --
--- Core observation.kind remains the closed pitstop lifecycle enum. These
+-- Core observation.kind remains the closed ai-memory lifecycle enum. These
 -- nullable fields preserve an opt-in extension namespace + source event name
 -- for custom event vocabularies without letting unknown hook event names sprawl
 -- into the canonical kind column.

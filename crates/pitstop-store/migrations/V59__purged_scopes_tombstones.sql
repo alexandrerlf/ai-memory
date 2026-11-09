@@ -4,7 +4,7 @@
 -- A purge commits the DB deletion first, then removes the on-disk wiki files
 -- best-effort. A crash (or a file-removal failure) in that window leaves the
 -- project's markdown directory — `_meta.md` included — on disk with no row in
--- `projects`. A later `pitstop reindex` rebuilds the DB from markdown and
+-- `projects`. A later `ai-memory reindex` rebuilds the DB from markdown and
 -- calls `ensure_project_with_id` / `ensure_workspace_with_id` from each
 -- `_meta.md`, which would recreate the scope and resurrect its pages, silently
 -- undoing the purge.

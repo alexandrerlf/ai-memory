@@ -7,7 +7,7 @@ an agent harness can send that harness's lifecycle events through HTTP.
 ## Use the TypeScript SDK
 
 Programs in TypeScript or JavaScript can use the optional client SDK in
-[`companions/pitstop-ts`](../companions/pitstop-ts/README.md) instead of
+[`companions/ai-memory-ts`](../companions/ai-memory-ts/README.md) instead of
 building JSON-RPC requests by hand. It wraps the calls on this page with typed
 results and typed errors, checks scope before sending, and keeps the
 conditional-write, handoff and lifecycle rules below. It is built from a

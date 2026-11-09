@@ -217,8 +217,8 @@ logs). It does not replace those tools with a second dashboard.
 From a source checkout (Rust 1.95 + Xcode / Swift 6):
 
 ```bash
-./companions/pitstop-macos/build.sh
-open "companions/pitstop-macos/dist/Pitstop.app"
+./companions/ai-memory-macos/build.sh
+open "companions/ai-memory-macos/dist/Pitstop.app"
 ```
 
 Drag `Pitstop.app` to `/Applications` so the LaunchAgent path stays stable
@@ -251,7 +251,7 @@ BIN="/Applications/Pitstop.app/Contents/Resources/runtime/pitstop"
 Memory, config, models, and logs stay outside the bundle
 (`~/Library/Application Support/pitstop` and `~/Library/Logs/pitstop`).
 Replacing the `.app` is an update; it does not rewrite that tree. Details:
-[`companions/pitstop-macos/README.md`](../companions/pitstop-macos/README.md).
+[`companions/ai-memory-macos/README.md`](../companions/ai-memory-macos/README.md).
 
 Notarization and a Homebrew cask are not part of this companion yet.
 
@@ -457,7 +457,7 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
   in the menu bar (brain / status symbol), not the Dock.
 - **Menu extra says "Runtime not bundled":** `swift run` from the package
   does not stage `pitstop` + `hooks/`. Use
-  `./companions/pitstop-macos/build.sh`.
+  `./companions/ai-memory-macos/build.sh`.
 - **Install & Start does not turn the item green:** check
   `~/Library/Logs/pitstop/stderr.log` and
   `launchctl print gui/$(id -u)/com.github.akitaonrails.pitstop`. The app

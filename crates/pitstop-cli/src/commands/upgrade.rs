@@ -1932,7 +1932,7 @@ mod tests {
             .windows(b"pitstop.exe".len())
             .position(|window| window == b"pitstop.exe")
             .expect("local header filename");
-        bytes[local_name..local_name + b"pitstop.exe".len()].copy_from_slice(b"bad-memory.ex");
+        bytes[local_name..local_name + b"pitstop.exe".len()].copy_from_slice(b"bad-pit.exe");
 
         let dest = tempfile::tempdir()?;
         let error = extract_release_archive(&bytes, dest.path(), "pitstop-windows-x86_64.zip")

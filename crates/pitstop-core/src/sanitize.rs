@@ -1836,7 +1836,7 @@ mod tests {
     const FAKE_KEY_LINE: &str = "b3BlbnNzaC1rZXktdjEAAAAA";
 
     /// The vectors the client companion's scrub runs too
-    /// (`companions/pitstop-client`), so the two copies cannot drift.
+    /// (`companions/ai-memory-client`), so the two copies cannot drift.
     #[test]
     fn shared_sanitizer_vectors_hold() {
         let vectors: serde_json::Value = serde_json::from_str(include_str!(

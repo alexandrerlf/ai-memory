@@ -480,7 +480,7 @@ has its own bound (invariant 10 in [ARCHITECTURE.md](ARCHITECTURE.md)):
 | `crates/pitstop-wiki/src/confinement.rs` `is_transient_churn` | stat of an entry during a confinement walk | sharing violation (`PermissionDenied`), `ERROR_DELETE_PENDING` (303) | skip the entry, as for `NotFound`; an entry that does stat still faces the link checks |
 | `crates/pitstop-cli/src/commands/hook_spool.rs` `is_drain_lock_busy_error` | spool drain lock | `ERROR_LOCK_VIOLATION` (33) | treated as "lock busy", like `WouldBlock`; the drain runs later |
 | `crates/pitstop-cli/src/commands/hook_drain_process.rs` `should_retry_without_breakaway` | spawning the detached drain process | `ERROR_ACCESS_DENIED` (5) | retry once without `CREATE_BREAKAWAY_FROM_JOB` |
-| `companions/pitstop-relay/src/fsguard.rs` `read_settled` | metadata read of a queue file (SQLite deletes its rollback journal at each commit) | access denied (delete pending) | up to 5 retries, 20 ms apart, then refused |
+| `companions/ai-memory-relay/src/fsguard.rs` `read_settled` | metadata read of a queue file (SQLite deletes its rollback journal at each commit) | access denied (delete pending) | up to 5 retries, 20 ms apart, then refused |
 
 The relay is a separate workspace, so the policy is not shared code. A new
 site follows the same rules: name the exact error, bound the retry, keep

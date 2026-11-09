@@ -16,7 +16,7 @@
 -- `attempts` defaults to 0 so existing rows keep meaning "in flight". That is the
 -- conservative reading for a row written by an older version: those claims are the
 -- leaked ones this fixes, and a release path that resurrected them silently would
--- re-review sessions an operator may have already handled by hand. `pitstop
+-- re-review sessions an operator may have already handled by hand. `ai-memory
 -- auto-improve --session-id` remains the way to drive one of them.
 
 ALTER TABLE auto_improve_scheduler_claims ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;

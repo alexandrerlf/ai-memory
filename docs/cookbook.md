@@ -180,7 +180,7 @@ api_key_env = "FALLBACK_API_KEY"
 ## Coming from agentmemory
 
 The data moves with the companion importer
-([`pitstop-importer`](../companions/pitstop-importer), boundary in
+([`ai-memory-importer`](../companions/ai-memory-importer), boundary in
 [`companion-crates.md`](companion-crates.md)). Most of the work is re-wiring
 each harness. Do it in this order:
 
@@ -218,9 +218,9 @@ each harness. Do it in this order:
    while anything is unmapped:
 
    ```bash
-   cargo run --manifest-path companions/pitstop-importer/Cargo.toml -- \
+   cargo run --manifest-path companions/ai-memory-importer/Cargo.toml -- \
      agentmemory-export --file agentmemory-export.json --mapping mapping.json
-   cargo run --manifest-path companions/pitstop-importer/Cargo.toml -- \
+   cargo run --manifest-path companions/ai-memory-importer/Cargo.toml -- \
      agentmemory-export --file agentmemory-export.json --mapping mapping.json \
      --apply --manifest-out agentmemory-manifest.json
    ```
@@ -243,16 +243,16 @@ the imported pages.
 ## Recipe: mirror a team wiki into the repository (team wiki sync)
 
 To keep a team's shared memory reviewable next to the code it documents, use
-the [`pitstop-wikisync`](../companions/pitstop-wikisync) companion
+the [`ai-memory-wikisync`](../companions/ai-memory-wikisync) companion
 (boundary in [`companion-crates.md`](companion-crates.md)). It exports
 explicitly allowlisted page families from the server's read-only `/api/v1`
 surface into a directory in your repo. It is dry-run by default:
 
 ```bash
-pitstop-wikisync plan   --server http://127.0.0.1:49374 \
+ai-memory-wikisync plan   --server http://127.0.0.1:49374 \
     --workspace demo --project app --dest ./wiki \
     --include _rules --include decisions     # lists create/update/unchanged; never writes
-pitstop-wikisync export ...same args... --apply   # writes; prints the git commands to run
+ai-memory-wikisync export ...same args... --apply   # writes; prints the git commands to run
 ```
 
 Everything is opt-in and fail-safe: the family allowlist must be explicit
@@ -270,9 +270,9 @@ never stores a token (the hook reads `PITSTOP_AUTH_TOKEN` when it runs) and
 never passes `--prefer`, so conflicts still wait for a person:
 
 ```bash
-pitstop-wikisync install-hook --workspace demo --project app \
+ai-memory-wikisync install-hook --workspace demo --project app \
     --dest docs/wiki --include _rules --include decisions
-pitstop-wikisync uninstall-hook --dest docs/wiki   # removes only its block
+ai-memory-wikisync uninstall-hook --dest docs/wiki   # removes only its block
 ```
 
 In CI, `sync --check` writes nothing and exits `0` in sync, `3` when the
@@ -290,13 +290,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cargo install --locked --git https://github.com/akitaonrails/ai-memory pitstop-wikisync
+      - run: cargo install --locked --git https://github.com/akitaonrails/ai-memory ai-memory-wikisync
       - name: Compare docs/wiki with the team's pitstop server
         env:
           PITSTOP_SERVER_URL: ${{ secrets.PITSTOP_SERVER_URL }}
           PITSTOP_AUTH_TOKEN: ${{ secrets.PITSTOP_AUTH_TOKEN }}
         run: |
-          pitstop-wikisync sync --check \
+          ai-memory-wikisync sync --check \
             --workspace demo --project app --dest docs/wiki \
             --include _rules --include decisions
 ```
@@ -625,8 +625,8 @@ opens the existing tools (web UI, `pitstop status`, config, logs). It does
 not replace those tools with a second dashboard.
 
 ```bash
-./companions/pitstop-macos/build.sh
-open "companions/pitstop-macos/dist/Pitstop.app"
+./companions/ai-memory-macos/build.sh
+open "companions/ai-memory-macos/dist/Pitstop.app"
 ```
 
 Drag **Pitstop.app** to `/Applications`, then **Install & Start Server**

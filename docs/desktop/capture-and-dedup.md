@@ -53,7 +53,7 @@ Now concrete per app (paths verified locally unless noted):
   watcher class does not apply.
 
 A watcher/importer remains the importer-envelope (`/hook/batch`) pattern
-from `companions/pitstop-importer`; keep it out of core (RFC #878 rule).
+from `companions/ai-memory-importer`; keep it out of core (RFC #878 rule).
 
 ## 2. Session identity & dedup design
 

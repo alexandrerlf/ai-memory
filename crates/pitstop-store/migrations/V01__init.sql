@@ -1,4 +1,4 @@
--- Initial pitstop schema.
+-- Initial ai-memory schema.
 -- Identity is the 3-tuple (workspace_id, project_id, path) on every domain
 -- table, baked in from M1 so we never inherit basic-memory's v0.20 retrofit
 -- pain (issues #783, #834 and friends).

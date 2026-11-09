@@ -6616,7 +6616,7 @@ fn render_agent_output(
         "# {label} hook scripts (manual install — wire each to the matching event)\n"
     ));
     out.push_str(&format!("# Hook scripts: {}\n", hooks_dir.display()));
-    out.push_str(&format!("# AI-memory server URL: {server_url}\n"));
+    out.push_str(&format!("# Pitstop server URL: {server_url}\n"));
     if auth_token.is_some() {
         out.push_str("# Auth: set PITSTOP_AUTH_TOKEN in each hook's environment to the\n");
         out.push_str("#       value passed via --auth-token (omitted from this printout).\n");
@@ -7116,7 +7116,7 @@ fn render_claude_code(
         settings_path.display()
     );
     println!("# Hook scripts: {}", hooks_dir.display());
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if token_withheld {
         println!("# Auth: a bearer token is configured but NOT embedded below: this file"); // lgtm [rust/cleartext-logging]
         println!("#       lives inside a checkout. Re-run with --apply, which persists the");
@@ -7173,7 +7173,7 @@ fn render_grok(
         config_path.display()
     );
     println!("# Hook scripts: {}", hooks_dir.display());
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.");
         println!(
@@ -7309,7 +7309,7 @@ fn render_zero(
     println!("# Zero hook config — merge into ~/.config/zero/hooks.json");
     println!("# ($XDG_CONFIG_HOME/zero/hooks.json on non-default XDG setups), or");
     println!("# re-run with --apply to merge it in place, preserving other hooks.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: token embedded in each hook's args below.");
         println!("#       Treat hooks.json as sensitive (chmod 600).");
@@ -7576,7 +7576,7 @@ fn render_zcode(
     println!("# ~/.zcode/cli/config.json (the same file `install-mcp --client");
     println!("# zcode` registers MCP servers in), or re-run with --apply to");
     println!("# merge it in place, preserving the rest of the config.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook's args");
         println!("#       so a hand-placed config works as-is — treat it as");
@@ -7673,7 +7673,7 @@ fn render_hermes_output(
     out.push_str("# prompts (or set `hooks_auto_accept: true`). pitstop does not\n");
     out.push_str("# write that file: it is YAML you also edit, and it would have to\n");
     out.push_str("# be spliced. Restart Hermes (and its gateway) to load it.\n");
-    out.push_str(&format!("# AI-memory server URL: {server_url}\n"));
+    out.push_str(&format!("# Pitstop server URL: {server_url}\n"));
     if auth_token.is_some() {
         out.push_str("# Auth: this snippet embeds the token in each hook command —\n");
         out.push_str("#       treat ~/.hermes/config.yaml as sensitive (chmod 600).\n");
@@ -7843,7 +7843,7 @@ fn render_droid(
     println!("# place. If you keep hooks under the `hooks` key of ~/.factory/settings.json");
     println!("# instead, add these entries there: Droid reads settings.json hooks only");
     println!("# while hooks.json does not exist.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!("#       treat the file as sensitive (chmod 600). `--apply` stores it");
@@ -7928,7 +7928,7 @@ fn render_codebuddy(
     println!("# CodeBuddy Code hook config — merge under the `hooks` key of");
     println!("# ~/.codebuddy/settings.json, or re-run with --apply to merge it in");
     println!("# place.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!("#       treat settings.json as sensitive (chmod 600). `--apply` stores it");
@@ -8006,7 +8006,7 @@ fn render_qoder(
         serde_json::to_string_pretty(&payload["hooks"]).context("serializing Qoder hook config")?;
     println!("# Qoder hook config — merge under the `hooks` key of");
     println!("# ~/.qoder/settings.json, or re-run with --apply to merge it in place.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!(
@@ -8092,7 +8092,7 @@ fn render_ibm_bob(
         .context("serializing IBM Bob hook config")?;
     println!("# IBM Bob hook config — merge under the `hooks` key of");
     println!("# ~/.bob/settings/settings.json, or re-run with --apply to merge it in place.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!("#       treat settings.json as sensitive (chmod 600). `--apply` stores it");
@@ -8177,7 +8177,7 @@ fn render_qwen_code(
     println!("# Qwen Code hook config — merge under the `hooks` key of");
     println!("# ~/.qwen/settings.json, or re-run with --apply to merge it in");
     println!("# place. MCP servers share this file under `mcpServers`.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!("#       treat settings.json as sensitive (chmod 600). `--apply` stores it");
@@ -8273,7 +8273,7 @@ fn render_muse(
     println!("# ${{XDG_CONFIG_HOME:-~/.config}}/muse/settings.json, or re-run with --apply");
     println!("# to merge them in place. Keep \"schema_version\": 1: without it every");
     println!("# muse command fails at startup.");
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: this printed snippet embeds the token in each hook command —");
         println!("#       treat the file as sensitive (chmod 600). `--apply` stores it");
@@ -8320,7 +8320,7 @@ fn render_devin(
         "# Devin CLI hook config — write to ~/.devin/hooks.v1.json or ~/.devin/config.json hooks key"
     );
     println!("# Hook scripts: {}", hooks_dir.display());
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.");
         println!(
@@ -8375,7 +8375,7 @@ fn render_kimi_code(
     println!("# with --apply to merge it in place, preserving providers/model and");
     println!("# any third-party [[hooks]] entries already in the file.");
     println!("# Hook scripts: {}", hooks_dir.display());
-    println!("# AI-memory server URL: {server_url}");
+    println!("# Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("# Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.");
         println!("#       Treat config.toml as sensitive (chmod 600).");
@@ -8422,7 +8422,7 @@ fn render_kiro_cli(
     println!("// no file, so create one first (`kiro-cli agent create`). Do not reuse");
     println!("// this v2 registration for v3; use `--agent kiro-cli-v3` instead.");
     println!("// Hook scripts: {}", hooks_dir.display());
-    println!("// AI-memory server URL: {server_url}");
+    println!("// Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("// Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.");
         println!("//       Treat agent configs as sensitive (chmod 600).");
@@ -8465,7 +8465,7 @@ fn render_kiro_cli_v3(
     println!("// $KIRO_HOME/hooks/pitstop.json (~/.kiro/hooks/pitstop.json when unset),");
     println!("// or re-run with --apply for an atomic, idempotent merge.");
     println!("// Hook scripts: {}", hooks_dir.display());
-    println!("// AI-memory server URL: {server_url}");
+    println!("// Pitstop server URL: {server_url}");
     if auth_token.is_some() {
         println!("// Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.");
         println!("//       Treat the hook file as sensitive (chmod 600).");
@@ -8539,7 +8539,7 @@ fn render_pool_output(
     out.push_str("# does not write committed project files, so paste this snippet manually\n");
     out.push_str("# (re-run with --apply first to stage the scripts to a stable path).\n");
     out.push_str(&format!("# Hook scripts: {}\n", hooks_dir.display()));
-    out.push_str(&format!("# AI-memory server URL: {server_url}\n"));
+    out.push_str(&format!("# Pitstop server URL: {server_url}\n"));
     if auth_token.is_some() {
         out.push_str("# Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.\n");
         out.push_str("#       Treat .poolside/settings.yaml as sensitive (chmod 600).\n");
@@ -8855,7 +8855,7 @@ fn render_dsh_output(
     out.push_str("# `configPath`. Re-run with --apply first to stage the scripts\n");
     out.push_str("# and materialize the hooks.json at a stable path.\n");
     out.push_str(&format!("# Hook scripts: {}\n", hooks_dir.display()));
-    out.push_str(&format!("# AI-memory server URL: {server_url}\n"));
+    out.push_str(&format!("# Pitstop server URL: {server_url}\n"));
     if auth_token.is_some() {
         out.push_str("# Auth: PITSTOP_AUTH_TOKEN embedded in each hook command below.\n");
         out.push_str("#       Treat the hook config as sensitive (chmod 600).\n");

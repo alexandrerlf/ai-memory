@@ -19740,13 +19740,13 @@ pub(crate) mod tests {
 
     /// A prefix search on a hyphenated term (`ai-mem*`) must still be a
     /// prefix search once the token is quoted for its punctuation, and match
-    /// both the content token `pitstop` and the split path index.
+    /// both the content token `ai-memory` and the split path index.
     #[test]
     fn prefix_search_on_punctuated_term_matches_content_and_path() {
         let (_tmp, mut conn, ws, proj) = fresh_db();
         upsert_page(
             &mut conn,
-            &page(ws, proj, "notes/content.md", "we ship pitstop today"),
+            &page(ws, proj, "notes/content.md", "we ship ai-memory today"),
         )
         .unwrap();
         upsert_page(

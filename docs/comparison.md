@@ -46,7 +46,7 @@ What still sets pitstop apart:
 - **Capture under the harness you already use.** One server; 20+ harnesses
   (Claude Code, Codex, Cursor, Gemini, OpenCode, Kimi, …) feed and read the
   same memory. Replication between servers is not automatic; in 3.0
-  the `pitstop-wikisync` companion adds two-way,
+  the `ai-memory-wikisync` companion adds two-way,
   conflict-aware sync between a server's wiki and a git repository.
 
 It also publishes retrieval numbers, produced by the in-repo harness with full
@@ -237,7 +237,7 @@ ships something pitstop does not, it is named.
   local “My Work” dashboard. TeamBrain adds optional paid shared-work and
   collision views; pitstop shares project memory without that cloud layer
   but has no equivalent human work queue yet. The optional
-  `pitstop-importer claude-mem` command can plan or migrate supported local
+  `ai-memory-importer claude-mem` command can plan or migrate supported local
   claude-mem SQLite schema families into explicitly mapped existing projects;
   sensitive rows are excluded and live writes use bounded atomic batches.
 - **From MemPalace:** you keep hook capture for Claude Code, Codex and Cursor
@@ -262,13 +262,13 @@ ships something pitstop does not, it is named.
   per-stream timings in `explain=true` and a root-only Prometheus
   `/admin/metrics` instead), the coordination tools (leases, actions,
   routines, signals, sentinels), mesh sync (the nearest equivalent is the
-  git-based `pitstop-wikisync` companion), image memory, the two-way Claude
+  git-based `ai-memory-wikisync` companion), image memory, the two-way Claude
   `MEMORY.md` bridge, PaaS deploy templates, an npm package (pitstop installs
   natively on Linux, macOS and Windows in two commands — `install.sh`/
   `install.ps1` then `pitstop setup` — but has no `npx` route), and the
   opt-in local cross-encoder reranker. The benchmark numbers are not
   like-for-like (component vs pipeline, see above). To move your data, the
-  `pitstop-importer` companion (3.0) reads agentmemory's Obsidian vault
+  `ai-memory-importer` companion (3.0) reads agentmemory's Obsidian vault
   (`agentmemory-vault`) or its `ExportData` JSON (`agentmemory-export`), and
   `pitstop doctor` flags agentmemory MCP entries and rules-file guideline
   blocks left behind; see

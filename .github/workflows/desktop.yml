@@ -1,6 +1,6 @@
 name: desktop
 
-# The Tauri desktop installer in companions/pitstop-desktop. It is its own
+# The Tauri desktop installer in companions/ai-memory-desktop. It is its own
 # Cargo workspace with a webview toolchain (webkit2gtk on Linux), so nothing
 # in the core workflows builds it. A pull request touching it runs the check
 # job; the bundle job runs on manual dispatch or on a pull request labelled
@@ -10,7 +10,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
     paths:
-      - 'companions/pitstop-desktop/**'
+      - 'companions/ai-memory-desktop/**'
       - '.github/workflows/desktop.yml'
   workflow_dispatch:
 
@@ -23,7 +23,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  MANIFEST: companions/pitstop-desktop/Cargo.toml
+  MANIFEST: companions/ai-memory-desktop/Cargo.toml
 
 jobs:
   check:
@@ -68,23 +68,23 @@ jobs:
         run: |
           triple="$(rustc -vV | sed -n 's/^host: //p')"
           ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
-          dest=companions/pitstop-desktop/binaries
+          dest=companions/ai-memory-desktop/binaries
           mkdir -p "$dest"
           cp "target/release/pitstop$ext" "$dest/pitstop-$triple$ext"
           cp -R hooks "$dest/hooks"
       - name: Install the Tauri CLI
         run: cargo install tauri-cli --locked --version 2.9.5
       - name: Build the installers
-        working-directory: companions/pitstop-desktop
+        working-directory: companions/ai-memory-desktop
         run: cargo tauri build --config tauri.bundle.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pitstop-desktop-${{ matrix.os }}-unsigned
+          name: ai-memory-desktop-${{ matrix.os }}-unsigned
           path: |
-            companions/pitstop-desktop/target/release/bundle/**/*.deb
-            companions/pitstop-desktop/target/release/bundle/**/*.rpm
-            companions/pitstop-desktop/target/release/bundle/**/*.AppImage
-            companions/pitstop-desktop/target/release/bundle/**/*.dmg
-            companions/pitstop-desktop/target/release/bundle/**/*.msi
-            companions/pitstop-desktop/target/release/bundle/**/*-setup.exe
+            companions/ai-memory-desktop/target/release/bundle/**/*.deb
+            companions/ai-memory-desktop/target/release/bundle/**/*.rpm
+            companions/ai-memory-desktop/target/release/bundle/**/*.AppImage
+            companions/ai-memory-desktop/target/release/bundle/**/*.dmg
+            companions/ai-memory-desktop/target/release/bundle/**/*.msi
+            companions/ai-memory-desktop/target/release/bundle/**/*-setup.exe
           if-no-files-found: error

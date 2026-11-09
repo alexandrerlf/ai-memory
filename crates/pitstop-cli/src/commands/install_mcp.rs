@@ -4591,7 +4591,7 @@ mod tests {
         let mut args = args_with_token(McpClient::ClaudeCode);
         args.server_url = Some("https://memory.example/mcp".into());
         args.session_aware = true;
-        args.bridge_data_dir = Some(PathBuf::from("/srv/Pitstop/data"));
+        args.bridge_data_dir = Some(PathBuf::from("/srv/Pit Stop/data"));
 
         let entry = build_mcp_entry(&args).unwrap();
 
@@ -4604,7 +4604,7 @@ mod tests {
                 "--server-url",
                 "https://memory.example/mcp",
                 "--data-dir",
-                "/srv/Pitstop/data"
+                "/srv/Pit Stop/data"
             ])
         );
         assert_eq!(entry["env"]["PITSTOP_AUTH_TOKEN"], "test-token-deadbeef");
@@ -4617,7 +4617,7 @@ mod tests {
             "{} mcp-bridge --server-url",
             shell_quote(&bridge_command())
         )));
-        assert!(rendered.contains("--data-dir '/srv/Pitstop/data'"));
+        assert!(rendered.contains("--data-dir '/srv/Pit Stop/data'"));
     }
 
     #[test]

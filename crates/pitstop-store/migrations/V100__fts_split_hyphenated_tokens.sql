@@ -1,5 +1,5 @@
 -- FTS5's `unicode61 ... tokenchars '_-'` keeps `foo-bar-alpha` as ONE token
--- (V12 then V97 chose that on purpose, so `pitstop` stays a single term).
+-- (V12 then V97 chose that on purpose, so `ai-memory` stays a single term).
 -- The cost surfaced in #2013: the token's component words are unreachable
 -- lexically — `alpha` never matched `foo-bar-alpha`, only the quoted whole
 -- token did, and `global` search (FTS-only) missed the page entirely.

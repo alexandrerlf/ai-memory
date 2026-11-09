@@ -27,9 +27,9 @@ For the full list of changes, see the 3.0.0 section of
    It is your only way back to 2.x (see [Rolling back](#rolling-back)).
 3. Note the 2.x version you run (`pitstop --version`) in case you need to
    reinstall it.
-4. If you use the `pitstop-wikisync` or `pitstop-importer` companions,
+4. If you use the `ai-memory-wikisync` or `ai-memory-importer` companions,
    upgrade the server first. Their 3.0 versions refuse to write to a server
-   older than 3.0. The first `pitstop-wikisync` run after the upgrade
+   older than 3.0. The first `ai-memory-wikisync` run after the upgrade
    rewrites unedited files from an earlier export so they carry the new
    frontmatter.
 5. The Claude Code and Codex marketplace plugins need pitstop 3.0 or later.

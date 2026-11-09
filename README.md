@@ -339,8 +339,8 @@ Needs a Rust toolchain and Xcode / Swift 6 (same as a source build):
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
 cd pitstop
-./companions/pitstop-macos/build.sh
-open "companions/pitstop-macos/dist/Pitstop.app"
+./companions/ai-memory-macos/build.sh
+open "companions/ai-memory-macos/dist/Pitstop.app"
 ```
 
 Drag **Pitstop.app** to `/Applications`, then **Install & Start Server**
@@ -356,7 +356,7 @@ BIN="/Applications/Pitstop.app/Contents/Resources/runtime/pitstop"
 
 Prebuilt tarball and launchd-without-the-app paths:
 [`docs/macos.md`](docs/macos.md). Companion details:
-[`companions/pitstop-macos`](companions/pitstop-macos).
+[`companions/ai-memory-macos`](companions/ai-memory-macos).
 
 ### Docker
 
@@ -627,7 +627,7 @@ readable wiki pages; the next session starts with a handoff.
 - Ask "where did we leave off?" to continue from the pending handoff.
 - Import a local PDF, DOCX, PPTX, XLSX, Markdown file, or VTT/SRT transcript as
   attributed, sanitized memory with the optional
-  [`pitstop-importer`](companions/pitstop-importer) `document` command.
+  [`ai-memory-importer`](companions/ai-memory-importer) `document` command.
 - Ask "have we discussed X?" or "search memory for Y" to query the wiki.
 - Narrow a large wiki before ranking with `memory_query` filters such as
   `path_prefix: "procedures/"`, `tag: "rust"`, `kind: "decision"`, or
@@ -804,7 +804,7 @@ diagram, crate breakdown, schema notes, and invariants.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Operational summary: data flow, crate layout, cross-cutting invariants, schema. |
 | [`docs/design-decisions.md`](docs/design-decisions.md) | The full v1 spec. |
 | [`docs/managed-harness-contributions.md`](docs/managed-harness-contributions.md) | Protocol and acceptance bar for adding managed resume, transcript import, and startup context delivery to another harness. |
-| [`docs/companion-crates.md`](docs/companion-crates.md) | Optional companion projects: the [importer](companions/pitstop-importer), [external lifecycle relay](companions/pitstop-relay), [team-wiki sync](companions/pitstop-wikisync), the [TypeScript client SDK](companions/pitstop-ts) and the [desktop installer](companions/pitstop-desktop) (unsigned preview). |
+| [`docs/companion-crates.md`](docs/companion-crates.md) | Optional companion projects: the [importer](companions/ai-memory-importer), [external lifecycle relay](companions/ai-memory-relay), [team-wiki sync](companions/ai-memory-wikisync), the [TypeScript client SDK](companions/ai-memory-ts) and the [desktop installer](companions/ai-memory-desktop) (unsigned preview). |
 | [`docs/external-lifecycle.md`](docs/external-lifecycle.md) | External lifecycle producers: per-execution native capture suppression, preserved handoffs, batch ingestion and stable retry identity. |
 | [`docs/auto-improvement-loop.md`](docs/auto-improvement-loop.md) | Auto-improvement design notes: scheduled review, auto-approval default, manual review opt-in, pending proposal storage, and curator work. |
 

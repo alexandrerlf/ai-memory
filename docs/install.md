@@ -1329,8 +1329,8 @@ Needs a Rust toolchain and Xcode / Swift 6 (the same as a source build):
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
 cd pitstop
-./companions/pitstop-macos/build.sh
-open "companions/pitstop-macos/dist/Pitstop.app"
+./companions/ai-memory-macos/build.sh
+open "companions/ai-memory-macos/dist/Pitstop.app"
 ```
 
 Drag **Pitstop.app** to `/Applications`, then **Install & Start Server**
@@ -1348,7 +1348,7 @@ Durable memory stays in `~/Library/Application Support/pitstop`. Replacing
 the `.app` is an update and does not rewrite that tree. Prebuilt tarball,
 source-build, Docker-wrapper, and hand-installed launchd paths remain in
 [`docs/macos.md`](macos.md). Companion source:
-[`companions/pitstop-macos`](../companions/pitstop-macos).
+[`companions/ai-memory-macos`](../companions/ai-memory-macos).
 
 ---
 
@@ -3950,7 +3950,7 @@ the wrapper instead writes the inspected standalone recreation script for
 review, preserving the existing `/data` mount and other runtime options.
 
 The macOS menu bar app is not covered by `pitstop upgrade`. Rebuild with
-`./companions/pitstop-macos/build.sh` (or replace `/Applications/Pitstop.app`
+`./companions/ai-memory-macos/build.sh` (or replace `/Applications/Pitstop.app`
 with a newer staged bundle). Wiki, SQLite, config, and models stay in
 `~/Library/Application Support/pitstop`.
 

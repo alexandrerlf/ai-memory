@@ -1,6 +1,6 @@
 -- `/` leaves tokenchars: `crates/store/src/ops.rs` used to index as the single
 -- term `crates/store/src/ops`, so `ops.rs` and `ops` never matched it. `_` and
--- `-` stay so `pitstop` remains one token. The tokenizer is fixed at CREATE
+-- `-` stay so `ai-memory` remains one token. The tokenizer is fixed at CREATE
 -- time: drop, recreate, rebuild. External-content tables; source rows untouched.
 
 -- ── pages_fts ────────────────────────────────────────────────────────────

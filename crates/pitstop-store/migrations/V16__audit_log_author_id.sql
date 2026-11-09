@@ -15,7 +15,7 @@
 -- the author on the audit row itself preserves point-in-time truth.
 --
 -- ON DELETE SET NULL matches V15: if an operator ever hard-deletes
--- a `users` row (which `pitstop user expire` does NOT do — see
+-- a `users` row (which `ai-memory user expire` does NOT do — see
 -- docs/users.md — but a future `purge` op could), the audit trail's
 -- timestamp + op + page reference all survive; only the
 -- "who did it" anchor becomes NULL, which the API surfaces by

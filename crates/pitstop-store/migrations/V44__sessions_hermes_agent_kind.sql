@@ -1,7 +1,7 @@
 -- Expand sessions.agent_kind CHECK for Hermes Agent.
 --
 -- The official Hermes shell-hook protocol identifies the agent separately
--- from pitstop's third-party installer surface. Rebuilding this table must
+-- from ai-memory's third-party installer surface. Rebuilding this table must
 -- retain the V35 observation watermark, V40 owner, every current index, and
 -- every trigger that validates a child row against its session scope.
 

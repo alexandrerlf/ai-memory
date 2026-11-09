@@ -1,5 +1,5 @@
 -- Per-project cross-project profile settings, forwarded from the nearest
--- `.pitstop.toml` `[profile]` section at session start
+-- `.ai-memory.toml` `[profile]` section at session start
 -- (docs/design-cross-project-profile.md). `profile_contribute = 0` keeps the
 -- project out of profile harvesting (client or NDA work); `profile_consume =
 -- 0` keeps the profile out of the project's session-start digest and query

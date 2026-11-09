@@ -48,7 +48,7 @@ assert_contains() {
   fi
 }
 
-# The TypeScript SDK in companions/pitstop-ts is optional and never ships
+# The TypeScript SDK in companions/ai-memory-ts is optional and never ships
 # with the server. Release tarballs, Homebrew, the Docker image, AUR, RPM and
 # Nix build the root Cargo workspace and copy hooks/ only. Fail if any of
 # their build files starts referencing the SDK.
@@ -69,7 +69,7 @@ assert_no_sdk_reference() {
   local file hits
   for file in "$@"; do
     [ -f "${file}" ] || fail "server distribution file ${file} is missing; update SERVER_DISTRIBUTION_FILES"
-    hits="$(grep -n 'pitstop-ts' "${file}" || true)"
+    hits="$(grep -n 'ai-memory-ts' "${file}" || true)"
     if [ -n "${hits}" ]; then
       fail "${file} references the optional TypeScript SDK, which must stay out of the server distribution: ${hits}"
     fi
@@ -82,7 +82,7 @@ check_sdk_not_distributed() {
   # Prove the guard bites: a distribution file that names the SDK must fail.
   local probe
   probe="$(mktemp)"
-  printf 'COPY companions/pitstop-ts /opt/sdk\n' >"${probe}"
+  printf 'COPY companions/ai-memory-ts /opt/sdk\n' >"${probe}"
   if (assert_no_sdk_reference "${probe}") 2>/dev/null; then
     rm -f "${probe}"
     fail "the SDK distribution guard did not catch a reference"

@@ -1,6 +1,6 @@
 name: sdk-ts-publish
 
-# Publishes the optional TypeScript SDK (companions/pitstop-ts) to npm with
+# Publishes the optional TypeScript SDK (companions/ai-memory-ts) to npm with
 # trusted publishing (OIDC, no stored npm token) and a provenance statement.
 #
 # DISABLED until the maintainer approves publishing (decision D1 in
@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "SDK version to publish; must equal companions/pitstop-ts/package.json"
+        description: "SDK version to publish; must equal companions/ai-memory-ts/package.json"
         required: true
         type: string
 
@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
   publish:
-    name: publish pitstop-ts
+    name: publish ai-memory-ts
     runs-on: ubuntu-latest
     # The `npm` environment is where required reviewers can gate a publish.
     environment: npm
@@ -49,7 +49,7 @@ jobs:
       id-token: write
     defaults:
       run:
-        working-directory: companions/pitstop-ts
+        working-directory: companions/ai-memory-ts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

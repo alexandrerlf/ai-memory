@@ -5,7 +5,7 @@ Run with:
 
     uv run --no-project python tests/e2e/external_relay_smoke.py \
       --pitstop-bin /absolute/pitstop \
-      --relay-bin /absolute/pitstop-relay
+      --relay-bin /absolute/ai-memory-relay
 
 The test starts only isolated local processes and gives them a minimal,
 synthetic environment. Every invocation preserves its temporary root, including
@@ -164,13 +164,13 @@ class DropFirstResponseProxy:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run an isolated real-server E2E test for pitstop-relay. All "
+            "Run an isolated real-server E2E test for ai-memory-relay. All "
             "artifacts are retained; exit status 0 means every assertion passed."
         ),
         epilog=(
             "Example: uv run --no-project python tests/e2e/external_relay_smoke.py "
             "--pitstop-bin /absolute/pitstop "
-            "--relay-bin /absolute/pitstop-relay"
+            "--relay-bin /absolute/ai-memory-relay"
         ),
     )
     parser.add_argument(
@@ -183,7 +183,7 @@ def parse_args() -> argparse.Namespace:
         "--relay-bin",
         required=True,
         type=Path,
-        help="absolute path to the pitstop-relay executable",
+        help="absolute path to the ai-memory-relay executable",
     )
     parser.add_argument(
         "--timeout-seconds",

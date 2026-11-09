@@ -426,7 +426,7 @@ fn prepare_fts5_token(token: &str) -> Vec<String> {
     }
 
     // A known column filter keeps its column when its term needs quoting:
-    // `title:pitstop` becomes `{title title_parts}:("pitstop" OR "ai
+    // `title:ai-memory` becomes `{title title_parts}:("ai-memory" OR "ai
     // memory")`, not a quoted phrase that also searches for the literal word
     // `title`. A second colon in the term (`title:10:30`) needs that same
     // quoting: left bare, FTS5 reads the inner `10` as a column name and
@@ -499,13 +499,13 @@ fn quote_fts5_token(token: &str) -> String {
     // phrase, OR'd, because the content tokenizer and the path index disagree
     // on punctuation:
     //   tokenize = "unicode61 remove_diacritics 2 tokenchars '_-'"
-    // keeps `_ -` INSIDE tokens (so a body mention of `pitstop` indexes as
-    // the single token `pitstop`), while `ops::path_search_text` pre-expands
+    // keeps `_ -` INSIDE tokens (so a body mention of `ai-memory` indexes as
+    // the single token `ai-memory`), while `ops::path_search_text` pre-expands
     // `/ . - _` to spaces in the path index (so a path `ui-refresh-…` indexes
     // the sub-tokens `ui`, `refresh`, …). `/` and `.` are separators either way.
-    // Neither form alone matches both: `"pitstop"` matches the content token
+    // Neither form alone matches both: `"ai-memory"` matches the content token
     // but not the split path index; `"ai memory"` matches the path but not the
-    // content token. OR-ing the two makes a search for `pitstop` / `ui-refresh`
+    // content token. OR-ing the two makes a search for `ai-memory` / `ui-refresh`
     // hit whichever surface indexed it. (Quoting both also neutralises the
     // punctuation that would otherwise be FTS5 query grammar — the original
     // `current.md` → `syntax error` bug.) With no punctuation the two coincide
@@ -513,7 +513,7 @@ fn quote_fts5_token(token: &str) -> String {
     //
     // Since V100 (#2013) the content index carries both surfaces too: the
     // `*_parts` generated columns hold `-`/`_` turned into spaces, so `"ai
-    // memory"` also reaches a body that writes `pitstop`, and a search for
+    // memory"` also reaches a body that writes `ai-memory`, and a search for
     // one part (`alpha`) reaches `zebrafinch-marker-alpha`. The OR below stays
     // as is — it now hits on either column instead of only on the path index.
     //
@@ -794,11 +794,11 @@ mod tests {
     #[test]
     fn colon_is_not_column_syntax() {
         // Bare multi-word → OR-joined (no explicit operator present).
-        // `pitstop` expands to BOTH the whole token (matches content) and
+        // `ai-memory` expands to BOTH the whole token (matches content) and
         // the sub-token phrase (matches the split path index) — see
         // `quote_fts5_token`.
-        let q = prepare_fts5_query("pick: handoff pitstop");
-        assert_eq!(q, "\"pick\" OR handoff OR (\"pitstop\" OR \"ai memory\")");
+        let q = prepare_fts5_query("pick: handoff ai-memory");
+        assert_eq!(q, "\"pick\" OR handoff OR (\"ai-memory\" OR \"ai memory\")");
     }
 
     #[test]
@@ -902,8 +902,8 @@ mod tests {
     fn quote_emits_whole_and_subtoken_phrase() {
         // Punctuated identifier → both forms OR'd.
         assert_eq!(
-            quote_fts5_token("pitstop"),
-            r#"("pitstop" OR "ai memory")"#
+            quote_fts5_token("ai-memory"),
+            r#"("ai-memory" OR "ai memory")"#
         );
         // A literal-quote fragment keeps the simple escaped form (no expansion).
         assert_eq!(quote_fts5_token(r#"say "hello""#), r#""say ""hello""""#);
@@ -979,14 +979,14 @@ mod tests {
     #[test]
     fn known_column_filter_survives_quoting_of_its_term() {
         assert_eq!(
-            prepare_fts5_query("title:pitstop"),
-            r#"{title title_parts}:("pitstop" OR "ai memory")"#
+            prepare_fts5_query("title:ai-memory"),
+            r#"{title title_parts}:("ai-memory" OR "ai memory")"#
         );
         assert_eq!(
             prepare_fts5_query("body:current.md OR title:handoff"),
             r#"{body body_parts}:("current.md" OR "current md") OR {title title_parts}:handoff"#
         );
-        for raw in ["title:pitstop", "body:a.b c", "title:-", "title:a:b"] {
+        for raw in ["title:ai-memory", "body:a.b c", "title:-", "title:a:b"] {
             let prepared = prepare_fts5_query(raw);
             if !prepared.is_empty() {
                 assert_parses(&prepared);
@@ -1023,8 +1023,8 @@ mod tests {
             "({title title_parts}:handoff OR {body body_parts}:deploy)"
         );
         assert_eq!(
-            prepare_fts5_query("(title:pitstop) AND deploy"),
-            r#"({title title_parts}:("pitstop" OR "ai memory")) AND deploy"#
+            prepare_fts5_query("(title:ai-memory) AND deploy"),
+            r#"({title title_parts}:("ai-memory" OR "ai memory")) AND deploy"#
         );
         for raw in [
             "(title:handoff)",

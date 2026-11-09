@@ -117,7 +117,7 @@ jobs:
               - 'tests/install_ps1.ps1'
               - '.github/workflows/windows.yml'
             wikisync:
-              - 'companions/pitstop-wikisync/**'
+              - 'companions/ai-memory-wikisync/**'
               - '.github/workflows/windows.yml'
 
   # This companion has its own Cargo workspace. Its path changes run native
@@ -139,10 +139,10 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          workspaces: companions/pitstop-wikisync
-      - run: cargo fmt --check --manifest-path companions/pitstop-wikisync/Cargo.toml
-      - run: cargo clippy --locked --manifest-path companions/pitstop-wikisync/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --locked --manifest-path companions/pitstop-wikisync/Cargo.toml
+          workspaces: companions/ai-memory-wikisync
+      - run: cargo fmt --check --manifest-path companions/ai-memory-wikisync/Cargo.toml
+      - run: cargo clippy --locked --manifest-path companions/ai-memory-wikisync/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --locked --manifest-path companions/ai-memory-wikisync/Cargo.toml
 
   test:
     name: test (windows-latest)
@@ -168,13 +168,13 @@ jobs:
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
-          cargo fmt --check --manifest-path companions/pitstop-relay/Cargo.toml
+          cargo fmt --check --manifest-path companions/ai-memory-relay/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --manifest-path companions/pitstop-relay/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --locked --manifest-path companions/ai-memory-relay/Cargo.toml --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --manifest-path companions/pitstop-relay/Cargo.toml
+          cargo test --locked --manifest-path companions/ai-memory-relay/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --locked --manifest-path companions/pitstop-relay/Cargo.toml
+          cargo build --locked --manifest-path companions/ai-memory-relay/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
@@ -183,7 +183,7 @@ jobs:
         run: >
           uv run --no-project python tests/e2e/external_relay_smoke.py
           --pitstop-bin "${{ github.workspace }}/target/debug/pitstop.exe"
-          --relay-bin "${{ github.workspace }}/target/debug/pitstop-relay.exe"
+          --relay-bin "${{ github.workspace }}/target/debug/ai-memory-relay.exe"
           --timeout-seconds 120
 
   # `ci.yml`'s `hooks-shell` job covers the POSIX bundle across four awks, all

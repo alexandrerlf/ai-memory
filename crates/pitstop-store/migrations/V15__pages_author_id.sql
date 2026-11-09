@@ -11,7 +11,7 @@
 --   * Rung 2 (DB user) writes → the user's id.
 --
 -- `ON DELETE SET NULL` keeps historical attribution stable when an
--- operator hard-deletes a user row (which `pitstop user expire` does
+-- operator hard-deletes a user row (which `ai-memory user expire` does
 -- NOT do — see docs/users.md — but a future `purge` op could). The
 -- `last_modified_by` frontmatter on disk is the canonical historical
 -- record; this column is the JOIN key the web UI / `/api/v1` use to

@@ -37,7 +37,7 @@ CREATE INDEX idx_profile_candidates_observed
 -- it has already seen (microseconds, the V01 convention).
 -- Every profile page the harvester wrote, in the profile scope that holds it,
 -- with the topic it covers and when it was last written. A ledger row whose
--- page no longer exists means the user removed the entry (`pitstop profile
+-- page no longer exists means the user removed the entry (`ai-memory profile
 -- forget`, or a page delete): convergence then leaves that topic alone until
 -- the user states it again after `written_at`, instead of recreating it from
 -- the same evidence on the next pass.

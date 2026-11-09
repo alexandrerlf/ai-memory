@@ -124,7 +124,7 @@ payload. What shipped, under the existing `antigravity-cli` agent kind:
   stomping).
 - Signing/notarization costs as in RFC #878 (unchanged).
 - Status (3.1, #1273): the installer half exists as
-  `companions/pitstop-desktop`, on Tauri v2. It installs or reuses the
+  `companions/ai-memory-desktop`, on Tauri v2. It installs or reuses the
   binary following these coexistence rules and shows `pitstop setup --web`
   in its window; detect-before-spawn and `server_profiles` come from `setup`
   itself. CI builds unsigned installers on dispatch. Still open: signing and

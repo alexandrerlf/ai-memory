@@ -10,16 +10,16 @@ d8361d3c3a86f870f74841b53c568c64fe42ab1f:crates/pitstop-core/src/sanitize.rs:gen
 9aaa7f73a33b49a4c4ce790d373c83bb24c17306:crates/pitstop-cli/tests/suite/backup_agents.rs:github-pat:183
 9aaa7f73a33b49a4c4ce790d373c83bb24c17306:crates/pitstop-cli/tests/suite/backup_agents.rs:github-pat:213
 # Fixed relay queue error label; contains no credential material.
-d7ba81976c35b0462f35a4efc53b44347c42295a:companions/pitstop-relay/src/relay.rs:generic-api-key:331
+d7ba81976c35b0462f35a4efc53b44347c42295a:companions/ai-memory-relay/src/relay.rs:generic-api-key:331
 4927e9f3c9243db213b7b77c000b4622038cc34f:crates/pitstop-core/src/sanitize.rs:generic-api-key:526
 # Synthetic idempotency key in a PowerShell outage test; contains no credential material.
 adc65423be5e8379b0f40de1d7fb38b094e0940d:tests/hooks/test_spool_ps.ps1:generic-api-key:21
 # Planted canary in the /admin/metrics leak test (split with concat! since); contains no credential material.
 0832025e2aaba073f07da516633bf7b70d6dce86:crates/pitstop-mcp/tests/suite/admin_metrics.rs:github-pat:31
 # Synthetic credential-shaped id in an importer refusal test (split since); contains no credential material.
-47523180f01f1361e030cd16d45712f7889c99a9:companions/pitstop-importer/src/agentmemory/vault.rs:github-pat:498
+47523180f01f1361e030cd16d45712f7889c99a9:companions/ai-memory-importer/src/agentmemory/vault.rs:github-pat:498
 # Synthetic key in an importer redaction test (split since); contains no credential material.
-47523180f01f1361e030cd16d45712f7889c99a9:companions/pitstop-importer/src/agentmemory/export/tests.rs:generic-api-key:272
+47523180f01f1361e030cd16d45712f7889c99a9:companions/ai-memory-importer/src/agentmemory/export/tests.rs:generic-api-key:272
 # Synthetic key-block fixtures used to prove that complete and truncated
 # private keys are redacted. The body is a short base64 encoding of a literal
 # fake marker, and the shared fixture explicitly labels every value fake.
@@ -37,10 +37,10 @@ adc65423be5e8379b0f40de1d7fb38b094e0940d:tests/hooks/test_spool_ps.ps1:generic-a
 # were ported between release lines, plus a literal provider placeholder used
 # only to test comma-separated environment parsing.
 43b00a0e797c59252c1d6ac1f8b2e37c985534f2:crates/pitstop-mcp/tests/suite/admin_metrics.rs:github-pat:31
-b19ee0c040fb766a5c7405c9e22159fdbc1e2ef4:companions/pitstop-importer/src/agentmemory/export/tests.rs:generic-api-key:272
+b19ee0c040fb766a5c7405c9e22159fdbc1e2ef4:companions/ai-memory-importer/src/agentmemory/export/tests.rs:generic-api-key:272
 43a60cde7036c1ad4618001058d64fcc9b72d8ae:crates/pitstop-cli/tests/llm_env.rs:generic-api-key:172
 # Synthetic GitHub-token shape in a claude-mem metadata sanitizer test (split since); contains no credential material.
-9fb7c1d7f390abcc8d639f514f181dd147be07b5:companions/pitstop-importer/src/claude_mem.rs:github-pat:1291
+9fb7c1d7f390abcc8d639f514f181dd147be07b5:companions/ai-memory-importer/src/claude_mem.rs:github-pat:1291
 # Synthetic `generate-auth-token`-shaped values (0123456789abcdef repeated) in the #1982 sanitizer regression vectors; contain no credential material.
 05477cd44a86c923eeeb1b70352bf612fd8c60ac:crates/pitstop-hooks/tests/suite/escaped_json_secret.rs:generic-api-key:114
 05477cd44a86c923eeeb1b70352bf612fd8c60ac:tests/fixtures/sanitizer_vectors.json:generic-api-key:10

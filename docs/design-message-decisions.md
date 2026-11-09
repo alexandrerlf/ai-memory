@@ -45,7 +45,7 @@ Checked against `main` at `b70679af`. The messaging code on `release/3.1`
 | Auth | `crates/pitstop-core/src/actor.rs`, `auth.rs`, `docs/security.md:5-12` | `Capability::Admin` passes for all when operators are not distinguished, else root only (`actor.rs:218-222`). Root bearer and the proxy root OIDC pair: `Root`. `aim_` key: `User`, also for `role=root` (`docs/users.md:62`). stdio: allowed, because "the caller already has the data directory" (`server.rs:3512`, `:3516-3517`). `pitstop init` writes the root bearer to the data dir for the hooks, the CLI and `pitstop mcp-bridge`. Grants: `crates/pitstop-store/src/project_authz.rs` `authorize_project`; `restricted` admits root, the creator and grant holders (`docs/users.md:745-748`). |
 | Admission | `crates/pitstop-wiki/src/wiki.rs:1457-1459` | Decide, act, notify, on every path that raises an op. Observers drop past 256 in flight (`docs/admission-webhooks.md:364`). No body or id in the payload. |
 | Notice | `crates/pitstop-hooks/src/router.rs:1801`, `:1914-1918` | Count only. It tells each new session to pop the next message. |
-| Errors, SDK | `server.rs` `precondition_failed` (`:6937`); `companions/pitstop-ts/src/transport.ts:536-538`, `capabilities.ts`, `decode.ts` | `invalid_request` with `data.reason` is the precedent. The SDK maps only `precondition_failed` by reason, gates features on schema properties, and keeps unknown fields in `raw`. |
+| Errors, SDK | `server.rs` `precondition_failed` (`:6937`); `companions/ai-memory-ts/src/transport.ts:536-538`, `capabilities.ts`, `decode.ts` | `invalid_request` with `data.reason` is the precedent. The SDK maps only `precondition_failed` by reason, gates features on schema properties, and keeps unknown fields in `raw`. |
 
 ## 3. Proposal
 

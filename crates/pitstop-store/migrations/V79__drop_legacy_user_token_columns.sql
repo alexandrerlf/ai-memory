@@ -1,13 +1,13 @@
 -- Retire the 1.x compatibility-token columns (3.0).
 --
--- `pitstop user add|expire|revive|rotate-token` and their admin endpoints
+-- `ai-memory user add|expire|revive|rotate-token` and their admin endpoints
 -- were the only writers of `users.token_hash` and `users.token_expired_at`.
 -- V55's mirror triggers copied each of those writes into the user's
 -- `legacy-user-token` row in `api_credentials`, and authentication has read
 -- only `api_credentials` since V55. With the commands removed, nothing reads
 -- or writes either column, so both columns and the four V55 triggers on them
 -- go. `api_credentials` is not touched: a token issued by the old commands
--- keeps authenticating as an ordinary API key, managed with `pitstop
+-- keeps authenticating as an ordinary API key, managed with `ai-memory
 -- api-key list|rotate|revoke`.
 --
 -- `ALTER TABLE ... DROP COLUMN` refuses a UNIQUE column, so `users` is

@@ -3,7 +3,7 @@
 -- A directed, claim-once mailbox between projects: an agent in one project
 -- (the sender coordinate) drops a message addressed to another project (the
 -- recipient coordinate); the next session working in the recipient project
--- pops it exactly once. This is the ONE place pitstop deliberately crosses
+-- pops it exactly once. This is the ONE place ai-memory deliberately crosses
 -- the per-project isolation boundary (AGENTS.md invariant #4/#16), so the
 -- crossing is explicit and bidirectionally scoped: a project can only ever
 -- read mail addressed TO it (its inbox) or sent FROM it (its outbox). No

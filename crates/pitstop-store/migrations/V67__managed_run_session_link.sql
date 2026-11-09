@@ -3,7 +3,7 @@
 -- `managed_runs.native_session_id` starts as the workstream's current session
 -- when the run is prepared, and a hook in the launched child (or the launcher
 -- itself, before the spawn) replaces it through the link path. A link that
--- repeats the prepared session left no trace, so after exit `pitstop run`
+-- repeats the prepared session left no trace, so after exit `ai-memory run`
 -- could not tell "the child confirmed this session" from "nothing linked", and
 -- fell back to the newest session in the checkout, which a concurrent launch
 -- may own.

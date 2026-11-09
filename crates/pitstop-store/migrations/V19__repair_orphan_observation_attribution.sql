@@ -3,7 +3,7 @@
 -- rather than inherited from the session's project_id.
 --
 -- Root cause:
--- Prior to v0.12.x, `pitstop-hooks::router::resolve_project_ids`
+-- Prior to v0.12.x, `ai-memory-hooks::router::resolve_project_ids`
 -- derived the project name from `basename(cwd)` (or `basename(repo-root)`)
 -- on every event, ignoring whether any existing project's `repo_path`
 -- already contained the event's cwd. When an agent's tool calls

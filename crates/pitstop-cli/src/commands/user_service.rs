@@ -1830,7 +1830,7 @@ mod windows_entry_tests {
         assert!(is_setup_run_entry(
             r#""C:\x\pitstop.exe" --data-dir "C:\d" --config "C:\d\c.toml" service-host"#
         ));
-        assert!(is_setup_run_entry(r#""C:\X\AI-MEMORY.EXE" service-host"#));
+        assert!(is_setup_run_entry(r#""C:\X\PITSTOP.EXE" service-host"#));
         for theirs in [
             r#""C:\x\other.exe" service-host"#,
             r#"C:\x\pitstop.exe service-host"#,

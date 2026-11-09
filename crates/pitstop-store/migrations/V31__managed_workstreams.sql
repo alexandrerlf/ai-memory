@@ -1,4 +1,4 @@
--- Optional `pitstop run` workstreams. Direct harness launches continue to
+-- Optional `ai-memory run` workstreams. Direct harness launches continue to
 -- use sessions/observations/handoffs and never touch these tables.
 
 CREATE TABLE workstreams (

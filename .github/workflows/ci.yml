@@ -119,19 +119,19 @@ jobs:
       - name: Build the external lifecycle relay
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
-        run: cargo build --locked --manifest-path companions/pitstop-relay/Cargo.toml
+        run: cargo build --locked --manifest-path companions/ai-memory-relay/Cargo.toml
       - name: External lifecycle delivery against the real server
         run: >
           uv run --no-project python tests/e2e/external_relay_smoke.py
           --pitstop-bin "${{ github.workspace }}/target/debug/pitstop"
-          --relay-bin "${{ github.workspace }}/target/debug/pitstop-relay"
+          --relay-bin "${{ github.workspace }}/target/debug/ai-memory-relay"
       # The companion job runs the importer's unit tests without a server;
       # its agentmemory end-to-end tests need the binary built above.
       - name: agentmemory import against the real server
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
           PITSTOP_IMPORTER_E2E_BIN: ${{ github.workspace }}/target/debug/pitstop
-        run: cargo test --locked --manifest-path companions/pitstop-importer/Cargo.toml e2e
+        run: cargo test --locked --manifest-path companions/ai-memory-importer/Cargo.toml e2e
       # The Jev reranker adapter under docs/examples is stdlib Python with its
       # own unittest suite; nothing else runs it. `unittest discover` exits 5
       # when it finds no tests, so the step skips cleanly until a test file
@@ -177,7 +177,7 @@ jobs:
         # `--workspace` reuses the test binaries built above instead of
         # re-resolving features for one package.
         run: cargo test --workspace --lib -- --ignored --exact commands::render_shared::tests::generated_capture_policy_v1_node_runtime_evidence
-      # The optional TypeScript SDK (companions/pitstop-ts) against the server
+      # The optional TypeScript SDK (companions/ai-memory-ts) against the server
       # built above: integration tests, the MCP schema drift test and every
       # example. A pull request that changes an MCP tool schema fails here
       # until the SDK's schema snapshot is updated, even when it never touches
@@ -185,7 +185,7 @@ jobs:
       # loopback port and an environment without inherited PITSTOP_* values.
       - name: TypeScript SDK against the real server
         if: matrix.os == 'ubuntu-latest'
-        working-directory: companions/pitstop-ts
+        working-directory: companions/ai-memory-ts
         env:
           PITSTOP_BIN: ${{ github.workspace }}/target/debug/pitstop
         run: |
@@ -262,7 +262,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        companion: [pitstop-client, pitstop-importer, pitstop-relay, pitstop-wikisync]
+        companion: [ai-memory-client, ai-memory-importer, ai-memory-relay, ai-memory-wikisync]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,7 +297,7 @@ jobs:
         with:
           filters: |
             sdk:
-              - 'companions/pitstop-ts/**'
+              - 'companions/ai-memory-ts/**'
               - '.github/workflows/ci.yml'
 
   sdk-ts:
@@ -312,7 +312,7 @@ jobs:
         node: ["22", "24"]
     defaults:
       run:
-        working-directory: companions/pitstop-ts
+        working-directory: companions/ai-memory-ts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -505,7 +505,7 @@ jobs:
         with:
           log-level: warn
           command: check
-          manifest-path: companions/pitstop-relay/Cargo.toml
+          manifest-path: companions/ai-memory-relay/Cargo.toml
           arguments: --all-features
 
   audit:
@@ -525,10 +525,10 @@ jobs:
           --ignore GHSA-m665-v7pm-7grj
           --ignore RUSTSEC-2025-0141
           --ignore RUSTSEC-2024-0320
-      - run: cargo audit --file companions/pitstop-relay/Cargo.lock
-      - run: cargo audit --file companions/pitstop-importer/Cargo.lock
-      - run: cargo audit --file companions/pitstop-client/Cargo.lock
-      - run: cargo audit --file companions/pitstop-wikisync/Cargo.lock
+      - run: cargo audit --file companions/ai-memory-relay/Cargo.lock
+      - run: cargo audit --file companions/ai-memory-importer/Cargo.lock
+      - run: cargo audit --file companions/ai-memory-client/Cargo.lock
+      - run: cargo audit --file companions/ai-memory-wikisync/Cargo.lock
 
   gitleaks:
     name: gitleaks (secret scan)

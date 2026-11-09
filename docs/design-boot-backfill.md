@@ -76,7 +76,7 @@ add a new importer.
   `event_batches`) to the managed-workstream finish endpoint; the server persists
   `source_cursor` so the next read is incremental. This is a working backfill engine that
   only ever runs *after* a managed launch today.
-- **The companion importer** (`companions/pitstop-importer`) has `ExternalConversation`
+- **The companion importer** (`companions/ai-memory-importer`) has `ExternalConversation`
   ("replay a generic external conversation through pitstop's hook API") with the
   bounds this needs: `MAX_CONVERSATION_MESSAGES = 128`,
   `MAX_USER_MESSAGE_BYTES = 16 KiB`, `MAX_CONVERSATION_TOTAL_BYTES = 1 MiB`, a dedicated

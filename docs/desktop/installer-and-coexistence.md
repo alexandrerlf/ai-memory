@@ -4,7 +4,7 @@
 > a non-developer can install, and how it coexists with an existing
 > `pitstop` CLI install without breaking it. Verified sources: Tauri v2
 > docs (fetched 2026-10), the existing Swift companion
-> (`companions/pitstop-macos/README.md`), pitstop repo layout
+> (`companions/ai-memory-macos/README.md`), pitstop repo layout
 > (`packaging/`, `crates/pitstop-cli/src/server_profiles*`, hook runner
 > layout observed locally), and well-known behavior of Docker Desktop /
 > Tailscale (pattern references; deep docs not fetched, so treat as
@@ -41,7 +41,7 @@
 
 ### Option C — keep Swift companion + add a Linux counterpart
 
-- macOS: `companions/pitstop-macos` already works (ships runtime, governs
+- macOS: `companions/ai-memory-macos` already works (ships runtime, governs
   LaunchAgent, data dir survives app replacement, philosophy: "wrapper, not
   a second operator console").
 - Linux: a counterpart would duplicate the service governance (systemd user

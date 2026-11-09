@@ -246,18 +246,18 @@ crates/
 ├── pitstop-test-support/ shared test helpers (dev-dependency only, no test binary).
 └── pitstop-cli/         `pitstop` binary entry point + thin HTTP subcommands.
 evals/                     live A/B harness; workspace member, not shipped.
-companions/pitstop-importer/  standalone OMC, external-conversation, agentmemory and claude-mem importer; NOT a root
+companions/ai-memory-importer/  standalone OMC, external-conversation, agentmemory and claude-mem importer; NOT a root
                            workspace member — build/test it with
-                           `--manifest-path companions/pitstop-importer/Cargo.toml`.
-companions/pitstop-client/    capture-privacy helpers shared by relay + importer; own workspace.
-companions/pitstop-relay/     durable external-lifecycle event relay (POST /hook/batch); own workspace.
-companions/pitstop-wikisync/  team-wiki git sync through the public MCP tools; own workspace.
-companions/pitstop-macos/     Swift menu bar wrapper; NOT a root workspace member —
-                           `swift test --package-path companions/pitstop-macos`
-                           and `./companions/pitstop-macos/build.sh`.
-companions/pitstop-ts/        optional TypeScript client SDK (npm, Node 22+); NOT a workspace
+                           `--manifest-path companions/ai-memory-importer/Cargo.toml`.
+companions/ai-memory-client/    capture-privacy helpers shared by relay + importer; own workspace.
+companions/ai-memory-relay/     durable external-lifecycle event relay (POST /hook/batch); own workspace.
+companions/ai-memory-wikisync/  team-wiki git sync through the public MCP tools; own workspace.
+companions/ai-memory-macos/     Swift menu bar wrapper; NOT a root workspace member —
+                           `swift test --package-path companions/ai-memory-macos`
+                           and `./companions/ai-memory-macos/build.sh`.
+companions/ai-memory-ts/        optional TypeScript client SDK (npm, Node 22+); NOT a workspace
                            member and never shipped with the server.
-companions/pitstop-desktop/   Tauri v2 desktop installer (plain HTML, no npm) that installs the
+companions/ai-memory-desktop/   Tauri v2 desktop installer (plain HTML, no npm) that installs the
                            binary and runs `setup --web` in a window; own workspace.
 hooks/                     per-agent lifecycle hook bundles (shell/native).
 plugins/                   generated Claude Code + Codex marketplace plugins (catalogs in
@@ -343,24 +343,24 @@ covers the same tests, slower, no tiers.
   live in `pitstop-web`. Follow [`docs/management-ui.md`](docs/management-ui.md)
   for feature-enabled checks. Regenerate the vendored Tailwind stylesheet
   when changing templates or styles; no JavaScript toolchain is needed.
-- Run each Cargo companion separately (`pitstop-client`,
-  `pitstop-importer`, `pitstop-relay` and `pitstop-wikisync`):
+- Run each Cargo companion separately (`ai-memory-client`,
+  `ai-memory-importer`, `ai-memory-relay` and `ai-memory-wikisync`):
   `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`
   and `cargo test --locked`, each with
   `--manifest-path companions/<name>/Cargo.toml`. CI also builds the relay
   and runs `uv run --no-project python tests/e2e/external_relay_smoke.py`
   against the real server. Root `--workspace` commands cover none of them.
 - Run the macOS menu bar companion separately:
-  `swift test --package-path companions/pitstop-macos`
-  (plus `./companions/pitstop-macos/build.sh` to stage `Pitstop.app`).
+  `swift test --package-path companions/ai-memory-macos`
+  (plus `./companions/ai-memory-macos/build.sh` to stage `Pitstop.app`).
   Root `--workspace` commands do not cover it.
 - Run the desktop installer separately (Linux needs the `webkit2gtk-4.1`,
   `gtk3`, `librsvg` and `libsoup3` development packages): `cargo fmt --check`,
   `cargo clippy --locked --all-targets -- -D warnings` and `cargo test
-  --locked`, each with `--manifest-path companions/pitstop-desktop/Cargo.toml`.
+  --locked`, each with `--manifest-path companions/ai-memory-desktop/Cargo.toml`.
   `.github/workflows/desktop.yml` runs them on a pull request that touches it
   and builds unsigned installers on dispatch.
-- Run the TypeScript SDK separately, from `companions/pitstop-ts`:
+- Run the TypeScript SDK separately, from `companions/ai-memory-ts`:
   `npm ci --ignore-scripts`, `npm run check` (typecheck, unit tests, schema
   and generated-docs checks, TypeDoc) and
   `PITSTOP_BIN=../../target/debug/pitstop npm run test:integration`
@@ -823,7 +823,7 @@ Additional boundary rules:
   `pitstop_core::SNIPPET_BODY`, README/docs tool references, and the
   regression tests asserting every tool appears in both prompt surfaces.
   The tool count is currently 27 (see `docs/ARCHITECTURE.md`). They also
-  update the TypeScript SDK in `companions/pitstop-ts` in the same change:
+  update the TypeScript SDK in `companions/ai-memory-ts` in the same change:
   the schema snapshot (`npm run schema:update`), the wrapper or its
   classification in `src/coverage.ts`, types, tests and docs. The SDK's
   schema drift test in CI fails until they do. Changes to the `/api/v1`

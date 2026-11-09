@@ -112,12 +112,12 @@ fn codeql_model_targets_exist() {
     let crate_roots = [
         ("pitstop_cli", crates_dir().join("pitstop-cli/src")),
         (
-            "pitstop_importer",
-            repo_root.join("companions/pitstop-importer/src"),
+            "ai_memory_importer",
+            repo_root.join("companions/ai-memory-importer/src"),
         ),
         (
-            "pitstop_client",
-            repo_root.join("companions/pitstop-client/src"),
+            "ai_memory_client",
+            repo_root.join("companions/ai-memory-client/src"),
         ),
         ("pitstop_wiki", crates_dir().join("pitstop-wiki/src")),
     ];

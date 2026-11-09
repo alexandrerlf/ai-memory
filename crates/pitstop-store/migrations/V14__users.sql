@@ -1,6 +1,6 @@
 -- Multi-user attribution.
 --
--- pitstop's data model stays single-tenant: every authenticated user sees
+-- ai-memory's data model stays single-tenant: every authenticated user sees
 -- the same wiki pages (no RBAC, no per-user data scoping). What this table
 -- adds is **attribution** — every page and audit-log row can carry an
 -- `author_id` so the engine, web UI, and `/api/v1` consumers can say "alice
@@ -10,18 +10,18 @@
 -- root_email, root_name); it's NOT inserted here — auth middleware
 -- synthesises a root ActorContext when the bearer token matches the config
 -- root token, then attributes writes to that synthetic identity. Added
--- users (created via `pitstop user add` / `POST /admin/users`) are the
+-- users (created via `ai-memory user add` / `POST /admin/users`) are the
 -- rows in this table.
 --
 -- Token storage: a single SHA-256(token || ":" || pepper) digest per user.
 -- Tokens are 32 bytes of CSPRNG (256 bits of entropy), so brute-force is
 -- infeasible regardless of hash strength; the per-server pepper (from
--- `[auth].token_pepper`, auto-generated at `pitstop init`) makes a
+-- `[auth].token_pepper`, auto-generated at `ai-memory init`) makes a
 -- DB-only theft useless to an offline attacker. SHA-256 buys us a
 -- deterministic 32-byte lookup key with O(1) UNIQUE-index hits, which the
 -- per-request auth path needs.
 --
--- token_expired_at: NULL means the token is active. `pitstop user expire`
+-- token_expired_at: NULL means the token is active. `ai-memory user expire`
 -- stamps it; `revive` clears it. The user row itself is never deleted —
 -- historical `author_id` references keep pointing at it forever so old
 -- attribution doesn't vanish when a user leaves. `rotate-token` issues a

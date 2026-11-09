@@ -952,8 +952,8 @@ mod tests {
         fn new() -> Self {
             let root = tempfile::TempDir::new().unwrap();
             let home = root.path().join("home");
-            let data_dir = root.path().join("data/pitstop");
-            let checkout = home.join("Projects/pitstop");
+            let data_dir = root.path().join("data/ai-memory");
+            let checkout = home.join("Projects/ai-memory");
             for dir in [
                 home.join(".ssh/keys"),
                 home.join(".config/gh"),
@@ -993,7 +993,7 @@ mod tests {
         assert_eq!(fixture.check("../ai-jail"), Ok(sibling.clone()));
         assert_eq!(fixture.check("~/Projects/ai-jail"), Ok(sibling.clone()));
         assert_eq!(
-            fixture.check("~/Projects/./pitstop/../ai-jail/"),
+            fixture.check("~/Projects/./ai-memory/../ai-jail/"),
             Ok(sibling.clone())
         );
         assert_eq!(fixture.check(sibling.to_str().unwrap()), Ok(sibling));
@@ -1169,7 +1169,7 @@ mod tests {
         FolderRules {
             home: Some(Path::new(HOME)),
             data_dir: Path::new("/data"),
-            checkout_root: Path::new("/home/u/Projects/pitstop"),
+            checkout_root: Path::new("/home/u/Projects/ai-memory"),
         }
     }
 
@@ -1181,13 +1181,13 @@ mod tests {
                     ("scratch", false, 10),
                     ("homebrew-tap", true, 7_200),
                     ("ai-jail", true, 60),
-                    ("pitstop", true, 5),
+                    ("ai-memory", true, 5),
                     (".hidden", false, 1),
                 ],
             )
             .dir("/home/u/Projects/ai-jail", &[("src", false, 30)])
             .dir("/home/u", &[("Projects", false, 5), (".ssh", false, 1)])
-            .refuse("/home/u/Projects/pitstop", FolderRefusal::IsCheckout)
+            .refuse("/home/u/Projects/ai-memory", FolderRefusal::IsCheckout)
             .refuse(
                 "/home/u/.ssh",
                 FolderRefusal::Sensitive(PathBuf::from("/home/u/.ssh")),
@@ -1248,7 +1248,7 @@ mod tests {
         let state = picker(&fs, &[]);
         assert_eq!(
             names(&state),
-            ["pitstop", "ai-jail", "homebrew-tap", "scratch"]
+            ["ai-memory", "ai-jail", "homebrew-tap", "scratch"]
         );
     }
 
@@ -1263,7 +1263,7 @@ mod tests {
         assert!(names(&state).is_empty());
         press(&mut state, &fs, &[KeyCode::Backspace, KeyCode::Backspace]);
         assert_eq!(state.query, "ai");
-        assert_eq!(names(&state)[0], "pitstop");
+        assert_eq!(names(&state)[0], "ai-memory");
         press(&mut state, &fs, &[KeyCode::Esc]);
         typed(&mut state, &fs, ".h");
         assert_eq!(names(&state), [".hidden"]);
@@ -1375,7 +1375,7 @@ mod tests {
         typed(&mut state, &fs, "a");
         press(&mut state, &fs, &[KeyCode::Tab]);
         assert_eq!(state.query, "~/Projects/ai-", "longest common prefix");
-        assert_eq!(names(&state), ["pitstop", "ai-jail"]);
+        assert_eq!(names(&state), ["ai-memory", "ai-jail"]);
         typed(&mut state, &fs, "j");
         press(&mut state, &fs, &[KeyCode::Enter]);
         assert!(!state.path_mode);

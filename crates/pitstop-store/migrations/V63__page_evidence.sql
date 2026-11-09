@@ -11,7 +11,7 @@
 -- ranking. The confidence -> authority flip is deferred behind the R2 eval.
 --
 -- `source_kind` is a closed vocabulary matching
--- `pitstop_core::PageEvidenceKind`: 'session' (a consolidated session),
+-- `ai_memory_core::PageEvidenceKind`: 'session' (a consolidated session),
 -- 'observation' (a raw observation cited directly), 'feedback' (a
 -- reaffirming `page_feedback` row), 'reconsolidation' (a rewrite/re-confirm
 -- pass). `source_id` is opaque to the store — whatever id the citing kind
