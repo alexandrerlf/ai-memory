@@ -1,39 +1,39 @@
-# Install the ai-memory release binary for the current Windows user.
+# Install the pitstop release binary for the current Windows user.
 #
 #   irm https://github.com/akitaonrails/ai-memory/releases/latest/download/install.ps1 | iex
 #
-# Downloads ai-memory-windows-x86_64.zip from a GitHub release, verifies it
+# Downloads pitstop-windows-x86_64.zip from a GitHub release, verifies it
 # against the release's published .sha256 file, refuses an archive with an
-# absolute or `..` entry, unpacks it into %LOCALAPPDATA%\Programs\ai-memory and
+# absolute or `..` entry, unpacks it into %LOCALAPPDATA%\Programs\pitstop and
 # adds that directory to your user PATH. No administrator rights, and nothing
 # outside that directory and your PATH is touched. A missing or mismatched
 # checksum stops the install before anything is unpacked.
 #
-# Then run `ai-memory setup` to create the data dir, register the server to
+# Then run `pitstop setup` to create the data dir, register the server to
 # start at logon and wire your agents.
 #
 # Environment (all optional):
-#   AI_MEMORY_VERSION           release to install, e.g. 3.1.0 (default: latest)
-#   AI_MEMORY_INSTALL_DIR       where the release is unpacked
-#                               (default: %LOCALAPPDATA%\Programs\ai-memory)
-#   AI_MEMORY_RELEASE_BASE_URL  Releases-compatible URL prefix, the one
-#                               `ai-memory upgrade` reads (default: GitHub).
+#   PITSTOP_VERSION           release to install, e.g. 3.1.0 (default: latest)
+#   PITSTOP_INSTALL_DIR       where the release is unpacked
+#                               (default: %LOCALAPPDATA%\Programs\pitstop)
+#   PITSTOP_RELEASE_BASE_URL  Releases-compatible URL prefix, the one
+#                               `pitstop upgrade` reads (default: GitHub).
 #                               The checksum comes from the same place as the
 #                               archive, so point it only at an origin you trust.
-#   AI_MEMORY_NO_MODIFY_PATH    set to 1 to leave your user PATH alone
+#   PITSTOP_NO_MODIFY_PATH    set to 1 to leave your user PATH alone
 #
-# Everything runs inside Install-AiMemory, called on the last line, so a
+# Everything runs inside Install-Pitstop, called on the last line, so a
 # download cut short runs nothing. Errors are thrown, never `exit`, so a failure
 # under `iex` does not close your PowerShell window.
 
-function Install-AiMemory {
+function Install-Pitstop {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
     $defaultBase = 'https://github.com/akitaonrails/ai-memory/releases'
-    $asset = 'ai-memory-windows-x86_64.zip'
+    $asset = 'pitstop-windows-x86_64.zip'
 
-    function Say([string] $message) { Write-Host "ai-memory install: $message" }
-    function Fail([string] $message) { throw "ai-memory install: error: $message" }
+    function Say([string] $message) { Write-Host "pitstop install: $message" }
+    function Fail([string] $message) { throw "pitstop install: error: $message" }
 
     # Windows PowerShell 5.1 may still default to TLS 1.0; GitHub needs 1.2.
     if ($PSVersionTable.PSVersion.Major -lt 6) {
@@ -45,10 +45,10 @@ function Install-AiMemory {
     switch ($arch) {
         'AMD64' { }
         'ARM64' { Say 'no native ARM64 build yet; installing the x86_64 build, which Windows 11 runs under emulation' }
-        default { Fail "unsupported processor architecture $arch; ai-memory publishes an x86_64 Windows build" }
+        default { Fail "unsupported processor architecture $arch; pitstop publishes an x86_64 Windows build" }
     }
 
-    $base = if ($env:AI_MEMORY_RELEASE_BASE_URL) { $env:AI_MEMORY_RELEASE_BASE_URL.TrimEnd('/') } else { $defaultBase }
+    $base = if ($env:PITSTOP_RELEASE_BASE_URL) { $env:PITSTOP_RELEASE_BASE_URL.TrimEnd('/') } else { $defaultBase }
     # The archive and its `.sha256` come from the same origin, so a plain-http
     # GitHub base lets an on-path rewrite replace both and the checksum proves
     # nothing. The previous guard was nested inside a condition whose two arms
@@ -62,23 +62,23 @@ function Install-AiMemory {
         $baseUri.Host.TrimEnd('.') -eq 'github.com') {
         Fail "refusing a non-https GitHub URL: $base"
     }
-    $version = $env:AI_MEMORY_VERSION
+    $version = $env:PITSTOP_VERSION
     if ($version) {
         $version = $version.TrimStart('v')
-        if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$') { Fail "AI_MEMORY_VERSION must look like 3.1.0, not $version" }
+        if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$') { Fail "PITSTOP_VERSION must look like 3.1.0, not $version" }
         $url = "$base/download/v$version/$asset"
     } else {
         $url = "$base/latest/download/$asset"
     }
 
-    $dest = if ($env:AI_MEMORY_INSTALL_DIR) { $env:AI_MEMORY_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\ai-memory' }
-    if (-not [IO.Path]::IsPathRooted($dest)) { Fail "AI_MEMORY_INSTALL_DIR must be an absolute path, not $dest" }
-    $exe = Join-Path $dest 'ai-memory.exe'
+    $dest = if ($env:PITSTOP_INSTALL_DIR) { $env:PITSTOP_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\pitstop' }
+    if (-not [IO.Path]::IsPathRooted($dest)) { Fail "PITSTOP_INSTALL_DIR must be an absolute path, not $dest" }
+    $exe = Join-Path $dest 'pitstop.exe'
     if (Test-Path -LiteralPath $exe) {
-        Fail "ai-memory is already installed at $exe; run ``ai-memory upgrade`` to update it"
+        Fail "pitstop is already installed at $exe; run ``pitstop upgrade`` to update it"
     }
 
-    $work = Join-Path ([IO.Path]::GetTempPath()) ("ai-memory-install-" + [Guid]::NewGuid().ToString('N'))
+    $work = Join-Path ([IO.Path]::GetTempPath()) ("pitstop-install-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $work | Out-Null
     try {
         $zip = Join-Path $work $asset
@@ -116,8 +116,8 @@ function Install-AiMemory {
 
         $staged = Join-Path $work 'release'
         Expand-Archive -LiteralPath $zip -DestinationPath $staged
-        $stagedExe = Join-Path $staged 'ai-memory.exe'
-        if (-not (Test-Path -LiteralPath $stagedExe)) { Fail "$asset has no ai-memory.exe" }
+        $stagedExe = Join-Path $staged 'pitstop.exe'
+        if (-not (Test-Path -LiteralPath $stagedExe)) { Fail "$asset has no pitstop.exe" }
         Get-ChildItem -LiteralPath $staged -Recurse -File | Unblock-File
         $reported = & $stagedExe --version 2>$null
         if ($LASTEXITCODE -ne 0) { Fail 'the downloaded binary does not run on this machine' }
@@ -135,7 +135,7 @@ function Install-AiMemory {
         try {
             Copy-Item -LiteralPath $staged -Destination $dest -Recurse
         } catch {
-            # A partial copy holding ai-memory.exe would pass for an install on
+            # A partial copy holding pitstop.exe would pass for an install on
             # the next run.
             Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
             throw
@@ -145,8 +145,8 @@ function Install-AiMemory {
     }
 
     Say "installed $reported to $dest"
-    if ($env:AI_MEMORY_NO_MODIFY_PATH -eq '1') {
-        Say "left your PATH alone (AI_MEMORY_NO_MODIFY_PATH=1)"
+    if ($env:PITSTOP_NO_MODIFY_PATH -eq '1') {
+        Say "left your PATH alone (PITSTOP_NO_MODIFY_PATH=1)"
         Say "next: & `"$exe`" setup"
         return
     }
@@ -165,7 +165,7 @@ function Install-AiMemory {
             # Removing a variable that does not exist changes nothing, but .NET
             # still broadcasts WM_SETTINGCHANGE after it, so Explorer and the
             # terminals it starts pick up the new PATH.
-            $notify = 'ai-memory-install-' + [Guid]::NewGuid().ToString('N')
+            $notify = 'pitstop-install-' + [Guid]::NewGuid().ToString('N')
             [Environment]::SetEnvironmentVariable($notify, [NullString]::Value, 'User')
             Say "added $dest to your user PATH"
         }
@@ -173,8 +173,8 @@ function Install-AiMemory {
         $environment.Dispose()
     }
     if (($env:Path -split ';') -notcontains $dest) { $env:Path = "$env:Path;$dest" }
-    Say 'next: ai-memory setup'
+    Say 'next: pitstop setup'
     Say "(in a terminal opened before this install, run: & `"$exe`" setup)"
 }
 
-Install-AiMemory
+Install-Pitstop

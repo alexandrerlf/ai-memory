@@ -20,10 +20,10 @@ export HOME
 # The data dir comes from XDG_DATA_HOME before HOME, so an exported one would
 # send this suite's spooled events, and its auth-header lookups, to the
 # caller's real install.
-CALLER_SPOOL="${AI_MEMORY_DATA_DIR:-${XDG_DATA_HOME:-$ORIG_HOME/.local/share}/ai-memory}/hook-spool"
-unset AI_MEMORY_DATA_DIR XDG_DATA_HOME XDG_CONFIG_HOME XDG_STATE_HOME XDG_CACHE_HOME
-unset AI_MEMORY_RUN_ID AI_MEMORY_MANAGED_WORKSTREAM_ID AI_MEMORY_MANAGED_WORKSTREAM_NAME
-unset AI_MEMORY_AUTO_HANDOFF
+CALLER_SPOOL="${PITSTOP_DATA_DIR:-${XDG_DATA_HOME:-$ORIG_HOME/.local/share}/pitstop}/hook-spool"
+unset PITSTOP_DATA_DIR XDG_DATA_HOME XDG_CONFIG_HOME XDG_STATE_HOME XDG_CACHE_HOME
+unset PITSTOP_RUN_ID PITSTOP_MANAGED_WORKSTREAM_ID PITSTOP_MANAGED_WORKSTREAM_NAME
+unset PITSTOP_AUTO_HANDOFF
 HTTP_PID=""
 trap '[ -z "$HTTP_PID" ] || { kill "$HTTP_PID" 2>/dev/null || true; wait "$HTTP_PID" 2>/dev/null || true; }; rm -rf "$TMP"; HOME=$ORIG_HOME' EXIT
 
@@ -76,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
         auth = parse_qs(url.query)['auth'][0]
         expected = {'none': None, 'env': 'Bearer env-fixture', 'file': 'Bearer file-fixture'}
         if (self.headers.get('Authorization') != expected[auth]
-                or self.headers.get('X-AI-Memory-Client') != 'hook-sh'):
+                or self.headers.get('X-Pitstop-Client') != 'hook-sh'):
             status = 401
         bodies = {200: b'context line one\ncontext line two',
                   201: b'context with final newlines\n\n',
@@ -109,15 +109,15 @@ while [ ! -s "$TMP/http-port" ]; do
 done
 HTTP_SERVER="http://127.0.0.1:$(cat "$TMP/http-port")"
 for HTTP_AUTH in none env file; do
-    AI_MEMORY_DATA_DIR="$TMP/http-$HTTP_AUTH"
-    export AI_MEMORY_DATA_DIR
-    mkdir -p "$AI_MEMORY_DATA_DIR"
-    unset AI_MEMORY_AUTH_TOKEN
+    PITSTOP_DATA_DIR="$TMP/http-$HTTP_AUTH"
+    export PITSTOP_DATA_DIR
+    mkdir -p "$PITSTOP_DATA_DIR"
+    unset PITSTOP_AUTH_TOKEN
     case "$HTTP_AUTH" in
-        env) AI_MEMORY_AUTH_TOKEN=env-fixture; export AI_MEMORY_AUTH_TOKEN ;;
-        file) printf 'Authorization: Bearer file-fixture\n' >"$AI_MEMORY_DATA_DIR/auth-header" ;;
+        env) PITSTOP_AUTH_TOKEN=env-fixture; export PITSTOP_AUTH_TOKEN ;;
+        file) printf 'Authorization: Bearer file-fixture\n' >"$PITSTOP_DATA_DIR/auth-header" ;;
     esac
-    for HTTP_HELPER in ai_memory_get_handoff ai_memory_get_brief; do
+    for HTTP_HELPER in pitstop_get_handoff pitstop_get_brief; do
         for HTTP_STATUS in 200 201 204 299 302 307 308 401 404 500; do
             case "$HTTP_STATUS" in
                 200) HTTP_WANT='context line one
@@ -140,8 +140,8 @@ done
 kill "$HTTP_PID"
 wait "$HTTP_PID" 2>/dev/null || true
 HTTP_PID=""
-unset AI_MEMORY_AUTH_TOKEN AI_MEMORY_DATA_DIR
-for HTTP_HELPER in ai_memory_get_handoff ai_memory_get_brief; do
+unset PITSTOP_AUTH_TOKEN PITSTOP_DATA_DIR
+for HTTP_HELPER in pitstop_get_handoff pitstop_get_brief; do
     assert_eq "$HTTP_HELPER: connection failure stays empty with curl's exit code" '|7' \
         "$(set +e; "$HTTP_HELPER" "$HTTP_SERVER/200/context?auth=none&cwd=%2Ffixture" 2>/dev/null; printf '|%s' "$?")"
 done
@@ -156,112 +156,112 @@ project_strategy = "repo-root"
 # Trailing comment
 EOF
 
-assert_eq "parse workspace"           "movvia"     "$(ai_memory_parse_toml_key "$TMP/sample.toml" workspace)"
-assert_eq "parse project"             "pe-portais" "$(ai_memory_parse_toml_key "$TMP/sample.toml" project)"
-assert_eq "parse project_strategy"    "repo-root"  "$(ai_memory_parse_toml_key "$TMP/sample.toml" project_strategy)"
-assert_eq "absent key returns empty"  ""           "$(ai_memory_parse_toml_key "$TMP/sample.toml" missing)"
-assert_eq "absent file returns empty" ""           "$(ai_memory_parse_toml_key "$TMP/no-such-file.toml" workspace)"
+assert_eq "parse workspace"           "movvia"     "$(pitstop_parse_toml_key "$TMP/sample.toml" workspace)"
+assert_eq "parse project"             "pe-portais" "$(pitstop_parse_toml_key "$TMP/sample.toml" project)"
+assert_eq "parse project_strategy"    "repo-root"  "$(pitstop_parse_toml_key "$TMP/sample.toml" project_strategy)"
+assert_eq "absent key returns empty"  ""           "$(pitstop_parse_toml_key "$TMP/sample.toml" missing)"
+assert_eq "absent file returns empty" ""           "$(pitstop_parse_toml_key "$TMP/no-such-file.toml" workspace)"
 
 printf '\357\273\277workspace = "bom-workspace"\ndefault_global = true\n' >"$TMP/bom.toml"
 assert_eq "BOM does not hide first-line key" "bom-workspace" \
-    "$(ai_memory_parse_toml_key "$TMP/bom.toml" workspace)"
+    "$(pitstop_parse_toml_key "$TMP/bom.toml" workspace)"
 assert_eq "BOM does not hide first-line flag" "true" \
-    "$(ai_memory_parse_toml_flag "$TMP/bom.toml" default_global)"
+    "$(pitstop_parse_toml_flag "$TMP/bom.toml" default_global)"
 printf '\357\273\277aliases = ["former-name"]\n' >"$TMP/bom-aliases.toml"
 bom_aliases_declared=no
-ai_memory_marker_declares_settings "$TMP/bom-aliases.toml" && bom_aliases_declared=yes
+pitstop_marker_declares_settings "$TMP/bom-aliases.toml" && bom_aliases_declared=yes
 assert_eq "BOM does not hide first-line aliases boundary" "yes" "$bom_aliases_declared"
 assert_eq "BOM does not hide first-line aliases value" '["former-name"]' \
-    "$(ai_memory_aliases_json "$TMP/bom-aliases.toml")"
+    "$(pitstop_aliases_json "$TMP/bom-aliases.toml")"
 
 # --- find_marker ------------------------------------------------------
 mkdir -p "$TMP/a/b/c/d"
-printf 'workspace = "deep"\n' >"$TMP/a/.ai-memory.toml"
-assert_eq "walks up to find marker" "$TMP/a/.ai-memory.toml" \
-    "$(ai_memory_find_marker "$TMP/a/b/c/d")"
+printf 'workspace = "deep"\n' >"$TMP/a/.pitstop.toml"
+assert_eq "walks up to find marker" "$TMP/a/.pitstop.toml" \
+    "$(pitstop_find_marker "$TMP/a/b/c/d")"
 assert_eq "no marker returns empty" "" \
-    "$(ai_memory_find_marker "$TMP/nonexistent/path")"
+    "$(pitstop_find_marker "$TMP/nonexistent/path")"
 
 # A checkout outside HOME may inherit a marker inside its own git tree, but
 # never one from an unrelated parent. A plain directory outside HOME checks
 # only its exact cwd.
 OUTSIDE_HOME="$TMP/account-home"
 mkdir -p "$OUTSIDE_HOME" "$TMP/outside/repo/src" "$TMP/outside/plain"
-printf 'workspace = "wrong"\n' >"$TMP/outside/.ai-memory.toml"
+printf 'workspace = "wrong"\n' >"$TMP/outside/.pitstop.toml"
 mkdir -p "$TMP/outside/repo/.git"
-printf 'workspace = "right"\n' >"$TMP/outside/repo/.ai-memory.toml"
+printf 'workspace = "right"\n' >"$TMP/outside/repo/.pitstop.toml"
 HOME="$OUTSIDE_HOME"
 export HOME
 assert_eq "outside HOME finds marker within checkout" \
-    "$TMP/outside/repo/.ai-memory.toml" \
-    "$(ai_memory_find_marker "$TMP/outside/repo/src")"
-rm -f "$TMP/outside/repo/.ai-memory.toml"
+    "$TMP/outside/repo/.pitstop.toml" \
+    "$(pitstop_find_marker "$TMP/outside/repo/src")"
+rm -f "$TMP/outside/repo/.pitstop.toml"
 assert_eq "outside HOME stops at checkout root" "" \
-    "$(ai_memory_find_marker "$TMP/outside/repo/src")"
+    "$(pitstop_find_marker "$TMP/outside/repo/src")"
 assert_eq "outside HOME plain dir rejects parent marker" "" \
-    "$(ai_memory_find_marker "$TMP/outside/plain")"
+    "$(pitstop_find_marker "$TMP/outside/plain")"
 HOME="$TMP"
 export HOME
 
 # A trailing slash on $HOME does not move the boundary.
 mkdir -p "$TMP/slash-home/org/repo/.git" "$TMP/slash-home/plain/src"
-printf 'workspace = "org"\n' >"$TMP/slash-home/org/.ai-memory.toml"
-printf 'workspace = "above-home"\nserver = "team-b"\n' >"$TMP/.ai-memory.toml"
+printf 'workspace = "org"\n' >"$TMP/slash-home/org/.pitstop.toml"
+printf 'workspace = "above-home"\nserver = "team-b"\n' >"$TMP/.pitstop.toml"
 for slash_home in "$TMP/slash-home" "$TMP/slash-home/" "$TMP/slash-home//"; do
     HOME="$slash_home"
     export HOME
     assert_eq "HOME=$slash_home: marker above the checkout root" \
-        "$TMP/slash-home/org/.ai-memory.toml" \
-        "$(ai_memory_find_marker "$TMP/slash-home/org/repo")"
+        "$TMP/slash-home/org/.pitstop.toml" \
+        "$(pitstop_find_marker "$TMP/slash-home/org/repo")"
     assert_eq "HOME=$slash_home: settings marker above the checkout root" \
-        "$TMP/slash-home/org/.ai-memory.toml" \
-        "$(ai_memory_find_settings_marker "$TMP/slash-home/org/repo")"
+        "$TMP/slash-home/org/.pitstop.toml" \
+        "$(pitstop_find_settings_marker "$TMP/slash-home/org/repo")"
     assert_eq "HOME=$slash_home: walk stops at HOME" "" \
-        "$(ai_memory_find_marker "$TMP/slash-home/plain/src")"
+        "$(pitstop_find_marker "$TMP/slash-home/plain/src")"
     assert_eq "HOME=$slash_home: server walk stops at HOME" "no" \
-        "$(ai_memory_server_routed "$TMP/slash-home/plain/src" && echo yes || echo no)"
+        "$(pitstop_server_routed "$TMP/slash-home/plain/src" && echo yes || echo no)"
 done
-rm -f "$TMP/.ai-memory.toml"
+rm -f "$TMP/.pitstop.toml"
 HOME="$TMP"
 export HOME
 
 # --- extract_cwd ------------------------------------------------------
 PAYLOAD='{"session_id":"x","cwd":"/home/u/foo","tool":"Read"}'
-assert_eq "extract cwd from payload"     "/home/u/foo" "$(ai_memory_extract_cwd "$PAYLOAD")"
-assert_eq "extract cwd from empty json"  ""            "$(ai_memory_extract_cwd '{}')"
+assert_eq "extract cwd from payload"     "/home/u/foo" "$(pitstop_extract_cwd "$PAYLOAD")"
+assert_eq "extract cwd from empty json"  ""            "$(pitstop_extract_cwd '{}')"
 PAYLOAD_NESTED='{"session_id":"x","cwd":"/home/u/root","tool_input":{"cwd":"/tmp/nested"}}'
-assert_eq "extract cwd prefers first match" "/home/u/root" "$(ai_memory_extract_cwd "$PAYLOAD_NESTED")"
+assert_eq "extract cwd prefers first match" "/home/u/root" "$(pitstop_extract_cwd "$PAYLOAD_NESTED")"
 PAYLOAD_AGY='{"conversationId":"x","workspacePaths":["/home/u/agy","/tmp/other"]}'
-assert_eq "extract cwd from antigravity workspacePaths" "/home/u/agy" "$(ai_memory_extract_cwd "$PAYLOAD_AGY")"
+assert_eq "extract cwd from antigravity workspacePaths" "/home/u/agy" "$(pitstop_extract_cwd "$PAYLOAD_AGY")"
 PAYLOAD_WINDOWS='{"session_id":"x","cwd":"C:\\dev\\myproject"}'
 assert_eq "extract cwd unescapes Windows JSON path" 'C:\dev\myproject' \
-    "$(ai_memory_extract_cwd "$PAYLOAD_WINDOWS")"
+    "$(pitstop_extract_cwd "$PAYLOAD_WINDOWS")"
 # Cursor sends the workspace directory only as `workspace_roots`: its
 # sessionStart omits `cwd` and its tool events send `cwd: ""`. Both must
 # resolve or every Cursor event is filed under the default scratch project.
 PAYLOAD_CURSOR_START='{"session_id":"x","hook_event_name":"sessionStart","cursor_version":"2026.09.02","workspace_roots":["/home/u/cur"]}'
 assert_eq "extract cwd from cursor workspace_roots" "/home/u/cur" \
-    "$(ai_memory_extract_cwd "$PAYLOAD_CURSOR_START")"
+    "$(pitstop_extract_cwd "$PAYLOAD_CURSOR_START")"
 PAYLOAD_CURSOR_TOOL='{"session_id":"x","cwd":"","hook_event_name":"postToolUse","workspace_roots":["/home/u/cur"]}'
 assert_eq "extract cwd falls through cursor empty cwd" "/home/u/cur" \
-    "$(ai_memory_extract_cwd "$PAYLOAD_CURSOR_TOOL")"
+    "$(pitstop_extract_cwd "$PAYLOAD_CURSOR_TOOL")"
 # A large tool result must not make extraction quadratic in the payload
 # size: `${payload#*"key"}` pinned a CPU for minutes at a few hundred KB (#870).
 BIG=$(awk 'BEGIN { for (i = 0; i < 262144; i++) printf "x" }')
 PAYLOAD_CURSOR_BIG="{\"tool_output\":\"$BIG\",\"cwd\":\"\",\"workspace_roots\":[\"/home/u/big\"]}"
 assert_eq "extract cwd from a 256 KB cursor tool payload" "/home/u/big" \
-    "$(ai_memory_extract_cwd "$PAYLOAD_CURSOR_BIG")"
+    "$(pitstop_extract_cwd "$PAYLOAD_CURSOR_BIG")"
 # Only the first occurrence of a key is read, so a non-string top-level value
 # never lets a nested field of the same name take its place.
 PAYLOAD_NULL_CWD='{"cwd":null,"tool_input":{"cwd":"/tmp/nested"},"workspace_roots":["/home/u/top"]}'
 assert_eq "extract cwd ignores nested cwd after a null one" "/home/u/top" \
-    "$(ai_memory_extract_cwd "$PAYLOAD_NULL_CWD")"
+    "$(pitstop_extract_cwd "$PAYLOAD_NULL_CWD")"
 PAYLOAD_EMPTY_ROOTS='{"cwd":"","workspace_roots":[],"tool_input":{"workspace_roots":["/tmp/nested"]}}'
 assert_eq "extract cwd ignores nested roots after an empty array" "" \
-    "$(ai_memory_extract_cwd "$PAYLOAD_EMPTY_ROOTS")"
+    "$(pitstop_extract_cwd "$PAYLOAD_EMPTY_ROOTS")"
 
 antigravity_initial() {
-    if ai_memory_antigravity_is_initial_invocation "$1"; then
+    if pitstop_antigravity_is_initial_invocation "$1"; then
         printf 'yes'
     else
         printf 'no'
@@ -278,17 +278,17 @@ assert_eq "antigravity quoted invocation fails closed" "no" \
 assert_eq "antigravity fractional invocation fails closed" "no" \
     "$(antigravity_initial '{"invocationNum":0.5,"conversationId":"agy"}')"
 assert_eq "extract antigravity conversation id" "agy" \
-    "$(ai_memory_extract_session_id '{"conversationId":"agy"}')"
+    "$(pitstop_extract_session_id '{"conversationId":"agy"}')"
 PAYLOAD_AGY_BIG="{\"prompt\":\"$BIG\",\"invocationNum\":0,\"conversationId\":\"agy\"}"
 assert_eq "antigravity initial invocation after a 256 KB field" "yes" \
     "$(antigravity_initial "$PAYLOAD_AGY_BIG")"
 assert_eq "extract session id after a 256 KB field" "agy" \
-    "$(ai_memory_extract_session_id "$PAYLOAD_AGY_BIG")"
+    "$(pitstop_extract_session_id "$PAYLOAD_AGY_BIG")"
 
 # A subagent marker only counts as a top-level key with a non-empty string
 # value, so a tool result that quotes the key name is still a root payload.
 subagent_payload() {
-    if ai_memory_payload_is_subagent "$1"; then printf 'yes'; else printf 'no'; fi
+    if pitstop_payload_is_subagent "$1"; then printf 'yes'; else printf 'no'; fi
 }
 assert_eq "top-level agent_id marks a subagent" "yes" \
     "$(subagent_payload '{"session_id":"s","agent_id":"planner"}')"
@@ -312,7 +312,7 @@ FAKE_CURL_LOG="$TMP/fake-curl.log"
 mkdir -p "$FAKE_CURL_BIN"
 cat >"$FAKE_CURL_BIN/curl" <<'EOF'
 #!/bin/sh
-printf '%s\n' "$*" >>"$AI_MEMORY_CURL_LOG"
+printf '%s\n' "$*" >>"$PITSTOP_CURL_LOG"
 case "$*" in
     *'/handoff?'*) printf 'next-session-context' ;;
 esac
@@ -322,16 +322,16 @@ chmod +x "$FAKE_CURL_BIN/curl"
 
 rm -f "$FAKE_CURL_LOG"
 AGY_LATER_OUTPUT=$(printf '%s' '{"invocationNum":2,"conversationId":"agy","workspacePaths":["/work"]}' \
-    | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        AI_MEMORY_HOOK_URL='http://memory.test' sh hooks/antigravity-cli/session-start.sh)
+    | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        PITSTOP_HOOK_URL='http://memory.test' sh hooks/antigravity-cli/session-start.sh)
 assert_eq "antigravity later invocation returns empty hook output" "{}" "$AGY_LATER_OUTPUT"
 assert_eq "antigravity later invocation makes no HTTP request" "0" \
     "$([ -f "$FAKE_CURL_LOG" ] && wc -l <"$FAKE_CURL_LOG" | tr -d ' ' || printf '0')"
 
 rm -f "$FAKE_CURL_LOG"
 AGY_INITIAL_OUTPUT=$(printf '%s' '{"invocationNum":0,"conversationId":"agy","workspacePaths":["/work"]}' \
-    | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        AI_MEMORY_HOOK_URL='http://memory.test' sh hooks/antigravity-cli/session-start.sh)
+    | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        PITSTOP_HOOK_URL='http://memory.test' sh hooks/antigravity-cli/session-start.sh)
 assert_eq "antigravity initial invocation injects handoff" \
     '{"injectSteps":[{"systemMessage":{"systemMessage":"next-session-context"}}]}' "$AGY_INITIAL_OUTPUT"
 assert_eq "antigravity initial invocation posts then fetches" "2" \
@@ -342,8 +342,8 @@ assert_eq "antigravity handoff fetch carries conversation id" "yes" \
 # Native SessionStart: no invocationNum, so it is a start boundary.
 rm -f "$FAKE_CURL_LOG"
 AGY_SESSION_START_OUTPUT=$(printf '%s' '{"conversationId":"agy-native","workspacePaths":["/work"]}' \
-    | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        AI_MEMORY_DATA_DIR="$TMP/agy-native" AI_MEMORY_HOOK_URL='http://memory.test' \
+    | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        PITSTOP_DATA_DIR="$TMP/agy-native" PITSTOP_HOOK_URL='http://memory.test' \
         sh hooks/antigravity-cli/session-start.sh)
 assert_eq "antigravity SessionStart injects a persistent handoff" \
     '{"injectSteps":[{"systemMessage":{"systemMessage":"next-session-context"}}]}' "$AGY_SESSION_START_OUTPUT"
@@ -355,8 +355,8 @@ for agy_payload in '{"invocationNum":2,"conversationId":"agy-pre","workspacePath
     '{"conversationId":"agy-pre","workspacePaths":["/work"]}'; do
     rm -f "$FAKE_CURL_LOG"
     AGY_PRE_OUTPUT=$(printf '%s' "$agy_payload" \
-        | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-            AI_MEMORY_DATA_DIR="$TMP/agy-pre" AI_MEMORY_HOOK_URL='http://memory.test' \
+        | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+            PITSTOP_DATA_DIR="$TMP/agy-pre" PITSTOP_HOOK_URL='http://memory.test' \
             sh hooks/antigravity-cli/pre-invocation.sh)
     assert_eq "antigravity PreInvocation outside invocation zero is empty: $agy_payload" "{}" "$AGY_PRE_OUTPUT"
     assert_eq "antigravity PreInvocation outside invocation zero sends nothing: $agy_payload" "0" \
@@ -366,15 +366,15 @@ done
 # conversation; the conversation's second turn is a no-op.
 rm -f "$FAKE_CURL_LOG"
 AGY_PRE_FIRST=$(printf '%s' '{"invocationNum":0,"conversationId":"agy-pre","workspacePaths":["/work"]}' \
-    | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        AI_MEMORY_DATA_DIR="$TMP/agy-pre" AI_MEMORY_HOOK_URL='http://memory.test' \
+    | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        PITSTOP_DATA_DIR="$TMP/agy-pre" PITSTOP_HOOK_URL='http://memory.test' \
         sh hooks/antigravity-cli/pre-invocation.sh)
 assert_eq "antigravity first PreInvocation without SessionStart injects the handoff" \
     '{"injectSteps":[{"systemMessage":{"systemMessage":"next-session-context"}}]}' "$AGY_PRE_FIRST"
 rm -f "$FAKE_CURL_LOG"
 AGY_PRE_SECOND=$(printf '%s' '{"invocationNum":0,"conversationId":"agy-pre","workspacePaths":["/work"]}' \
-    | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        AI_MEMORY_DATA_DIR="$TMP/agy-pre" AI_MEMORY_HOOK_URL='http://memory.test' \
+    | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        PITSTOP_DATA_DIR="$TMP/agy-pre" PITSTOP_HOOK_URL='http://memory.test' \
         sh hooks/antigravity-cli/pre-invocation.sh)
 assert_eq "antigravity later turn PreInvocation is empty" "{}" "$AGY_PRE_SECOND"
 assert_eq "antigravity later turn PreInvocation sends nothing" "0" \
@@ -384,37 +384,37 @@ rm -f "$FAKE_CURL_LOG"
 for agy_step in 'session-start {"conversationId":"agy-once","workspacePaths":["/work"]}' \
     'pre-invocation {"invocationNum":0,"conversationId":"agy-once","workspacePaths":["/work"]}'; do
     printf '%s' "${agy_step#* }" \
-        | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-            AI_MEMORY_DATA_DIR="$TMP/agy-once" AI_MEMORY_HOOK_URL='http://memory.test' \
+        | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+            PITSTOP_DATA_DIR="$TMP/agy-once" PITSTOP_HOOK_URL='http://memory.test' \
             sh "hooks/antigravity-cli/${agy_step%% *}.sh" >/dev/null
 done
 assert_eq "antigravity SessionStart plus first PreInvocation claims one handoff" "1" \
     "$(grep -c '/handoff?' "$FAKE_CURL_LOG")"
 
-PS_ANTIGRAVITY_STATIC=$(grep -q 'function Test-AiMemoryAntigravityStartBoundary' hooks/lib/ai-memory-hook.ps1 \
-    && grep -q '\$AntigravityStartOutput -and -not' hooks/lib/ai-memory-hook.ps1 \
-    && grep -q 'systemMessage = @{ systemMessage =' hooks/lib/ai-memory-hook.ps1 \
+PS_ANTIGRAVITY_STATIC=$(grep -q 'function Test-PitstopAntigravityStartBoundary' hooks/lib/pitstop-hook.ps1 \
+    && grep -q '\$AntigravityStartOutput -and -not' hooks/lib/pitstop-hook.ps1 \
+    && grep -q 'systemMessage = @{ systemMessage =' hooks/lib/pitstop-hook.ps1 \
     && grep -q -- '-AntigravityPreInvocation' hooks/antigravity-cli/pre-invocation.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell antigravity hook has invocation guard" "ok" "$PS_ANTIGRAVITY_STATIC"
 
-PS_UTF8_STATIC=$(grep -Fq '$BodyBytes = [Text.Encoding]::UTF8.GetBytes($Payload)' hooks/lib/ai-memory-hook.ps1 \
-    && grep -Fq 'application/json; charset=utf-8' hooks/lib/ai-memory-hook.ps1 \
-    && grep -Fq -- '-Body $BodyBytes' hooks/lib/ai-memory-hook.ps1 \
+PS_UTF8_STATIC=$(grep -Fq '$BodyBytes = [Text.Encoding]::UTF8.GetBytes($Payload)' hooks/lib/pitstop-hook.ps1 \
+    && grep -Fq 'application/json; charset=utf-8' hooks/lib/pitstop-hook.ps1 \
+    && grep -Fq -- '-Body $BodyBytes' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell hook posts explicit UTF-8 JSON bytes" "ok" "$PS_UTF8_STATIC"
-PS_HOME_STATIC=$(grep -Fq '$userHome = if ($env:HOME)' hooks/lib/ai-memory-hook.ps1 \
-    && ! grep -Eq '\$home[[:space:]]*=' hooks/lib/ai-memory-hook.ps1 \
+PS_HOME_STATIC=$(grep -Fq '$userHome = if ($env:HOME)' hooks/lib/pitstop-hook.ps1 \
+    && ! grep -Eq '\$home[[:space:]]*=' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell marker helper avoids read-only HOME" "ok" "$PS_HOME_STATIC"
 # The guard's own behaviour is exercised by the Windows-only Rust test
 # (`powershell_server_routed.rs`); this pins that the hook entry point calls
 # it before it builds the query, on every platform the shell suite runs.
-PS_ROUTED_STATIC=$(grep -q 'function Test-AiMemoryServerRouted' hooks/lib/ai-memory-hook.ps1 \
-    && awk '/function Invoke-AiMemoryHook/ {f=1}
-            f && /Test-AiMemoryServerRouted/ && !t {t=NR}
-            f && /Get-AiMemoryMarkerQuery/ && !q {q=NR}
-            END {exit !(t && q && t < q)}' hooks/lib/ai-memory-hook.ps1 \
+PS_ROUTED_STATIC=$(grep -q 'function Test-PitstopServerRouted' hooks/lib/pitstop-hook.ps1 \
+    && awk '/function Invoke-PitstopHook/ {f=1}
+            f && /Test-PitstopServerRouted/ && !t {t=NR}
+            f && /Get-PitstopMarkerQuery/ && !q {q=NR}
+            END {exit !(t && q && t < q)}' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell hook refuses a routed repository before building its query" "ok" "$PS_ROUTED_STATIC"
 
@@ -422,12 +422,12 @@ assert_eq "powershell hook refuses a routed repository before building its query
 JSON_INPUT='quoted "thing" \ path
 next line'
 assert_eq "json_string escapes text" '"quoted \"thing\" \\ path\nnext line"' \
-    "$(printf '%s' "$JSON_INPUT" | ai_memory_json_string)"
+    "$(printf '%s' "$JSON_INPUT" | pitstop_json_string)"
 
 # A raw control byte (JSON forbids U+0000..U+001F inside a string) must become
 # a \u00XX escape, not reach stdout bare -- a replayed ANSI-coloured tool
 # result otherwise made the whole SessionStart packet invalid JSON (#732).
-CTRL_OUT="$(printf 'a\033[0mb' | ai_memory_json_string)"
+CTRL_OUT="$(printf 'a\033[0mb' | pitstop_json_string)"
 case "$CTRL_OUT" in
     *'\u001b'*) CTRL_ESCAPED=yes ;;
     *) CTRL_ESCAPED=no ;;
@@ -435,29 +435,29 @@ esac
 assert_eq "json_string escapes a control byte as a \u escape" "yes" "$CTRL_ESCAPED"
 
 # --- marker_qs --------------------------------------------------------
-QS=$(ai_memory_marker_qs "$TMP/a/b/c")
-assert_eq "marker_qs single key" "&cwd=$(ai_memory_url_encode "$TMP/a/b/c")&workspace=deep&profile_contribute=1&profile_consume=1" "$QS"
+QS=$(pitstop_marker_qs "$TMP/a/b/c")
+assert_eq "marker_qs single key" "&cwd=$(pitstop_url_encode "$TMP/a/b/c")&workspace=deep&profile_contribute=1&profile_consume=1" "$QS"
 
-printf 'workspace = "ws1"\nproject = "p1"\nproject_strategy = "repo-root"\n' >"$TMP/a/b/.ai-memory.toml"
-QS2=$(ai_memory_marker_qs "$TMP/a/b/c")
-assert_eq "closer marker wins" "&cwd=$(ai_memory_url_encode "$TMP/a/b/c")&workspace=ws1&project=p1&project_src=marker&project_strategy=repo-root&profile_contribute=1&profile_consume=1" "$QS2"
+printf 'workspace = "ws1"\nproject = "p1"\nproject_strategy = "repo-root"\n' >"$TMP/a/b/.pitstop.toml"
+QS2=$(pitstop_marker_qs "$TMP/a/b/c")
+assert_eq "closer marker wins" "&cwd=$(pitstop_url_encode "$TMP/a/b/c")&workspace=ws1&project=p1&project_src=marker&project_strategy=repo-root&profile_contribute=1&profile_consume=1" "$QS2"
 
-QS3=$(ai_memory_marker_qs "$TMP/nonexistent")
-assert_eq "no marker -> cwd only" "&cwd=$(ai_memory_url_encode "$TMP/nonexistent")" "$QS3"
+QS3=$(pitstop_marker_qs "$TMP/nonexistent")
+assert_eq "no marker -> cwd only" "&cwd=$(pitstop_url_encode "$TMP/nonexistent")" "$QS3"
 
 mkdir -p "$TMP/aliases"
 git -C "$TMP/aliases" init -q
 git -C "$TMP/aliases" remote add origin git@git.example.test:acme/api.git
-printf 'project = "acme-api"\naliases = [" former-name ", "legacy_name", "former-name"]\n' >"$TMP/aliases/.ai-memory.toml"
+printf 'project = "acme-api"\naliases = [" former-name ", "legacy_name", "former-name"]\n' >"$TMP/aliases/.pitstop.toml"
 ALIAS_JSON='["former-name","legacy_name"]'
-ALIAS_QS=$(ai_memory_marker_qs "$TMP/aliases")
+ALIAS_QS=$(pitstop_marker_qs "$TMP/aliases")
 assert_eq "marker aliases keep canonical project and forward remote identity" "yes" \
-    "$(case "$ALIAS_QS" in (*'&project=acme-api&project_src=marker'*"&identity=git.example.test%2Facme%2Fapi&identity_src=git_remote&identity_style=path&aliases=$(ai_memory_url_encode "$ALIAS_JSON")"*) printf yes ;; (*) printf no ;; esac)"
+    "$(case "$ALIAS_QS" in (*'&project=acme-api&project_src=marker'*"&identity=git.example.test%2Facme%2Fapi&identity_src=git_remote&identity_style=path&aliases=$(pitstop_url_encode "$ALIAS_JSON")"*) printf yes ;; (*) printf no ;; esac)"
 
 mkdir -p "$TMP/home-routes/src/api/lib" "$TMP/home-routes/src/api-sibling"
 HOME="$TMP/home-routes"
 export HOME
-cat >"$HOME/.ai-memory.toml" <<EOF
+cat >"$HOME/.pitstop.toml" <<EOF
 workspace = "fallback"
 project = "fallback"
 [routes.path."~/src"]
@@ -468,19 +468,19 @@ route_workspace = "oss"
 route_project = "acme-api"
 route_aliases = ["old-api"]
 EOF
-HOME_ROUTE=$(ai_memory_marker_qs "$HOME/src/api/lib")
+HOME_ROUTE=$(pitstop_marker_qs "$HOME/src/api/lib")
 assert_eq "home route uses longest component path and marker provenance" "yes" \
     "$(case "$HOME_ROUTE" in (*'&workspace=oss&project=acme-api&project_src=marker'*) printf yes ;; (*) printf no ;; esac)"
 assert_eq "non-git home path route omits aliases" "no" \
     "$(case "$HOME_ROUTE" in (*'&aliases='*) printf yes ;; (*) printf no ;; esac)"
-PS_ROUTE_STATIC=$(grep -Fq 'if ($aliases) { $qs += "&aliases=' hooks/lib/ai-memory-hook.ps1 \
-    && grep -Fq 'if (-not $stack.Count) { return $null }' hooks/lib/ai-memory-hook.ps1 \
+PS_ROUTE_STATIC=$(grep -Fq 'if ($aliases) { $qs += "&aliases=' hooks/lib/pitstop-hook.ps1 \
+    && grep -Fq 'if (-not $stack.Count) { return $null }' hooks/lib/pitstop-hook.ps1 \
     && printf ok || printf fail)
 assert_eq "powershell route bundle omits cleared aliases and rejects roots (static)" "ok" "$PS_ROUTE_STATIC"
 mkdir -p "$HOME/src/api/.git"
 git -C "$HOME/src/api" init -q
 git -C "$HOME/src/api" remote add origin git@github.com:acme/api.git
-cat >>"$HOME/.ai-memory.toml" <<EOF
+cat >>"$HOME/.pitstop.toml" <<EOF
 [routes.identity."github.com/acme/api"]
 route_workspace = "identity"
 route_project = "identity-api"
@@ -490,18 +490,18 @@ route_aliases = ["main"]
 route_workspace = "wrong"
 route_project = "wrong"
 EOF
-HOME_IDENTITY_ROUTE=$(ai_memory_marker_qs "$HOME/src/api/lib")
+HOME_IDENTITY_ROUTE=$(pitstop_marker_qs "$HOME/src/api/lib")
 assert_eq "home exact hostful identity wins path and forwards aliases safely" "yes" \
     "$(case "$HOME_IDENTITY_ROUTE" in (*'&workspace=identity&project=identity-api&project_src=marker'*'&identity=github.com%2Facme%2Fapi&identity_src=git_remote&identity_style=path'*'&aliases=%5B%22main%22%5D'*) printf yes ;; (*) printf no ;; esac)"
-HOME_SIBLING=$(ai_memory_marker_qs "$HOME/src/api-sibling")
+HOME_SIBLING=$(pitstop_marker_qs "$HOME/src/api-sibling")
 assert_eq "home route does not string-prefix match a sibling" "yes" \
     "$(case "$HOME_SIBLING" in (*'&project=broad&project_src=marker'*) printf yes ;; (*) printf no ;; esac)"
-printf 'workspace = "local"\nproject = "local-project"\n' >"$HOME/src/api/.ai-memory.toml"
-LOCAL_ROUTE=$(ai_memory_marker_qs "$HOME/src/api/lib")
+printf 'workspace = "local"\nproject = "local-project"\n' >"$HOME/src/api/.pitstop.toml"
+LOCAL_ROUTE=$(pitstop_marker_qs "$HOME/src/api/lib")
 assert_eq "local settings marker wins over home route" "yes" \
     "$(case "$LOCAL_ROUTE" in (*'&workspace=local&project=local-project&project_src=marker'*) printf yes ;; (*) printf no ;; esac)"
-rm -f "$HOME/src/api/.ai-memory.toml"
-cat >"$HOME/.ai-memory.toml" <<EOF
+rm -f "$HOME/src/api/.pitstop.toml"
+cat >"$HOME/.pitstop.toml" <<EOF
 workspace = "wrong"
 project = "wrong"
 project_strategy = "repo-root"
@@ -518,49 +518,49 @@ consume = false
 route_workspace = "right"
 route_project = "api"
 EOF
-HOME_FLAG_ROUTE=$(ai_memory_marker_qs "$HOME/src/api")
+HOME_FLAG_ROUTE=$(pitstop_marker_qs "$HOME/src/api")
 assert_eq "home route replaces scope and keeps root privacy settings" "yes" \
     "$(case "$HOME_FLAG_ROUTE" in (*'&workspace=right&project=api&project_src=marker'*'&drop_subagent=true&default_global=true&profile_contribute=1&profile_consume=0'*) printf yes ;; (*) printf no ;; esac)"
-printf 'workspace = "wrong"\nproject = "wrong"\n[routes.path."relative"]\nroute_workspace = "oss"\nroute_project = "api"\n' >"$HOME/.ai-memory.toml"
-assert_eq "malformed home routes fail closed instead of root fallback" "&ai_memory_invalid_home_routes=1" \
-    "$(ai_memory_marker_qs "$HOME/src/api")"
-printf 'workspace = wrong\n' >"$HOME/.ai-memory.toml"
+printf 'workspace = "wrong"\nproject = "wrong"\n[routes.path."relative"]\nroute_workspace = "oss"\nroute_project = "api"\n' >"$HOME/.pitstop.toml"
+assert_eq "malformed home routes fail closed instead of root fallback" "&pitstop_invalid_home_routes=1" \
+    "$(pitstop_marker_qs "$HOME/src/api")"
+printf 'workspace = wrong\n' >"$HOME/.pitstop.toml"
 assert_eq "malformed root-only home marker keeps legacy parser behavior" "yes" \
-    "$(case "$(ai_memory_marker_qs "$HOME/src/api")" in (*'&ai_memory_invalid_home_routes=1'*) printf no ;; (*) printf yes ;; esac)"
-ai_memory_home
+    "$(case "$(pitstop_marker_qs "$HOME/src/api")" in (*'&pitstop_invalid_home_routes=1'*) printf no ;; (*) printf yes ;; esac)"
+pitstop_home
 ROUTE_FS=$(printf '\034')
-printf '[routes.path."C:/Work/API"]\nroute_workspace="windows"\nroute_project="drive"\n[routes.path."//Server/Share/API"]\nroute_workspace="windows"\nroute_project="unc"\n' >"$HOME/.ai-memory.toml"
+printf '[routes.path."C:/Work/API"]\nroute_workspace="windows"\nroute_project="drive"\n[routes.path."//Server/Share/API"]\nroute_workspace="windows"\nroute_project="unc"\n' >"$HOME/.pitstop.toml"
 assert_eq "home drive route matches components" "windows${ROUTE_FS}drive${ROUTE_FS}${ROUTE_FS}" \
-    "$(ai_memory_home_route "$HOME/.ai-memory.toml" 'c:/work/api/lib' '')"
+    "$(pitstop_home_route "$HOME/.pitstop.toml" 'c:/work/api/lib' '')"
 assert_eq "home UNC route matches components" "windows${ROUTE_FS}unc${ROUTE_FS}${ROUTE_FS}" \
-    "$(ai_memory_home_route "$HOME/.ai-memory.toml" '//server/share/api/lib' '')"
-printf '[routes.path."C:/"]\nroute_workspace="windows"\nroute_project="drive"\n' >"$HOME/.ai-memory.toml"
+    "$(pitstop_home_route "$HOME/.pitstop.toml" '//server/share/api/lib' '')"
+printf '[routes.path."C:/"]\nroute_workspace="windows"\nroute_project="drive"\n' >"$HOME/.pitstop.toml"
 assert_eq "home drive root route is rejected" "invalid" \
-    "$(ai_memory_home_route "$HOME/.ai-memory.toml" 'C:/child' '')"
-printf '[routes.path."//server/share"]\nroute_workspace="windows"\nroute_project="unc"\n' >"$HOME/.ai-memory.toml"
+    "$(pitstop_home_route "$HOME/.pitstop.toml" 'C:/child' '')"
+printf '[routes.path."//server/share"]\nroute_workspace="windows"\nroute_project="unc"\n' >"$HOME/.pitstop.toml"
 assert_eq "home UNC root route is rejected" "invalid" \
-    "$(ai_memory_home_route "$HOME/.ai-memory.toml" '//server/share/child' '')"
+    "$(pitstop_home_route "$HOME/.pitstop.toml" '//server/share/child' '')"
 HOME="$TMP"
 export HOME
 
 # --- capture-only marker transparency (#668) ---------------------------
 # A nested marker whose only content is [capture] must not shadow an outer
-# marker's workspace/project: ai_memory_marker_qs skips it and forwards the
-# OUTER marker's fields, while ai_memory_find_marker (used for [capture]
+# marker's workspace/project: pitstop_marker_qs skips it and forwards the
+# OUTER marker's fields, while pitstop_find_marker (used for [capture]
 # itself) still resolves the INNER (nearest) marker.
 mkdir -p "$TMP/scope/inner"
-printf 'workspace = "acme"\nproject = "infra"\n' >"$TMP/scope/.ai-memory.toml"
-printf '[capture]\nignore_paths = ["secret/**"]\n' >"$TMP/scope/inner/.ai-memory.toml"
+printf 'workspace = "acme"\nproject = "infra"\n' >"$TMP/scope/.pitstop.toml"
+printf '[capture]\nignore_paths = ["secret/**"]\n' >"$TMP/scope/inner/.pitstop.toml"
 
 assert_eq "capture-only marker: find_marker still resolves nearest" \
-    "$TMP/scope/inner/.ai-memory.toml" \
-    "$(ai_memory_find_marker "$TMP/scope/inner")"
+    "$TMP/scope/inner/.pitstop.toml" \
+    "$(pitstop_find_marker "$TMP/scope/inner")"
 assert_eq "capture-only marker: find_settings_marker skips it for the outer" \
-    "$TMP/scope/.ai-memory.toml" \
-    "$(ai_memory_find_settings_marker "$TMP/scope/inner")"
+    "$TMP/scope/.pitstop.toml" \
+    "$(pitstop_find_settings_marker "$TMP/scope/inner")"
 assert_eq "capture-only marker: marker_qs forwards the OUTER scope" \
-    "&cwd=$(ai_memory_url_encode "$TMP/scope/inner")&workspace=acme&project=infra&project_src=marker&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/scope/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/scope/inner")&workspace=acme&project=infra&project_src=marker&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/scope/inner")"
 
 # --- repository identity (#708) ----------------------------------------
 # An undeclared checkout sends its normalised remote, with the credentials in
@@ -572,121 +572,121 @@ if command -v git >/dev/null 2>&1; then
     mkdir -p "$TMP/idrepo"
     git -C "$TMP/idrepo" init -q
     git -C "$TMP/idrepo" remote add origin "https://someone:tok3n@git.example.test/Acme/API.git"
-    ID_CWD=$(ai_memory_url_encode "$TMP/idrepo")
+    ID_CWD=$(pitstop_url_encode "$TMP/idrepo")
     assert_eq "identity: undeclared checkout sends its remote" \
-        "&cwd=$ID_CWD&identity=$(ai_memory_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=path" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
-    printf 'project = "mine"\n' >"$TMP/idrepo/.ai-memory.toml"
+        "&cwd=$ID_CWD&identity=$(pitstop_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=path" \
+        "$(pitstop_marker_qs "$TMP/idrepo")"
+    printf 'project = "mine"\n' >"$TMP/idrepo/.pitstop.toml"
     assert_eq "identity: a declared project routes by name" \
         "&cwd=$ID_CWD&project=mine&project_src=marker&profile_contribute=1&profile_consume=1" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
-    printf 'project = "mine"\nidentity = "Acme/Platform"\n' >"$TMP/idrepo/.ai-memory.toml"
+        "$(pitstop_marker_qs "$TMP/idrepo")"
+    printf 'project = "mine"\nidentity = "Acme/Platform"\n' >"$TMP/idrepo/.pitstop.toml"
     assert_eq "identity: an explicit identity outranks the project" \
-        "&cwd=$ID_CWD&project=mine&project_src=marker&identity=$(ai_memory_url_encode acme/platform)&identity_src=explicit&profile_contribute=1&profile_consume=1" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
+        "&cwd=$ID_CWD&project=mine&project_src=marker&identity=$(pitstop_url_encode acme/platform)&identity_src=explicit&profile_contribute=1&profile_consume=1" \
+        "$(pitstop_marker_qs "$TMP/idrepo")"
     # #1033: either explicit style rides along with a remote identity only.
-    printf 'identity_style = "path"\n' >"$TMP/idrepo/.ai-memory.toml"
+    printf 'identity_style = "path"\n' >"$TMP/idrepo/.pitstop.toml"
     assert_eq "identity: the path style rides along with the remote" \
-        "&cwd=$ID_CWD&identity=$(ai_memory_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=path&profile_contribute=1&profile_consume=1" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
-    printf 'identity_style = "host_path"\n' >"$TMP/idrepo/.ai-memory.toml"
+        "&cwd=$ID_CWD&identity=$(pitstop_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=path&profile_contribute=1&profile_consume=1" \
+        "$(pitstop_marker_qs "$TMP/idrepo")"
+    printf 'identity_style = "host_path"\n' >"$TMP/idrepo/.pitstop.toml"
     assert_eq "identity: the host-path opt-out rides along with the remote" \
-        "&cwd=$ID_CWD&identity=$(ai_memory_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=host_path&profile_contribute=1&profile_consume=1" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
-    printf 'identity_style = "path"\nidentity = "Acme/Platform"\n' >"$TMP/idrepo/.ai-memory.toml"
+        "&cwd=$ID_CWD&identity=$(pitstop_url_encode git.example.test/acme/api)&identity_src=git_remote&identity_style=host_path&profile_contribute=1&profile_consume=1" \
+        "$(pitstop_marker_qs "$TMP/idrepo")"
+    printf 'identity_style = "path"\nidentity = "Acme/Platform"\n' >"$TMP/idrepo/.pitstop.toml"
     assert_eq "identity: a declared identity sends no style" \
-        "&cwd=$ID_CWD&identity=$(ai_memory_url_encode acme/platform)&identity_src=explicit&profile_contribute=1&profile_consume=1" \
-        "$(ai_memory_marker_qs "$TMP/idrepo")"
+        "&cwd=$ID_CWD&identity=$(pitstop_url_encode acme/platform)&identity_src=explicit&profile_contribute=1&profile_consume=1" \
+        "$(pitstop_marker_qs "$TMP/idrepo")"
     rm -rf "$TMP/idrepo"
 fi
 
 # A marker declaring [briefing] but no workspace/project is NOT capture-only
 # (it declares a forwarded setting), so it stays a resolution boundary: the
 # outer marker's scope must not leak through it.
-printf '[briefing]\ninject_on_session_start = true\n' >"$TMP/scope/inner/.ai-memory.toml"
+printf '[briefing]\ninject_on_session_start = true\n' >"$TMP/scope/inner/.pitstop.toml"
 assert_eq "briefing-only marker is a settings boundary, not transparent" \
-    "" "$(ai_memory_parse_toml_key "$(ai_memory_find_settings_marker "$TMP/scope/inner")" workspace)"
+    "" "$(pitstop_parse_toml_key "$(pitstop_find_settings_marker "$TMP/scope/inner")" workspace)"
 assert_eq "marker_qs stops at the briefing-only boundary" \
-    "&cwd=$(ai_memory_url_encode "$TMP/scope/inner")&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/scope/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/scope/inner")&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/scope/inner")"
 
 # A marker that only sets `[profile]` keys is a settings boundary too, and
 # marker_qs forwards both flags (quoted or bare) as explicit 0/1 values.
 mkdir -p "$TMP/profile-only/inner"
-printf 'workspace = "outer"\n' >"$TMP/profile-only/.ai-memory.toml"
-printf '[profile]\ncontribute = false\nconsume = "no"\n' >"$TMP/profile-only/inner/.ai-memory.toml"
+printf 'workspace = "outer"\n' >"$TMP/profile-only/.pitstop.toml"
+printf '[profile]\ncontribute = false\nconsume = "no"\n' >"$TMP/profile-only/inner/.pitstop.toml"
 assert_eq "profile-only marker is a settings boundary" \
-    "$TMP/profile-only/inner/.ai-memory.toml" "$(ai_memory_find_settings_marker "$TMP/profile-only/inner")"
+    "$TMP/profile-only/inner/.pitstop.toml" "$(pitstop_find_settings_marker "$TMP/profile-only/inner")"
 assert_eq "marker_qs forwards [profile] contribute and consume" \
-    "&cwd=$(ai_memory_url_encode "$TMP/profile-only/inner")&profile_contribute=0&profile_consume=0" \
-    "$(ai_memory_marker_qs "$TMP/profile-only/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/profile-only/inner")&profile_contribute=0&profile_consume=0" \
+    "$(pitstop_marker_qs "$TMP/profile-only/inner")"
 assert_eq "marker_qs sends explicit [profile] defaults when a marker omits the keys" \
-    "&cwd=$(ai_memory_url_encode "$TMP/profile-only")&workspace=outer&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/profile-only")"
-# AI_MEMORY_AUTO_HANDOFF=off opts this execution out of the automatic handoff
+    "&cwd=$(pitstop_url_encode "$TMP/profile-only")&workspace=outer&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/profile-only")"
+# PITSTOP_AUTO_HANDOFF=off opts this execution out of the automatic handoff
 # (#1951); only an explicit falsy value is forwarded, next to the managed run.
-assert_eq "auto handoff unset sends nothing" "" "$(ai_memory_managed_qs)"
+assert_eq "auto handoff unset sends nothing" "" "$(pitstop_managed_qs)"
 assert_eq "auto handoff off is forwarded" "&auto_handoff=0" \
-    "$(AI_MEMORY_AUTO_HANDOFF=' Off ' ai_memory_managed_qs)"
-assert_eq "auto handoff on sends nothing" "" "$(AI_MEMORY_AUTO_HANDOFF=on ai_memory_managed_qs)"
+    "$(PITSTOP_AUTO_HANDOFF=' Off ' pitstop_managed_qs)"
+assert_eq "auto handoff on sends nothing" "" "$(PITSTOP_AUTO_HANDOFF=on pitstop_managed_qs)"
 assert_eq "auto handoff rides with the managed run" "&managed_run=r1&auto_handoff=0" \
-    "$(AI_MEMORY_RUN_ID=r1 AI_MEMORY_AUTO_HANDOFF=0 ai_memory_managed_qs)"
+    "$(PITSTOP_RUN_ID=r1 PITSTOP_AUTO_HANDOFF=0 pitstop_managed_qs)"
 
 # `[handoff] deliver_on_session_start = false` is sent as &handoff=0 only when
 # explicitly falsy, and a [handoff]-only marker is a settings boundary.
 mkdir -p "$TMP/handoff-off/inner" "$TMP/handoff-on"
-printf 'workspace = "outer"\n' >"$TMP/handoff-off/.ai-memory.toml"
-printf '[handoff]\ndeliver_on_session_start = "false"\n' >"$TMP/handoff-off/inner/.ai-memory.toml"
-printf '[handoff]\ndeliver_on_session_start = true\n' >"$TMP/handoff-on/.ai-memory.toml"
+printf 'workspace = "outer"\n' >"$TMP/handoff-off/.pitstop.toml"
+printf '[handoff]\ndeliver_on_session_start = "false"\n' >"$TMP/handoff-off/inner/.pitstop.toml"
+printf '[handoff]\ndeliver_on_session_start = true\n' >"$TMP/handoff-on/.pitstop.toml"
 assert_eq "handoff-only marker is a settings boundary" \
-    "$TMP/handoff-off/inner/.ai-memory.toml" "$(ai_memory_find_settings_marker "$TMP/handoff-off/inner")"
+    "$TMP/handoff-off/inner/.pitstop.toml" "$(pitstop_find_settings_marker "$TMP/handoff-off/inner")"
 assert_eq "marker_qs forwards the [handoff] opt-out" \
-    "&cwd=$(ai_memory_url_encode "$TMP/handoff-off/inner")&profile_contribute=1&profile_consume=1&handoff=0" \
-    "$(ai_memory_marker_qs "$TMP/handoff-off/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/handoff-off/inner")&profile_contribute=1&profile_consume=1&handoff=0" \
+    "$(pitstop_marker_qs "$TMP/handoff-off/inner")"
 assert_eq "marker_qs omits handoff for a sibling project and for a truthy value" \
-    "&cwd=$(ai_memory_url_encode "$TMP/handoff-off")&workspace=outer&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/handoff-off")"
+    "&cwd=$(pitstop_url_encode "$TMP/handoff-off")&workspace=outer&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/handoff-off")"
 assert_eq "marker_qs omits handoff when deliver_on_session_start is true" \
-    "&cwd=$(ai_memory_url_encode "$TMP/handoff-on")&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/handoff-on")"
+    "&cwd=$(pitstop_url_encode "$TMP/handoff-on")&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/handoff-on")"
 # [recovery] uses the same key without opting out of handoffs.
 mkdir -p "$TMP/recovery-off/inner" "$TMP/recovery-on"
-printf 'workspace = "outer"\n' >"$TMP/recovery-off/.ai-memory.toml"
-printf '[recovery]\ndeliver_on_session_start = "false"\n' >"$TMP/recovery-off/inner/.ai-memory.toml"
-printf '[recovery]\ndeliver_on_session_start = true\n' >"$TMP/recovery-on/.ai-memory.toml"
+printf 'workspace = "outer"\n' >"$TMP/recovery-off/.pitstop.toml"
+printf '[recovery]\ndeliver_on_session_start = "false"\n' >"$TMP/recovery-off/inner/.pitstop.toml"
+printf '[recovery]\ndeliver_on_session_start = true\n' >"$TMP/recovery-on/.pitstop.toml"
 assert_eq "recovery-only marker is a settings boundary" \
-    "$TMP/recovery-off/inner/.ai-memory.toml" "$(ai_memory_find_settings_marker "$TMP/recovery-off/inner")"
+    "$TMP/recovery-off/inner/.pitstop.toml" "$(pitstop_find_settings_marker "$TMP/recovery-off/inner")"
 assert_eq "marker_qs forwards recovery without disabling handoff" \
-    "&cwd=$(ai_memory_url_encode "$TMP/recovery-off/inner")&profile_contribute=1&profile_consume=1&recovery=0" \
-    "$(ai_memory_marker_qs "$TMP/recovery-off/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/recovery-off/inner")&profile_contribute=1&profile_consume=1&recovery=0" \
+    "$(pitstop_marker_qs "$TMP/recovery-off/inner")"
 assert_eq "marker_qs omits recovery for a truthy value" \
-    "&cwd=$(ai_memory_url_encode "$TMP/recovery-on")&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/recovery-on")"
-printf '[handoff]\ndeliver_on_session_start = false\n[recovery]\ndeliver_on_session_start = false\n' >"$TMP/recovery-on/.ai-memory.toml"
+    "&cwd=$(pitstop_url_encode "$TMP/recovery-on")&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/recovery-on")"
+printf '[handoff]\ndeliver_on_session_start = false\n[recovery]\ndeliver_on_session_start = false\n' >"$TMP/recovery-on/.pitstop.toml"
 assert_eq "marker_qs forwards independent handoff and recovery opt-outs" \
-    "&cwd=$(ai_memory_url_encode "$TMP/recovery-on")&profile_contribute=1&profile_consume=1&handoff=0&recovery=0" \
-    "$(ai_memory_marker_qs "$TMP/recovery-on")"
+    "&cwd=$(pitstop_url_encode "$TMP/recovery-on")&profile_contribute=1&profile_consume=1&handoff=0&recovery=0" \
+    "$(pitstop_marker_qs "$TMP/recovery-on")"
 # `[briefing] inject_on_subagent_start` alone is a settings boundary too, and
 # only the subagent-start query forwards it; the session-start opt-in stays
 # its own.
 mkdir -p "$TMP/subagent-only/inner" "$TMP/subagent-key-only/inner" "$TMP/session-brief-only"
-printf 'workspace = "outer"\n' >"$TMP/subagent-only/.ai-memory.toml"
-printf '[briefing]\ninject_on_subagent_start = true\nmax_chars = 6000\n' >"$TMP/subagent-only/inner/.ai-memory.toml"
-printf 'workspace = "outer"\n' >"$TMP/subagent-key-only/.ai-memory.toml"
-printf '[briefing]\ninject_on_subagent_start = true\n' >"$TMP/subagent-key-only/inner/.ai-memory.toml"
-printf '[briefing]\ninject_on_session_start = true\n' >"$TMP/session-brief-only/.ai-memory.toml"
+printf 'workspace = "outer"\n' >"$TMP/subagent-only/.pitstop.toml"
+printf '[briefing]\ninject_on_subagent_start = true\nmax_chars = 6000\n' >"$TMP/subagent-only/inner/.pitstop.toml"
+printf 'workspace = "outer"\n' >"$TMP/subagent-key-only/.pitstop.toml"
+printf '[briefing]\ninject_on_subagent_start = true\n' >"$TMP/subagent-key-only/inner/.pitstop.toml"
+printf '[briefing]\ninject_on_session_start = true\n' >"$TMP/session-brief-only/.pitstop.toml"
 assert_eq "subagent-brief-only marker is a settings boundary" \
-    "$TMP/subagent-key-only/inner/.ai-memory.toml" "$(ai_memory_find_settings_marker "$TMP/subagent-key-only/inner")"
+    "$TMP/subagent-key-only/inner/.pitstop.toml" "$(pitstop_find_settings_marker "$TMP/subagent-key-only/inner")"
 assert_eq "the subagent briefing query forwards its own opt-in" \
-    "&briefing=true&briefing_budget=6000" "$(ai_memory_subagent_briefing_qs "$TMP/subagent-only/inner")"
+    "&briefing=true&briefing_budget=6000" "$(pitstop_subagent_briefing_qs "$TMP/subagent-only/inner")"
 assert_eq "the session-start briefing query ignores the subagent opt-in" \
-    "" "$(ai_memory_briefing_qs "$TMP/subagent-only/inner")"
+    "" "$(pitstop_briefing_qs "$TMP/subagent-only/inner")"
 assert_eq "the subagent briefing query ignores the session-start opt-in" \
-    "" "$(ai_memory_subagent_briefing_qs "$TMP/session-brief-only")"
-HF_PS=$(grep -q 'deliver_on_session_start' hooks/lib/ai-memory-hook.ps1 \
-    && grep -q '&handoff=0' hooks/lib/ai-memory-hook.ps1 \
-    && grep -q '&recovery=0' hooks/lib/ai-memory-hook.ps1 \
-    && grep -q 'Get-AiMemoryTomlScopedFlag' hooks/lib/ai-memory-hook.ps1 \
+    "" "$(pitstop_subagent_briefing_qs "$TMP/session-brief-only")"
+HF_PS=$(grep -q 'deliver_on_session_start' hooks/lib/pitstop-hook.ps1 \
+    && grep -q '&handoff=0' hooks/lib/pitstop-hook.ps1 \
+    && grep -q '&recovery=0' hooks/lib/pitstop-hook.ps1 \
+    && grep -q 'Get-PitstopTomlScopedFlag' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell marker query forwards independent delivery opt-outs (static)" "ok" "$HF_PS"
 PSH=""
@@ -696,25 +696,25 @@ elif command -v powershell >/dev/null 2>&1; then
     PSH=$(command -v powershell)
 fi
 if [ -n "$PSH" ]; then
-    PS_LIB=$(host_path "$PWD/hooks/lib/ai-memory-hook.ps1")
+    PS_LIB=$(host_path "$PWD/hooks/lib/pitstop-hook.ps1")
     PS_CWD=$(host_path "$TMP/profile-only/inner")
     PS_QS=$(HOME="$TMP" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-        ". '$PS_LIB'; Get-AiMemoryMarkerQuery -Cwd '$PS_CWD'")
+        ". '$PS_LIB'; Get-PitstopMarkerQuery -Cwd '$PS_CWD'")
     case "$PS_QS" in
         *"&profile_contribute=0&profile_consume=0"*) PS_PROFILE="ok" ;;
         *) PS_PROFILE="got: $PS_QS" ;;
     esac
     assert_eq "powershell marker query forwards [profile] flags" "ok" "$PS_PROFILE"
 else
-    PS_PROFILE=$(grep -q '&profile_contribute=' hooks/lib/ai-memory-hook.ps1 \
-        && grep -q '&profile_consume=' hooks/lib/ai-memory-hook.ps1 \
+    PS_PROFILE=$(grep -q '&profile_contribute=' hooks/lib/pitstop-hook.ps1 \
+        && grep -q '&profile_consume=' hooks/lib/pitstop-hook.ps1 \
         && printf 'ok' || printf 'missing')
     assert_eq "powershell marker query forwards [profile] flags (static)" "ok" "$PS_PROFILE"
 fi
 if [ -n "$PSH" ]; then
     PS_REC_CWD=$(host_path "$TMP/recovery-off/inner")
     PS_REC_QS=$(HOME="$TMP" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-        ". '$PS_LIB'; Get-AiMemoryMarkerQuery -Cwd '$PS_REC_CWD'")
+        ". '$PS_LIB'; Get-PitstopMarkerQuery -Cwd '$PS_REC_CWD'")
     case "$PS_REC_QS" in
         *"&profile_contribute=1&profile_consume=1&recovery=0"*) PS_RECOVERY="ok" ;;
         *) PS_RECOVERY="got: $PS_REC_QS" ;;
@@ -726,14 +726,14 @@ if [ -n "$PSH" ]; then
 fi
 if [ -n "$PSH" ]; then
     PS_SUB_CWD=$(host_path "$TMP/subagent-only/inner")
-    PS_SUB_MARKER=$(host_path "$TMP/subagent-key-only/inner/.ai-memory.toml")
+    PS_SUB_MARKER=$(host_path "$TMP/subagent-key-only/inner/.pitstop.toml")
     PS_SUB=$(HOME="$TMP" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-        ". '$PS_LIB'; (Get-AiMemoryBriefingQuery -Cwd '$PS_SUB_CWD' -Key 'inject_on_subagent_start') + '|' + (Get-AiMemoryBriefingQuery -Cwd '$PS_SUB_CWD') + '|' + (Test-AiMemoryMarkerDeclaresSettings -File '$PS_SUB_MARKER')")
+        ". '$PS_LIB'; (Get-PitstopBriefingQuery -Cwd '$PS_SUB_CWD' -Key 'inject_on_subagent_start') + '|' + (Get-PitstopBriefingQuery -Cwd '$PS_SUB_CWD') + '|' + (Test-PitstopMarkerDeclaresSettings -File '$PS_SUB_MARKER')")
     assert_eq "powershell forwards only the subagent opt-in, a settings boundary" \
         "&briefing=true&briefing_budget=6000||True" "$PS_SUB"
 else
-    PS_SUB=$(grep -q '"inject_on_subagent_start"' hooks/lib/ai-memory-hook.ps1 \
-        && grep -q '/brief?agent=' hooks/lib/ai-memory-hook.ps1 \
+    PS_SUB=$(grep -q '"inject_on_subagent_start"' hooks/lib/pitstop-hook.ps1 \
+        && grep -q '/brief?agent=' hooks/lib/pitstop-hook.ps1 \
         && grep -q 'SubagentStartBrief' hooks/claude-code/subagent-start.ps1 \
         && printf 'ok' || printf 'missing')
     assert_eq "powershell delivers the subagent brief (static)" "ok" "$PS_SUB"
@@ -742,17 +742,17 @@ fi
 # A capture-only marker with no scope-declaring ancestor: still transparent,
 # and resolution falls back exactly as it does with no marker at all.
 mkdir -p "$TMP/no-outer-scope/inner"
-printf '[capture]\nignore_paths = ["a/**"]\n' >"$TMP/no-outer-scope/inner/.ai-memory.toml"
+printf '[capture]\nignore_paths = ["a/**"]\n' >"$TMP/no-outer-scope/inner/.pitstop.toml"
 assert_eq "capture-only marker with no ancestor scope: settings walk finds none" \
-    "" "$(ai_memory_find_settings_marker "$TMP/no-outer-scope/inner")"
+    "" "$(pitstop_find_settings_marker "$TMP/no-outer-scope/inner")"
 assert_eq "capture-only marker with no ancestor scope: marker_qs is cwd-only" \
-    "&cwd=$(ai_memory_url_encode "$TMP/no-outer-scope/inner")" \
-    "$(ai_memory_marker_qs "$TMP/no-outer-scope/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/no-outer-scope/inner")" \
+    "$(pitstop_marker_qs "$TMP/no-outer-scope/inner")"
 
 # --- repo-root strategy: host-side resolution -------------------------
 # Outside any git repo the helper stays silent (caller keeps basename(cwd)).
 assert_eq "repo_root_project on non-git path is empty" "" \
-    "$(ai_memory_repo_root_project "$TMP/nonexistent")"
+    "$(pitstop_repo_root_project "$TMP/nonexistent")"
 
 if command -v git >/dev/null 2>&1; then
     REPO="$TMP/repos/acme-api"
@@ -765,51 +765,51 @@ if command -v git >/dev/null 2>&1; then
     # (not the subdir name) when the marker selects repo-root and pins no
     # explicit project.
     mkdir -p "$REPO/crates/cli"
-    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$REPO/.ai-memory.toml"
-    QSR=$(ai_memory_marker_qs "$REPO/crates/cli")
+    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$REPO/.pitstop.toml"
+    QSR=$(pitstop_marker_qs "$REPO/crates/cli")
     assert_eq "repo-root: subdir resolves to repo basename" \
-        "&cwd=$(ai_memory_url_encode "$REPO/crates/cli")&workspace=oss&project=acme-api&project_src=repo-root&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
+        "&cwd=$(pitstop_url_encode "$REPO/crates/cli")&workspace=oss&project=acme-api&project_src=repo-root&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
         "$QSR"
 
-    rm -f "$REPO/.ai-memory.toml"
-    AI_MEMORY_PROJECT_STRATEGY=repo-root
-    export AI_MEMORY_PROJECT_STRATEGY
-    QSE=$(ai_memory_marker_qs "$REPO/crates/cli")
+    rm -f "$REPO/.pitstop.toml"
+    PITSTOP_PROJECT_STRATEGY=repo-root
+    export PITSTOP_PROJECT_STRATEGY
+    QSE=$(pitstop_marker_qs "$REPO/crates/cli")
     assert_eq "repo-root env: no marker resolves to repo basename" \
-        "&cwd=$(ai_memory_url_encode "$REPO/crates/cli")&project=acme-api&project_src=repo-root&project_strategy=repo-root" \
+        "&cwd=$(pitstop_url_encode "$REPO/crates/cli")&project=acme-api&project_src=repo-root&project_strategy=repo-root" \
         "$QSE"
 
     printf 'workspace = "oss"\nproject = "pinned"\nproject_strategy = "basename"\n' \
-        >"$REPO/.ai-memory.toml"
-    QSO=$(ai_memory_marker_qs "$REPO/crates/cli")
+        >"$REPO/.pitstop.toml"
+    QSO=$(pitstop_marker_qs "$REPO/crates/cli")
     assert_eq "marker project strategy overrides env default" \
-        "&cwd=$(ai_memory_url_encode "$REPO/crates/cli")&workspace=oss&project=pinned&project_src=marker&project_strategy=basename&profile_contribute=1&profile_consume=1" \
+        "&cwd=$(pitstop_url_encode "$REPO/crates/cli")&workspace=oss&project=pinned&project_src=marker&project_strategy=basename&profile_contribute=1&profile_consume=1" \
         "$QSO"
-    unset AI_MEMORY_PROJECT_STRATEGY
+    unset PITSTOP_PROJECT_STRATEGY
 
-    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$REPO/.ai-memory.toml"
+    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$REPO/.pitstop.toml"
 
     # A linked worktree whose directory lives OUTSIDE the main repo tree
     # (a common layout: tools that keep worktrees in a separate directory)
-    # has no .ai-memory.toml ancestor of its own, yet still collapses to the
+    # has no .pitstop.toml ancestor of its own, yet still collapses to the
     # MAIN repo basename via the commondir pointer. The strategy comes from a
     # marker placed above the worktrees directory.
     WT="$TMP/worktrees/acme-api/wt-feature"
     mkdir -p "$TMP/worktrees/acme-api"
-    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$TMP/worktrees/.ai-memory.toml"
+    printf 'workspace = "oss"\nproject_strategy = "repo-root"\n' >"$TMP/worktrees/.pitstop.toml"
     if git -C "$REPO" worktree add -q "$WT" >/dev/null 2>&1; then
-        QSW=$(ai_memory_marker_qs "$WT")
+        QSW=$(pitstop_marker_qs "$WT")
         assert_eq "repo-root: out-of-tree worktree collapses to main repo" \
-            "&cwd=$(ai_memory_url_encode "$WT")&workspace=oss&project=acme-api&project_src=repo-root&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
+            "&cwd=$(pitstop_url_encode "$WT")&workspace=oss&project=acme-api&project_src=repo-root&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
             "$QSW"
     fi
 
     # An explicit project pin always wins over repo-root resolution.
     printf 'workspace = "oss"\nproject = "pinned"\nproject_strategy = "repo-root"\n' \
-        >"$REPO/.ai-memory.toml"
-    QSP=$(ai_memory_marker_qs "$REPO/crates/cli")
+        >"$REPO/.pitstop.toml"
+    QSP=$(pitstop_marker_qs "$REPO/crates/cli")
     assert_eq "explicit project pin beats repo-root" \
-        "&cwd=$(ai_memory_url_encode "$REPO/crates/cli")&workspace=oss&project=pinned&project_src=marker&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
+        "&cwd=$(pitstop_url_encode "$REPO/crates/cli")&workspace=oss&project=pinned&project_src=marker&project_strategy=repo-root&profile_contribute=1&profile_consume=1" \
         "$QSP"
 
     PSH=""
@@ -819,78 +819,78 @@ if command -v git >/dev/null 2>&1; then
         PSH=$(command -v powershell)
     fi
     if [ -n "$PSH" ]; then
-        PS_LIB=$(host_path "$PWD/hooks/lib/ai-memory-hook.ps1")
+        PS_LIB=$(host_path "$PWD/hooks/lib/pitstop-hook.ps1")
         PS_CWD=$(host_path "$REPO/crates/cli")
         PS_REPO=$("$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-            ". '$PS_LIB'; Get-AiMemoryRepoRootProject -Cwd '$PS_CWD'")
+            ". '$PS_LIB'; Get-PitstopRepoRootProject -Cwd '$PS_CWD'")
         assert_eq "powershell repo-root helper resolves repo basename" "acme-api" "$PS_REPO"
     else
-        PS_STATIC=$(grep -q 'function Get-AiMemoryRepoRootProject' hooks/lib/ai-memory-hook.ps1 \
-            && grep -q -- '--git-common-dir' hooks/lib/ai-memory-hook.ps1 \
-            && grep -q 'Get-AiMemoryRepoRootProject -Cwd' hooks/lib/ai-memory-hook.ps1 \
+        PS_STATIC=$(grep -q 'function Get-PitstopRepoRootProject' hooks/lib/pitstop-hook.ps1 \
+            && grep -q -- '--git-common-dir' hooks/lib/pitstop-hook.ps1 \
+            && grep -q 'Get-PitstopRepoRootProject -Cwd' hooks/lib/pitstop-hook.ps1 \
             && printf 'ok' || printf 'missing')
         assert_eq "powershell repo-root helper has static parity" "ok" "$PS_STATIC"
     fi
 fi
 
 # --- url_encode -------------------------------------------------------
-assert_eq "url_encode passes safe slug"   "movvia" "$(ai_memory_url_encode "movvia")"
-assert_eq "url_encode escapes ampersand"  "a%26b"  "$(ai_memory_url_encode "a&b")"
-assert_eq "url_encode escapes equals"     "a%3Db"  "$(ai_memory_url_encode "a=b")"
-assert_eq "url_encode escapes plus"       "a%2Bb"  "$(ai_memory_url_encode "a+b")"
+assert_eq "url_encode passes safe slug"   "movvia" "$(pitstop_url_encode "movvia")"
+assert_eq "url_encode escapes ampersand"  "a%26b"  "$(pitstop_url_encode "a&b")"
+assert_eq "url_encode escapes equals"     "a%3Db"  "$(pitstop_url_encode "a=b")"
+assert_eq "url_encode escapes plus"       "a%2Bb"  "$(pitstop_url_encode "a+b")"
 assert_eq "url_encode escapes Windows cwd" "C%3A%5Cdev%5Cmyproject" \
-    "$(ai_memory_url_encode 'C:\dev\myproject')"
-assert_eq "url_encode encodes UTF-8 per byte" "r%C3%A9po" "$(ai_memory_url_encode 'répo')"
+    "$(pitstop_url_encode 'C:\dev\myproject')"
+assert_eq "url_encode encodes UTF-8 per byte" "r%C3%A9po" "$(pitstop_url_encode 'répo')"
 # macOS /bin/sh is bash 3.2, which sign-extends bytes >= 0x80 in `printf "'c"`.
 assert_eq "url_encode encodes an accented macOS path" \
     "%2FUsers%2Fme%2F%C3%81rea%20de%20Trabalho" \
-    "$(ai_memory_url_encode '/Users/me/Área de Trabalho')"
+    "$(pitstop_url_encode '/Users/me/Área de Trabalho')"
 
 # --- offline spool ----------------------------------------------------
 # Without an explicit data-dir, the script fallback must agree with the
 # native client's platform default. In particular, macOS setup stores state
 # under Application Support rather than a shadow ~/.local/share tree.
 MAC_HOME="$TMP/mac-home"
-mkdir -p "$MAC_HOME/Library/Application Support/ai-memory"
-: > "$MAC_HOME/Library/Application Support/ai-memory/auth-header"
+mkdir -p "$MAC_HOME/Library/Application Support/pitstop"
+: > "$MAC_HOME/Library/Application Support/pitstop/auth-header"
 MAC_STATE=$(
     HOME="$MAC_HOME"; export HOME
-    unset AI_MEMORY_DATA_DIR XDG_DATA_HOME
+    unset PITSTOP_DATA_DIR XDG_DATA_HOME
     uname() { printf 'Darwin\n'; }
-    ai_memory_state_dir
+    pitstop_state_dir
 )
 assert_eq "state_dir uses the macOS data directory" \
-    "$MAC_HOME/Library/Application Support/ai-memory" "$MAC_STATE"
+    "$MAC_HOME/Library/Application Support/pitstop" "$MAC_STATE"
 MAC_AUTH=$(
     HOME="$MAC_HOME"; export HOME
-    unset AI_MEMORY_DATA_DIR XDG_DATA_HOME
+    unset PITSTOP_DATA_DIR XDG_DATA_HOME
     uname() { printf 'Darwin\n'; }
-    ai_memory_auth_header_file
+    pitstop_auth_header_file
 )
 assert_eq "auth header follows the macOS state directory" \
-    "$MAC_HOME/Library/Application Support/ai-memory/auth-header" "$MAC_AUTH"
+    "$MAC_HOME/Library/Application Support/pitstop/auth-header" "$MAC_AUTH"
 
 # The spool dir follows the data dir, which the harness pins inside $TMP.
-AI_MEMORY_DATA_DIR="$TMP/spool-data"
-export AI_MEMORY_DATA_DIR
+PITSTOP_DATA_DIR="$TMP/spool-data"
+export PITSTOP_DATA_DIR
 
-MS=$(ai_memory_now_ms)
+MS=$(pitstop_now_ms)
 assert_eq "now_ms is 13 digits" "13" "$(printf '%s' "$MS" | wc -c | tr -d ' ')"
 case "$MS" in
     *[!0-9]*) assert_eq "now_ms is all digits" "digits" "$MS" ;;
     *) assert_eq "now_ms is all digits" "digits" "digits" ;;
 esac
 
-# A body carrying every escape ai_memory_json_string emits must survive the
+# A body carrying every escape pitstop_json_string emits must survive the
 # write/read round trip byte for byte, or a drained event is corrupted.
 SPOOL_BODY='{"t":"quote \" backslash \\ newline
 tab\ttail"}'
-ai_memory_spool_event "http://127.0.0.1:1/hook?event=stop&agent=cursor" "$SPOOL_BODY"
+pitstop_spool_event "http://127.0.0.1:1/hook?event=stop&agent=cursor" "$SPOOL_BODY"
 SPOOL_FILE=$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | head -n 1)
 assert_eq "spool_event writes one entry" "1" \
     "$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
-assert_eq "spooled body round-trips" "$SPOOL_BODY" "$(ai_memory_json_field body "$SPOOL_FILE")"
-case "$(ai_memory_json_field url "$SPOOL_FILE")" in
+assert_eq "spooled body round-trips" "$SPOOL_BODY" "$(pitstop_json_field body "$SPOOL_FILE")"
+case "$(pitstop_json_field url "$SPOOL_FILE")" in
     *ingest_key=sh*) SPOOL_HAS_INGEST_KEY=yes ;;
     *) SPOOL_HAS_INGEST_KEY=no ;;
 esac
@@ -903,10 +903,10 @@ assert_eq "spool filename is <ms>-<pid>-<seq>.json" "ok" \
 
 # A `\uXXXX` escape means a richer serializer wrote the entry (the native
 # binary). The shell reader declines it rather than mangling the payload, so
-# `ai-memory hook-drain` still delivers it.
+# `pitstop hook-drain` still delivers it.
 printf '%s' '{"url":"http://x/y","body":"{\"a\":\"\u0007\"}","created_ms":1,"auth_mode":"none","attempts":0}' \
     >"$TMP/spool-data/hook-spool/foreign.json"
-ai_memory_json_field body "$TMP/spool-data/hook-spool/foreign.json" >/dev/null 2>&1 \
+pitstop_json_field body "$TMP/spool-data/hook-spool/foreign.json" >/dev/null 2>&1 \
     && FOREIGN=read || FOREIGN=declined
 assert_eq "json_field declines a \\u escape" "declined" "$FOREIGN"
 rm -f "$TMP/spool-data/hook-spool/foreign.json"
@@ -926,11 +926,11 @@ curl() {
     return 28
 }
 printf '%s' '{"e":"ambiguous"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
 unset -f curl
 SPOOL_FILE=$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | head -n 1)
 ATTEMPT_URL=$(cat "$CURL_ATTEMPT_FILE")
-SPOOL_URL=$(ai_memory_json_field url "$SPOOL_FILE")
+SPOOL_URL=$(pitstop_json_field url "$SPOOL_FILE")
 case "$ATTEMPT_URL" in
     *ingest_key=sh*) ATTEMPT_HAS_INGEST_KEY=yes ;;
     *) ATTEMPT_HAS_INGEST_KEY=no ;;
@@ -942,7 +942,7 @@ assert_eq "post_hook preserves the key after an ambiguous delivery" \
 # An unreachable server must leave the event on disk instead of dropping it.
 rm -f "$TMP/spool-data/hook-spool/"*.json
 printf '%s' '{"e":"unreachable"}' \
-    | ai_memory_post_hook "http://127.0.0.1:1/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:1/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "post_hook spools an undelivered event" "1" \
     "$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
 
@@ -954,7 +954,7 @@ curl() {
     return 0
 }
 printf '%s' '{"e":"saturated"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "post_hook spools on 429 saturation" "1" \
     "$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
 
@@ -965,19 +965,19 @@ curl() {
     return 0
 }
 printf '%s' '{"e":"bad-request"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "post_hook drops terminal 400 refusal" "0" \
     "$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
 
 # A 429 saturation response during drain must keep the entry queued rather than retiring it.
 rm -f "$TMP/spool-data/hook-spool/"*.json
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"drain-saturated"}'
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"drain-saturated"}'
 curl() {
     cat >/dev/null
     printf '429'
     return 0
 }
-ai_memory_drain_spool 64 >/dev/null 2>&1
+pitstop_drain_spool 64 >/dev/null 2>&1
 assert_eq "drain keeps entry queued on 429 saturation" "1" \
     "$(ls "$TMP/spool-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
 unset -f curl
@@ -986,15 +986,15 @@ unset -f curl
 # auth.json. Script drains must leave them byte-identical and continue with
 # entries they can deliver, even if an anonymous POST would return 200.
 for OIDC_STATUS in 200 401; do
-    AI_MEMORY_DATA_DIR="$TMP/oidc-drain-$OIDC_STATUS"
-    export AI_MEMORY_DATA_DIR
-    OIDC_DIR="$AI_MEMORY_DATA_DIR/hook-spool"
+    PITSTOP_DATA_DIR="$TMP/oidc-drain-$OIDC_STATUS"
+    export PITSTOP_DATA_DIR
+    OIDC_DIR="$PITSTOP_DATA_DIR/hook-spool"
     mkdir -p "$OIDC_DIR"
     OIDC_ENTRY="$OIDC_DIR/0000000000000-1-0000000000000000.json"
-    OIDC_CREATED=$(ai_memory_now_ms)
+    OIDC_CREATED=$(pitstop_now_ms)
     printf '{"url":"http://127.0.0.1:49374/hook?event=oidc","body":"{\\"e\\":\\"native-oidc\\"}","created_ms":%s,"auth_mode":"oidc","attempts":0}' "$OIDC_CREATED" >"$OIDC_ENTRY"
-    cp "$OIDC_ENTRY" "$AI_MEMORY_DATA_DIR/expected.json"
-    OIDC_LOG="$AI_MEMORY_DATA_DIR/requests.log"
+    cp "$OIDC_ENTRY" "$PITSTOP_DATA_DIR/expected.json"
+    OIDC_LOG="$PITSTOP_DATA_DIR/requests.log"
     : >"$OIDC_LOG"
     curl() {
         _oidc_url=''
@@ -1009,15 +1009,15 @@ for OIDC_STATUS in 200 401; do
             *) printf '200' ;;
         esac
     }
-    AI_MEMORY_AUTH_TOKEN=static-probe
-    export AI_MEMORY_AUTH_TOKEN
-    ai_memory_spool_event 'http://127.0.0.1:49374/hook?event=static' '{"auth_mode":"oidc","e":"static"}'
-    unset AI_MEMORY_AUTH_TOKEN
-    ai_memory_spool_event 'http://127.0.0.1:49374/hook?event=none' '{"auth_mode":"oidc","e":"anonymous"}'
+    PITSTOP_AUTH_TOKEN=static-probe
+    export PITSTOP_AUTH_TOKEN
+    pitstop_spool_event 'http://127.0.0.1:49374/hook?event=static' '{"auth_mode":"oidc","e":"static"}'
+    unset PITSTOP_AUTH_TOKEN
+    pitstop_spool_event 'http://127.0.0.1:49374/hook?event=none' '{"auth_mode":"oidc","e":"anonymous"}'
     printf '{"url":"http://127.0.0.1:49374/hook?event=legacy","body":"{\\"auth_mode\\":\\"oidc\\"}","created_ms":%s,"attempts":0}' "$OIDC_CREATED" >"$OIDC_DIR/9999999999999-1-0000000000000000.json"
-    ai_memory_drain_spool 64 >/dev/null 2>&1
+    pitstop_drain_spool 64 >/dev/null 2>&1
     assert_eq "OIDC drain ($OIDC_STATUS): native entry is untouched" yes \
-        "$(cmp -s "$OIDC_ENTRY" "$AI_MEMORY_DATA_DIR/expected.json" && printf yes || printf no)"
+        "$(cmp -s "$OIDC_ENTRY" "$PITSTOP_DATA_DIR/expected.json" && printf yes || printf no)"
     assert_eq "OIDC drain ($OIDC_STATUS): native entry is never posted" 0 \
         "$(grep -c 'event=oidc$' "$OIDC_LOG" || true)"
     for OIDC_CONTROL in static none legacy; do
@@ -1029,34 +1029,34 @@ for OIDC_STATUS in 200 401; do
     unset -f curl
 done
 
-unset AI_MEMORY_DATA_DIR
+unset PITSTOP_DATA_DIR
 
 # --- PowerShell bundle spool parity (static) ---------------------------
 # The PS lib shares this offline-spool contract (same <data>/hook-spool
-# dir, same entry writer, same dispatch as `ai_memory_post_hook`: 2xx kicks
+# dir, same entry writer, same dispatch as `pitstop_post_hook`: 2xx kicks
 # a detached drain, a terminal 4xx is dropped, everything undeliverable is
 # spooled), so a Windows script install loses no events during a server
 # outage either (#580 parity). Static first — no pwsh needed — then a
 # behavioral probe where pwsh exists.
-PS_LIB="$(dirname "$0")/../../hooks/lib/ai-memory-hook.ps1"
-PS_SPOOL_STATIC=$(grep -q 'function Write-AiMemorySpoolEvent' "$PS_LIB" \
-    && grep -q 'function Invoke-AiMemoryDrainSpool' "$PS_LIB" \
-    && grep -q 'function Invoke-AiMemoryKickDrain' "$PS_LIB" \
+PS_LIB="$(dirname "$0")/../../hooks/lib/pitstop-hook.ps1"
+PS_SPOOL_STATIC=$(grep -q 'function Write-PitstopSpoolEvent' "$PS_LIB" \
+    && grep -q 'function Invoke-PitstopDrainSpool' "$PS_LIB" \
+    && grep -q 'function Invoke-PitstopKickDrain' "$PS_LIB" \
     && grep -Fq '"hook-spool"' "$PS_LIB" \
     && grep -Fq '"{0:D13}-{1}-{2:x16}.json"' "$PS_LIB" \
     && grep -Fq '"auth_mode"' "$PS_LIB" \
-    && grep -Fq 'Write-AiMemorySpoolEvent -Url' "$PS_LIB" \
-    && grep -Fq 'Invoke-AiMemoryKickDrain' "$PS_LIB" \
+    && grep -Fq 'Write-PitstopSpoolEvent -Url' "$PS_LIB" \
+    && grep -Fq 'Invoke-PitstopKickDrain' "$PS_LIB" \
     && grep -Fq 'if ($Status -lt 400 -or $Status -ge 500 -or $Status -eq 408 -or $Status -eq 425 -or $Status -eq 429) {' "$PS_LIB" \
     && grep -Fq 'if ($code -eq 408 -or $code -eq 425 -or $code -eq 429) {' "$PS_LIB" \
-    && grep -Fq -- '--ai-memory-drain-spool' "$PS_LIB" \
-    && grep -Fq '$script:AiMemoryLibFile = $PSCommandPath' "$PS_LIB" \
+    && grep -Fq -- '--pitstop-drain-spool' "$PS_LIB" \
+    && grep -Fq '$script:PitstopLibFile = $PSCommandPath' "$PS_LIB" \
     && grep -Fq 'RedirectStandardOutput' "$PS_LIB" \
     && printf ok || printf bad)
 assert_eq "powershell bundle spools undelivered events (static)" "ok" "$PS_SPOOL_STATIC"
 # The ingest key must ride the initial POST too, or an ambiguous delivery
 # and its spooled replay could double-ingest (the reason the shell bundle
-# mints `ai_memory_ingest_key` before the first POST).
+# mints `pitstop_ingest_key` before the first POST).
 PS_KEY_STATIC=$(grep -Fq '&ingest_key=ps$(' "$PS_LIB" \
     && printf ok || printf bad)
 assert_eq "powershell POST and spool replay share an ingest key (static)" "ok" "$PS_KEY_STATIC"
@@ -1069,14 +1069,14 @@ else
     printf '  skip powershell spool behavioral probe (pwsh unavailable)\n'
 fi
 
-# --- external capture ownership (AI_MEMORY_CAPTURE_OWNER) -------------
+# --- external capture ownership (PITSTOP_CAPTURE_OWNER) -------------
 # A wrapper, extension or managed launcher that already produces this
-# session's capture events announces itself with AI_MEMORY_CAPTURE_OWNER.
+# session's capture events announces itself with PITSTOP_CAPTURE_OWNER.
 # The bundle must then stop PRODUCING events (no POST, no spool entry, no
 # piggyback drain) while still DELIVERING: the synchronous handoff GET keeps
 # working, a backlog already on disk stays put, and an explicit drain still
-# ships it. Every case below runs the real `ai_memory_post_hook` /
-# `ai_memory_get_handoff` / `ai_memory_drain_spool` path with curl stubbed,
+# ships it. Every case below runs the real `pitstop_post_hook` /
+# `pitstop_get_handoff` / `pitstop_drain_spool` path with curl stubbed,
 # so what is asserted is what the shipped functions do.
 
 # Stub curl: log method + URL, answer 200 to a POST and a body to a GET.
@@ -1115,72 +1115,72 @@ curl() {
 # Each case gets its own data dir, so the spool and the curl log start empty
 # without anything having to be cleared between cases.
 owner_case() {
-    AI_MEMORY_DATA_DIR="$TMP/owner-$1"
-    export AI_MEMORY_DATA_DIR
-    mkdir -p "$AI_MEMORY_DATA_DIR"
-    CURL_LOG="$AI_MEMORY_DATA_DIR/curl.log"
+    PITSTOP_DATA_DIR="$TMP/owner-$1"
+    export PITSTOP_DATA_DIR
+    mkdir -p "$PITSTOP_DATA_DIR"
+    CURL_LOG="$PITSTOP_DATA_DIR/curl.log"
     touch "$CURL_LOG"
 }
 owner_requests() { awk 'END { print NR + 0 }' "$CURL_LOG"; }
 owner_posts()    { awk '/^POST /{ n++ } END { print n + 0 }' "$CURL_LOG"; }
-owner_spooled()  { ls "$AI_MEMORY_DATA_DIR/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' '; }
+owner_spooled()  { ls "$PITSTOP_DATA_DIR/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' '; }
 
 # 1. Owner set: an event produced now is dropped whole, and the backlog that
 #    was already queued is neither extended nor drained behind it.
 owner_case suppressed
-ai_memory_spool_event "http://127.0.0.1:1/hook?event=stop&agent=cursor" '{"e":"backlog"}'
+pitstop_spool_event "http://127.0.0.1:1/hook?event=stop&agent=cursor" '{"e":"backlog"}'
 BACKLOG=$(owner_spooled)
 assert_eq "owner: backlog is queued before the gate" "1" "$BACKLOG"
-AI_MEMORY_CAPTURE_OWNER="external-runner"
-export AI_MEMORY_CAPTURE_OWNER
+PITSTOP_CAPTURE_OWNER="external-runner"
+export PITSTOP_CAPTURE_OWNER
 printf '%s' '{"e":"owned"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "owner: post_hook sends nothing" "0" "$(owner_requests)"
 assert_eq "owner: post_hook spools nothing and drains nothing" "$BACKLOG" "$(owner_spooled)"
 
 # 2. Delivery is untouched: the handoff GET still runs and still returns.
-HANDOFF=$(set +e; ai_memory_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork")
+HANDOFF=$(set +e; pitstop_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork")
 assert_eq "owner: handoff GET still delivered" "HANDOFF BODY" "$HANDOFF"
 assert_eq "owner: the GET is the only request" "1" "$(owner_requests)"
 assert_eq "owner: still no POST"               "0" "$(owner_posts)"
 
 # 3. Standalone control: with no owner the same call POSTs as before.
-unset AI_MEMORY_CAPTURE_OWNER
+unset PITSTOP_CAPTURE_OWNER
 owner_case control
 printf '%s' '{"e":"control"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "no owner: post_hook POSTs" "1" "$(owner_posts)"
 
 # 4. An exported-but-blank variable must not disable capture: empty and
 #    whitespace-only keep the default behaviour.
-AI_MEMORY_CAPTURE_OWNER=""
-export AI_MEMORY_CAPTURE_OWNER
+PITSTOP_CAPTURE_OWNER=""
+export PITSTOP_CAPTURE_OWNER
 owner_case empty
 printf '%s' '{"e":"empty"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "empty owner: post_hook POSTs" "1" "$(owner_posts)"
 
-AI_MEMORY_CAPTURE_OWNER=$(printf ' \t ')
-export AI_MEMORY_CAPTURE_OWNER
+PITSTOP_CAPTURE_OWNER=$(printf ' \t ')
+export PITSTOP_CAPTURE_OWNER
 owner_case whitespace
 printf '%s' '{"e":"blank"}' \
-    | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
+    | pitstop_post_hook "http://127.0.0.1:49374/hook?event=post-tool-use&agent=cursor" >/dev/null 2>&1
 assert_eq "whitespace owner: post_hook POSTs" "1" "$(owner_posts)"
 
 # 5. An EXPLICIT drain is delivery, not production: it must still ship a
 #    queued event while the owner is set, and retire it on a 2xx.
-unset AI_MEMORY_CAPTURE_OWNER
+unset PITSTOP_CAPTURE_OWNER
 owner_case drain
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"pending"}'
-AI_MEMORY_CAPTURE_OWNER="external-runner"
-export AI_MEMORY_CAPTURE_OWNER
-ai_memory_drain_spool 64 >/dev/null 2>&1
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"pending"}'
+PITSTOP_CAPTURE_OWNER="external-runner"
+export PITSTOP_CAPTURE_OWNER
+pitstop_drain_spool 64 >/dev/null 2>&1
 assert_eq "owner: explicit drain still delivers the backlog" "1" "$(owner_posts)"
 assert_eq "owner: delivered entry is retired"                "0" "$(owner_spooled)"
 
 unset -f curl
-unset AI_MEMORY_CAPTURE_OWNER
-unset AI_MEMORY_DATA_DIR
+unset PITSTOP_CAPTURE_OWNER
+unset PITSTOP_DATA_DIR
 
 # --- grok post-tool-use.sh: shipped shell handoff path -----------------
 # The native router (`commands/hook.rs`) and this script implement the same
@@ -1215,8 +1215,8 @@ export PATH
 grok_case() {
     GROK_CASE_DIR="$TMP/grok-$1"
     mkdir -p "$GROK_CASE_DIR/data"
-    AI_MEMORY_DATA_DIR="$GROK_CASE_DIR/data"
-    export AI_MEMORY_DATA_DIR
+    PITSTOP_DATA_DIR="$GROK_CASE_DIR/data"
+    export PITSTOP_DATA_DIR
     GROK_LOG="$GROK_CASE_DIR/curl.log"
     : >"$GROK_LOG"
     export GROK_LOG
@@ -1238,7 +1238,7 @@ case "$OUT" in
     *) FAIL=$((FAIL + 1)); printf '  FAIL grok: first post-tool-use wraps the handoff\n    got =%s\n' "$OUT" ;;
 esac
 assert_eq "grok: first post-tool-use GETs the handoff with session id" "1" "$(grok_gets)"
-[ -f "$AI_MEMORY_DATA_DIR/briefed/post-g-sess" ] && PASS=$((PASS + 1)) || {
+[ -f "$PITSTOP_DATA_DIR/briefed/post-g-sess" ] && PASS=$((PASS + 1)) || {
     FAIL=$((FAIL + 1)); printf '  FAIL grok: shown marker post-g-sess missing\n'
 }
 
@@ -1289,7 +1289,7 @@ case "$OUT" in
 esac
 assert_eq "grok: blank marker payload GETs the handoff once" "1" "$(grok_gets)"
 
-unset AI_MEMORY_DATA_DIR GROK_LOG
+unset PITSTOP_DATA_DIR GROK_LOG
 PATH=${PATH#"$TMP/bin:"}
 export PATH
 
@@ -1334,7 +1334,7 @@ export PATH
 # Static parity first (no pwsh needed): the child-session key set must
 # match the native router's five keys, and the per-process `$PID` fallback
 # key must never come back (it breaks the once-per-session gate).
-PS_LIB="$(dirname "$0")/../../hooks/lib/ai-memory-hook.ps1"
+PS_LIB="$(dirname "$0")/../../hooks/lib/pitstop-hook.ps1"
 for key in subagentType subagent_type agent_type agent_id parentSessionId; do
     if grep -q "\"$key\"" "$PS_LIB"; then
         PASS=$((PASS + 1))
@@ -1364,27 +1364,27 @@ fi
 # Script hooks cannot route a `server` profile, so a routed repository must
 # reach neither the install-default server nor the spool.
 mkdir -p "$TMP/routed/sub" "$TMP/routed-bom" "$TMP/server-only/inner"
-printf 'workspace = "team-b"\nserver = "team-b"\n' >"$TMP/routed/.ai-memory.toml"
-printf 'workspace = "sub"\n' >"$TMP/routed/sub/.ai-memory.toml"
-printf '\357\273\277server = team-b\n' >"$TMP/routed-bom/.ai-memory.toml"
-printf 'workspace = "outer"\n' >"$TMP/server-only/.ai-memory.toml"
-printf 'server = "team-b"\n' >"$TMP/server-only/inner/.ai-memory.toml"
+printf 'workspace = "team-b"\nserver = "team-b"\n' >"$TMP/routed/.pitstop.toml"
+printf 'workspace = "sub"\n' >"$TMP/routed/sub/.pitstop.toml"
+printf '\357\273\277server = team-b\n' >"$TMP/routed-bom/.pitstop.toml"
+printf 'workspace = "outer"\n' >"$TMP/server-only/.pitstop.toml"
+printf 'server = "team-b"\n' >"$TMP/server-only/inner/.pitstop.toml"
 
 assert_eq "routed marker: marker_qs carries only the routed flag" \
-    "&server_routed=1" "$(ai_memory_marker_qs "$TMP/routed")"
+    "&server_routed=1" "$(pitstop_marker_qs "$TMP/routed")"
 assert_eq "routed marker is inherited past a nested workspace-only marker" \
-    "&server_routed=1" "$(ai_memory_marker_qs "$TMP/routed/sub")"
+    "&server_routed=1" "$(pitstop_marker_qs "$TMP/routed/sub")"
 assert_eq "a BOM cannot hide the server key" \
-    "&server_routed=1" "$(ai_memory_marker_qs "$TMP/routed-bom")"
+    "&server_routed=1" "$(pitstop_marker_qs "$TMP/routed-bom")"
 assert_eq "a server-only marker is a settings boundary" \
-    "$TMP/server-only/inner/.ai-memory.toml" \
-    "$(ai_memory_find_settings_marker "$TMP/server-only/inner")"
+    "$TMP/server-only/inner/.pitstop.toml" \
+    "$(pitstop_find_settings_marker "$TMP/server-only/inner")"
 assert_eq "an unrouted repository is unchanged" \
-    "&cwd=$(ai_memory_url_encode "$TMP/scope/inner")&profile_contribute=1&profile_consume=1" \
-    "$(ai_memory_marker_qs "$TMP/scope/inner")"
+    "&cwd=$(pitstop_url_encode "$TMP/scope/inner")&profile_contribute=1&profile_consume=1" \
+    "$(pitstop_marker_qs "$TMP/scope/inner")"
 
-AI_MEMORY_DATA_DIR="$TMP/routed-data"
-export AI_MEMORY_DATA_DIR
+PITSTOP_DATA_DIR="$TMP/routed-data"
+export PITSTOP_DATA_DIR
 CURL_CALLED="$TMP/curl-called"
 rm -f "$CURL_CALLED"
 curl() {
@@ -1393,16 +1393,16 @@ curl() {
     return 7
 }
 printf '%s' '{"e":"routed"}' \
-    | ai_memory_post_hook "http://127.0.0.1:1/hook?event=user-prompt&agent=cursor$(ai_memory_marker_qs "$TMP/routed")" \
+    | pitstop_post_hook "http://127.0.0.1:1/hook?event=user-prompt&agent=cursor$(pitstop_marker_qs "$TMP/routed")" \
     >/dev/null 2>&1
-ROUTED_HANDOFF=$(ai_memory_get_handoff "http://127.0.0.1:1/handoff?agent=cursor$(ai_memory_marker_qs "$TMP/routed")")
+ROUTED_HANDOFF=$(pitstop_get_handoff "http://127.0.0.1:1/handoff?agent=cursor$(pitstop_marker_qs "$TMP/routed")")
 unset -f curl
 assert_eq "a routed post and handoff never call curl" "no" \
     "$([ -e "$CURL_CALLED" ] && echo yes || echo no)"
 assert_eq "a routed post is not spooled" "0" \
     "$(ls "$TMP/routed-data/hook-spool/"*.json 2>/dev/null | wc -l | tr -d ' ')"
 assert_eq "a routed handoff fetch prints nothing" "" "$ROUTED_HANDOFF"
-unset AI_MEMORY_DATA_DIR
+unset PITSTOP_DATA_DIR
 
 # --- session-start bundles forward the [briefing] opt-in -----------------
 # docs/marker-file.md: when the marker opts in, the handoff GET carries
@@ -1412,8 +1412,8 @@ unset AI_MEMORY_DATA_DIR
 BRIEF_REPO="$TMP/brief-on"
 PLAIN_REPO="$TMP/brief-off"
 mkdir -p "$BRIEF_REPO" "$PLAIN_REPO"
-printf '[briefing]\ninject_on_session_start = true\nmax_chars = 6000\n' >"$BRIEF_REPO/.ai-memory.toml"
-printf '[briefing]\ninject_on_session_start = false\nmax_chars = 6000\n' >"$PLAIN_REPO/.ai-memory.toml"
+printf '[briefing]\ninject_on_session_start = true\nmax_chars = 6000\n' >"$BRIEF_REPO/.pitstop.toml"
+printf '[briefing]\ninject_on_session_start = false\nmax_chars = 6000\n' >"$PLAIN_REPO/.pitstop.toml"
 
 # Runs script "$1" from repository "$2" with a fresh state dir and prints the
 # handoff GET it sent. The payload carries every cwd and session field the
@@ -1421,15 +1421,15 @@ printf '[briefing]\ninject_on_session_start = false\nmax_chars = 6000\n' >"$PLAI
 briefing_handoff_get() {
     rm -rf "$TMP/brief-data" "$FAKE_CURL_LOG"
     printf '{"cwd":"%s","workspacePaths":["%s"],"invocationNum":0,"session_id":"brief-s","conversationId":"brief-s","prompt":"continue","tool_name":"read_file","tool_input":{}}' "$2" "$2" \
-        | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-            AI_MEMORY_DATA_DIR="$TMP/brief-data" AI_MEMORY_HOOK_URL='http://memory.test' \
+        | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+            PITSTOP_DATA_DIR="$TMP/brief-data" PITSTOP_HOOK_URL='http://memory.test' \
             sh "$1" >/dev/null 2>&1
     grep '/handoff?' "$FAKE_CURL_LOG" 2>/dev/null || true
 }
 
 BRIEF_SCRIPTS=0
 for script in "$(dirname "$0")"/../../hooks/*/*.sh; do
-    grep -Eq 'ai_memory_get_(start_)?handoff "' "$script" || continue
+    grep -Eq 'pitstop_get_(start_)?handoff "' "$script" || continue
     name="$(basename "$(dirname "$script")")/$(basename "$script")"
     BRIEF_SCRIPTS=$((BRIEF_SCRIPTS + 1))
     GET=$(briefing_handoff_get "$script" "$BRIEF_REPO")
@@ -1461,7 +1461,7 @@ SUB_CURL_BIN="$TMP/fake-brief-curl-bin"
 mkdir -p "$SUB_CURL_BIN"
 cat >"$SUB_CURL_BIN/curl" <<'EOF'
 #!/bin/sh
-printf '%s\n' "$*" >>"$AI_MEMORY_CURL_LOG"
+printf '%s\n' "$*" >>"$PITSTOP_CURL_LOG"
 case "$*" in
     *'/brief?'*) printf 'subagent-brief-context' ;;
     *'/handoff?'*) printf 'parent-handoff' ;;
@@ -1471,14 +1471,14 @@ EOF
 chmod +x "$SUB_CURL_BIN/curl"
 SUB_REPO="$TMP/subagent-brief-on"
 mkdir -p "$SUB_REPO"
-printf '[briefing]\ninject_on_subagent_start = true\nmax_chars = 6000\n' >"$SUB_REPO/.ai-memory.toml"
+printf '[briefing]\ninject_on_subagent_start = true\nmax_chars = 6000\n' >"$SUB_REPO/.pitstop.toml"
 
 # Runs the subagent-start.sh bundle from repository "$1" and prints its stdout.
 subagent_start_output() {
     rm -rf "$TMP/subagent-data" "$FAKE_CURL_LOG"
     printf '{"cwd":"%s","session_id":"parent-s","hook_event_name":"SubagentStart","agent_id":"agent-1","agent_type":"Explore"}' "$1" \
-        | PATH="$SUB_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-            AI_MEMORY_DATA_DIR="$TMP/subagent-data" AI_MEMORY_HOOK_URL='http://memory.test' \
+        | PATH="$SUB_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+            PITSTOP_DATA_DIR="$TMP/subagent-data" PITSTOP_HOOK_URL='http://memory.test' \
             sh "$(dirname "$0")/../../hooks/claude-code/subagent-start.sh" 2>/dev/null
 }
 
@@ -1497,11 +1497,11 @@ assert_eq "a subagent start without the subagent opt-in asks for no brief" "no" 
 # the auth-header lookup's non-zero status.
 rm -f "$FAKE_CURL_LOG"
 assert_eq "get_brief refuses a URL without cwd" "" \
-    "$(set +e; export PATH="$SUB_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG"
-        ai_memory_get_brief 'http://memory.test/brief?agent=claude-code&briefing=true')"
+    "$(set +e; export PATH="$SUB_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG"
+        pitstop_get_brief 'http://memory.test/brief?agent=claude-code&briefing=true')"
 assert_eq "get_brief fetches a URL with cwd" "subagent-brief-context" \
-    "$(set +e; export PATH="$SUB_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG"
-        ai_memory_get_brief 'http://memory.test/brief?agent=claude-code&cwd=%2Frepo&briefing=true')"
+    "$(set +e; export PATH="$SUB_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG"
+        pitstop_get_brief 'http://memory.test/brief?agent=claude-code&cwd=%2Frepo&briefing=true')"
 
 # --- a handoff is never claimed without a project directory -------------
 # `GET /handoff` claims the newest open handoff in whatever project the server
@@ -1531,14 +1531,14 @@ scope_handoff_gets() {
     printf '{%s"invocationNum":0,"session_id":"scope-%s","conversationId":"scope-%s","prompt":"continue","tool_name":"read_file","tool_input":{}}' \
         "$dir_fields" "$SCOPE_RUN" "$SCOPE_RUN" \
         | (cd "$SCOPE_ELSEWHERE" && unset DEVIN_PROJECT_DIR \
-            && PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-                AI_MEMORY_DATA_DIR="$TMP/scope-data-$SCOPE_RUN" AI_MEMORY_HOOK_URL='http://memory.test' \
+            && PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+                PITSTOP_DATA_DIR="$TMP/scope-data-$SCOPE_RUN" PITSTOP_HOOK_URL='http://memory.test' \
                 sh "$1") >/dev/null 2>&1 || true
     grep '/handoff?' "$FAKE_CURL_LOG" 2>/dev/null || true
 }
 SCOPE_SCRIPTS=0
 for script in "$HOOKS_ABS"/*/*.sh; do
-    grep -Eq 'ai_memory_get_(start_)?handoff "' "$script" || continue
+    grep -Eq 'pitstop_get_(start_)?handoff "' "$script" || continue
     name="$(basename "$(dirname "$script")")/$(basename "$script")"
     SCOPE_SCRIPTS=$((SCOPE_SCRIPTS + 1))
     SCOPE_RUN=$((SCOPE_RUN + 1))
@@ -1546,7 +1546,7 @@ for script in "$HOOKS_ABS"/*/*.sh; do
     case "$name" in
         devin/*)
             case "$GETS" in
-                *"cwd=$(ai_memory_url_encode "$SCOPE_ELSEWHERE")"*)
+                *"cwd=$(pitstop_url_encode "$SCOPE_ELSEWHERE")"*)
                     PASS=$((PASS + 1)); printf '  ok  %s\n' "$name: no payload directory claims for the hook's own directory" ;;
                 *) FAIL=$((FAIL + 1)); printf '  FAIL %s: no payload directory claims for the hook'"'"'s own directory\n    got =%s\n' "$name" "$GETS" ;;
             esac
@@ -1558,7 +1558,7 @@ for script in "$HOOKS_ABS"/*/*.sh; do
     SCOPE_RUN=$((SCOPE_RUN + 1))
     GETS=$(scope_handoff_gets "$script" "$SCOPE_REPO")
     case "$GETS" in
-        *"cwd=$(ai_memory_url_encode "$SCOPE_REPO")"*)
+        *"cwd=$(pitstop_url_encode "$SCOPE_REPO")"*)
             PASS=$((PASS + 1)); printf '  ok  %s\n' "$name: a project directory claims, naming it" ;;
         *) FAIL=$((FAIL + 1)); printf '  FAIL %s: a project directory claims, naming it\n    got =%s\n' "$name" "$GETS" ;;
     esac
@@ -1566,12 +1566,12 @@ done
 assert_eq "scripts that fetch the handoff were found" "yes" \
     "$([ "$SCOPE_SCRIPTS" -ge 12 ] && printf 'yes' || printf 'no (%s)' "$SCOPE_SCRIPTS")"
 assert_eq "get_handoff refuses a URL without cwd" "" \
-    "$(PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-        ai_memory_get_handoff 'http://memory.test/handoff?agent=cursor&session_id=s')"
+    "$(PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+        pitstop_get_handoff 'http://memory.test/handoff?agent=cursor&session_id=s')"
 
-# PowerShell: the same rule in Invoke-AiMemoryHook. Run it with
+# PowerShell: the same rule in Invoke-PitstopHook. Run it with
 # Invoke-WebRequest shadowed where a PowerShell exists; otherwise pin the guard.
-PS_SCOPE_STATIC=$(grep -Fq 'if ($FetchHandoff -and $Cwd) {' hooks/lib/ai-memory-hook.ps1 \
+PS_SCOPE_STATIC=$(grep -Fq 'if ($FetchHandoff -and $Cwd) {' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell handoff fetch requires a directory (static)" "ok" "$PS_SCOPE_STATIC"
 PSH=""
@@ -1581,13 +1581,13 @@ elif command -v powershell >/dev/null 2>&1; then
     PSH=$(command -v powershell)
 fi
 if [ -n "$PSH" ]; then
-    PS_LIB=$(host_path "$PWD/hooks/lib/ai-memory-hook.ps1")
+    PS_LIB=$(host_path "$PWD/hooks/lib/pitstop-hook.ps1")
     PS_REPO=$(host_path "$SCOPE_REPO")
     ps_scope_gets() {
         rm -f "$TMP/ps-scope.log"
-        printf '%s' "$1" | (cd "$SCOPE_ELSEWHERE" && HOME="$TMP" AI_MEMORY_DATA_DIR="$TMP/ps-scope-data-$2" \
-            AI_MEMORY_TEST_LOG="$(host_path "$TMP/ps-scope.log")" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-            ". '$PS_LIB'; function Invoke-WebRequest { param([switch] \$UseBasicParsing, [switch] \$NoProxy, [int] \$TimeoutSec, [int] \$MaximumRedirection, [string] \$Method = 'Get', [string] \$Uri, \$Headers, [string] \$ContentType, \$Body) Add-Content -LiteralPath \$env:AI_MEMORY_TEST_LOG -Value ('{0} {1}' -f \$Method.ToUpperInvariant(), \$Uri); if (\$Method -eq 'Post') { return \$null }; return [pscustomobject]@{ Content = 'HANDOFF'; StatusCode = 200 } }; Invoke-AiMemoryHook -Event 'session-start' -Agent 'claude-code' -FetchHandoff") >/dev/null 2>&1 || true
+        printf '%s' "$1" | (cd "$SCOPE_ELSEWHERE" && HOME="$TMP" PITSTOP_DATA_DIR="$TMP/ps-scope-data-$2" \
+            PITSTOP_TEST_LOG="$(host_path "$TMP/ps-scope.log")" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
+            ". '$PS_LIB'; function Invoke-WebRequest { param([switch] \$UseBasicParsing, [switch] \$NoProxy, [int] \$TimeoutSec, [int] \$MaximumRedirection, [string] \$Method = 'Get', [string] \$Uri, \$Headers, [string] \$ContentType, \$Body) Add-Content -LiteralPath \$env:PITSTOP_TEST_LOG -Value ('{0} {1}' -f \$Method.ToUpperInvariant(), \$Uri); if (\$Method -eq 'Post') { return \$null }; return [pscustomobject]@{ Content = 'HANDOFF'; StatusCode = 200 } }; Invoke-PitstopHook -Event 'session-start' -Agent 'claude-code' -FetchHandoff") >/dev/null 2>&1 || true
         grep '/handoff?' "$TMP/ps-scope.log" 2>/dev/null || true
     }
     assert_eq "powershell: no project directory claims no handoff" "" \
@@ -1599,11 +1599,11 @@ if [ -n "$PSH" ]; then
 fi
 
 # The PowerShell bundle builds every session-start handoff GET in one place.
-PS_BRIEF_STATIC=$(grep -Fq 'if ($Event -eq "session-start" -and -not $BriefingOncePerSession) {' hooks/lib/ai-memory-hook.ps1 \
+PS_BRIEF_STATIC=$(grep -Fq 'if ($Event -eq "session-start" -and -not $BriefingOncePerSession) {' hooks/lib/pitstop-hook.ps1 \
     && awk '/if \(\$Event -eq "session-start" -and -not \$BriefingOncePerSession\)/ {f=1; next}
-            f && /Get-AiMemoryBriefingQuery -Cwd \$Cwd/ {ok=1}
+            f && /Get-PitstopBriefingQuery -Cwd \$Cwd/ {ok=1}
             f && /^[[:space:]]*}/ {exit}
-            END {exit !ok}' hooks/lib/ai-memory-hook.ps1 \
+            END {exit !ok}' hooks/lib/pitstop-hook.ps1 \
     && printf 'ok' || printf 'missing')
 assert_eq "powershell session-start handoff GET carries the briefing keys" "ok" "$PS_BRIEF_STATIC"
 
@@ -1615,9 +1615,9 @@ if [ -n "$PSH" ]; then
         rm -f "$TMP/ps-subagent.log"
         printf '{"session_id":"ps-sub","cwd":"%s","hook_event_name":"SubagentStart","agent_id":"a-1","agent_type":"Explore"}' \
             "$(host_path "$1" | sed 's/\\/\\\\/g')" \
-            | (HOME="$TMP" AI_MEMORY_DATA_DIR="$TMP/ps-subagent-data" \
-                AI_MEMORY_TEST_LOG="$(host_path "$TMP/ps-subagent.log")" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
-                ". '$PS_LIB'; function Invoke-WebRequest { param([switch] \$UseBasicParsing, [switch] \$NoProxy, [int] \$TimeoutSec, [int] \$MaximumRedirection, [string] \$Method = 'Get', [string] \$Uri, \$Headers, [string] \$ContentType, \$Body) Add-Content -LiteralPath \$env:AI_MEMORY_TEST_LOG -Value ('{0} {1}' -f \$Method.ToUpperInvariant(), \$Uri); if (\$Method -eq 'Post') { return \$null }; return [pscustomobject]@{ Content = 'SUBAGENT-BRIEF'; StatusCode = 200 } }; Invoke-AiMemoryHook -Event 'subagent-start' -Agent 'claude-code' -SubagentStartBrief") 2>/dev/null
+            | (HOME="$TMP" PITSTOP_DATA_DIR="$TMP/ps-subagent-data" \
+                PITSTOP_TEST_LOG="$(host_path "$TMP/ps-subagent.log")" "$PSH" -NoProfile -ExecutionPolicy Bypass -Command \
+                ". '$PS_LIB'; function Invoke-WebRequest { param([switch] \$UseBasicParsing, [switch] \$NoProxy, [int] \$TimeoutSec, [int] \$MaximumRedirection, [string] \$Method = 'Get', [string] \$Uri, \$Headers, [string] \$ContentType, \$Body) Add-Content -LiteralPath \$env:PITSTOP_TEST_LOG -Value ('{0} {1}' -f \$Method.ToUpperInvariant(), \$Uri); if (\$Method -eq 'Post') { return \$null }; return [pscustomobject]@{ Content = 'SUBAGENT-BRIEF'; StatusCode = 200 } }; Invoke-PitstopHook -Event 'subagent-start' -Agent 'claude-code' -SubagentStartBrief") 2>/dev/null
     }
     PS_SUB_OUT=$(ps_subagent_start "$SUB_REPO")
     case "$PS_SUB_OUT" in
@@ -1640,7 +1640,7 @@ fi
 
 # --- client marker header on every request ------------------------------
 # An unauthenticated server reached through a non-loopback host name refuses
-# a handoff fetch without `X-AI-Memory-Client`, which a web page cannot add.
+# a handoff fetch without `X-Pitstop-Client`, which a web page cannot add.
 # Every curl branch (env token, header file, no auth) of the GET, the event
 # POST and the spool drain must send it. The stub logs one line per request:
 # "marked" or "UNMARKED".
@@ -1650,7 +1650,7 @@ curl() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
             -H) shift; [ "$#" -gt 0 ] || break
-                [ "$1" = "X-AI-Memory-Client: hook-sh" ] && _tmk=marked ;;
+                [ "$1" = "X-Pitstop-Client: hook-sh" ] && _tmk=marked ;;
             -X) shift ;;
             --data-binary) shift; [ "$#" -gt 0 ] || break; _tdata="$1" ;;
         esac
@@ -1661,41 +1661,41 @@ curl() {
     printf '200'
     return 0
 }
-AI_MEMORY_DATA_DIR="$TMP/client-marker"
-export AI_MEMORY_DATA_DIR
-mkdir -p "$AI_MEMORY_DATA_DIR"
-MARKER_LOG="$AI_MEMORY_DATA_DIR/marker.log"
+PITSTOP_DATA_DIR="$TMP/client-marker"
+export PITSTOP_DATA_DIR
+mkdir -p "$PITSTOP_DATA_DIR"
+MARKER_LOG="$PITSTOP_DATA_DIR/marker.log"
 : >"$MARKER_LOG"
 marker_round() {
     # The hooks call it under `|| true`; without that, `set -e` stops at the
     # missing auth-header file lookup inside it.
-    ai_memory_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork" >/dev/null 2>&1 || true
+    pitstop_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork" >/dev/null 2>&1 || true
     printf '%s' '{"e":"marker"}' \
-        | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
+        | pitstop_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
 }
 marker_round                                   # no auth
-(umask 077; printf 'Authorization: Bearer file-token\n' >"$AI_MEMORY_DATA_DIR/auth-header")
+(umask 077; printf 'Authorization: Bearer file-token\n' >"$PITSTOP_DATA_DIR/auth-header")
 marker_round                                   # header file
-rm -f "$AI_MEMORY_DATA_DIR/auth-header"
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"m1"}'
-ai_memory_drain_spool 64 >/dev/null 2>&1       # drain without a token
-AI_MEMORY_AUTH_TOKEN=env-token
-export AI_MEMORY_AUTH_TOKEN
+rm -f "$PITSTOP_DATA_DIR/auth-header"
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"m1"}'
+pitstop_drain_spool 64 >/dev/null 2>&1       # drain without a token
+PITSTOP_AUTH_TOKEN=env-token
+export PITSTOP_AUTH_TOKEN
 marker_round                                   # env token
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"m2"}'
-unset AI_MEMORY_AUTH_TOKEN
-ai_memory_drain_spool 64 >/dev/null 2>&1       # drain with the spooled token
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"m2"}'
+unset PITSTOP_AUTH_TOKEN
+pitstop_drain_spool 64 >/dev/null 2>&1       # drain with the spooled token
 unset -f curl
 assert_eq "client marker: every curl branch was exercised" "yes" \
     "$([ "$(awk 'END { print NR + 0 }' "$MARKER_LOG")" -ge 8 ] && printf 'yes' || printf 'no')"
 assert_eq "client marker: no request went out without it" "0" \
     "$(grep -c UNMARKED "$MARKER_LOG")"
-unset AI_MEMORY_DATA_DIR
+unset PITSTOP_DATA_DIR
 
 # --- no environment proxy on any request --------------------------------
 # A sandbox that exports a proxy with an empty NO_PROXY (ai-jail) otherwise
 # sends the loopback POST and the handoff GET to that proxy, which answers
-# 4xx. `ai_memory_post_hook` treats a 4xx as a permanent rejection, so the
+# 4xx. `pitstop_post_hook` treats a 4xx as a permanent rejection, so the
 # observation is dropped outright rather than spooled. The native client
 # (`hook_capture::build_client`) and the MCP bridge both build with
 # `no_proxy()`; every curl branch in the shell bundle must match them.
@@ -1716,40 +1716,40 @@ curl() {
     printf '200'
     return 0
 }
-AI_MEMORY_DATA_DIR="$TMP/noproxy"
-export AI_MEMORY_DATA_DIR
-mkdir -p "$AI_MEMORY_DATA_DIR"
-NOPROXY_LOG="$AI_MEMORY_DATA_DIR/noproxy.log"
+PITSTOP_DATA_DIR="$TMP/noproxy"
+export PITSTOP_DATA_DIR
+mkdir -p "$PITSTOP_DATA_DIR"
+NOPROXY_LOG="$PITSTOP_DATA_DIR/noproxy.log"
 : >"$NOPROXY_LOG"
 noproxy_round() {
-    ai_memory_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork" >/dev/null 2>&1 || true
+    pitstop_get_handoff "http://127.0.0.1:49374/handoff?agent=cursor&cwd=%2Fwork" >/dev/null 2>&1 || true
     printf '%s' '{"e":"noproxy"}' \
-        | ai_memory_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
+        | pitstop_post_hook "http://127.0.0.1:49374/hook?event=stop&agent=cursor" >/dev/null 2>&1
 }
 noproxy_round                                  # no auth
-(umask 077; printf 'Authorization: Bearer file-token\n' >"$AI_MEMORY_DATA_DIR/auth-header")
+(umask 077; printf 'Authorization: Bearer file-token\n' >"$PITSTOP_DATA_DIR/auth-header")
 noproxy_round                                  # header file
-rm -f "$AI_MEMORY_DATA_DIR/auth-header"
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"n1"}'
-ai_memory_drain_spool 64 >/dev/null 2>&1       # drain without a token
-AI_MEMORY_AUTH_TOKEN=env-token
-export AI_MEMORY_AUTH_TOKEN
+rm -f "$PITSTOP_DATA_DIR/auth-header"
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"n1"}'
+pitstop_drain_spool 64 >/dev/null 2>&1       # drain without a token
+PITSTOP_AUTH_TOKEN=env-token
+export PITSTOP_AUTH_TOKEN
 noproxy_round                                  # env token
-ai_memory_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"n2"}'
-unset AI_MEMORY_AUTH_TOKEN
-ai_memory_drain_spool 64 >/dev/null 2>&1       # drain with the spooled token
+pitstop_spool_event "http://127.0.0.1:49374/hook?event=stop&agent=cursor" '{"e":"n2"}'
+unset PITSTOP_AUTH_TOKEN
+pitstop_drain_spool 64 >/dev/null 2>&1       # drain with the spooled token
 unset -f curl
 assert_eq "no proxy: every curl branch was exercised" "yes" \
     "$([ "$(awk 'END { print NR + 0 }' "$NOPROXY_LOG")" -ge 8 ] && printf 'yes' || printf 'no')"
 assert_eq "no proxy: no request could reach an environment proxy" "0" \
     "$(grep -c PROXYABLE "$NOPROXY_LOG")"
-unset AI_MEMORY_DATA_DIR
+unset PITSTOP_DATA_DIR
 
 # The PowerShell helper builds its request headers in one hashtable per call
 # site; each must carry the marker, and every Invoke-WebRequest must pass one.
-PS_HELPER=hooks/lib/ai-memory-hook.ps1
+PS_HELPER=hooks/lib/pitstop-hook.ps1
 PS_HEADER_TABLES=$(grep -Ec '^[[:space:]]*\$[Hh]eaders = @\{\}' "$PS_HELPER")
-PS_MARKED_TABLES=$(grep -Ec '^[[:space:]]*\$[Hh]eaders\["X-AI-Memory-Client"\] = "hook-ps"' "$PS_HELPER")
+PS_MARKED_TABLES=$(grep -Ec '^[[:space:]]*\$[Hh]eaders\["X-Pitstop-Client"\] = "hook-ps"' "$PS_HELPER")
 PS_REQUESTS=$(grep -Ec '^[^#]*Invoke-WebRequest( @NoProxy)? `$' "$PS_HELPER")
 PS_REQUESTS_WITH_HEADERS=$(grep -E -A6 '^[^#]*Invoke-WebRequest( @NoProxy)? `$' "$PS_HELPER" | grep -Ec -- '-Headers \$[Hh]eaders')
 PS_REQUESTS_NO_PROXY=$(grep -Ec '^[^#]*Invoke-WebRequest @NoProxy `$' "$PS_HELPER")
@@ -1760,12 +1760,12 @@ assert_eq "powershell: every request passes the header table" "$PS_REQUESTS" "$P
 assert_eq "powershell: every request call site found" "yes" \
     "$([ "$PS_REQUESTS" -ge 3 ] && [ "$PS_REQUESTS" -eq "$(grep -Ec '^[^#]*Invoke-WebRequest' "$PS_HELPER")" ] && printf 'yes' || printf 'no (%s)' "$PS_REQUESTS")"
 # PowerShell 7 reads HTTP_PROXY/HTTPS_PROXY/ALL_PROXY for Invoke-WebRequest;
-# `Get-AiMemoryNoProxy` supplies -NoProxy there, like the curl branches above.
+# `Get-PitstopNoProxy` supplies -NoProxy there, like the curl branches above.
 assert_eq "powershell: every request skips environment proxies" "$PS_REQUESTS" "$PS_REQUESTS_NO_PROXY"
 # MaximumRedirection 0 matches the native hook: Invoke-WebRequest follows
 # five hops by default, so a 302 login page counted as delivery.
 assert_eq "powershell: the request splat refuses redirects" "ok" \
-    "$(grep -Fq 'MaximumRedirection = 0' "$PS_HELPER" && grep -Fq 'function Get-AiMemoryResponseStatus' "$PS_HELPER" && printf ok || printf missing)"
+    "$(grep -Fq 'MaximumRedirection = 0' "$PS_HELPER" && grep -Fq 'function Get-PitstopResponseStatus' "$PS_HELPER" && printf ok || printf missing)"
 
 # A spooled fixture event names this run's temp tree or targets the fake
 # `memory.test` host. Live sessions share the spool and may mention that host
@@ -1778,15 +1778,15 @@ assert_eq "no fixture event was spooled into the caller's data dir" "" \
 # request. A closed port proves no request is attempted on the second turn.
 AGY_DATA="$TMP/agy-gate"
 AGY_TURN='{"invocationNum":0,"conversationId":"agy/conv-1","workspacePaths":["/tmp"]}'
-printf '%s' "$AGY_TURN" | AI_MEMORY_DATA_DIR="$AGY_DATA" AI_MEMORY_HOOK_URL="http://127.0.0.1:9" \
+printf '%s' "$AGY_TURN" | PITSTOP_DATA_DIR="$AGY_DATA" PITSTOP_HOOK_URL="http://127.0.0.1:9" \
     sh hooks/antigravity-cli/session-start.sh >/dev/null 2>&1
 assert_eq "antigravity first turn records the conversation start marker" "yes" \
     "$([ -e "$AGY_DATA/briefed/agy-start-agy_conv-1" ] && printf yes || printf no)"
 assert_eq "antigravity later turn of the same conversation prints an empty reply" "{}" \
-    "$(printf '%s' "$AGY_TURN" | AI_MEMORY_DATA_DIR="$AGY_DATA" AI_MEMORY_HOOK_URL="http://127.0.0.1:9" \
+    "$(printf '%s' "$AGY_TURN" | PITSTOP_DATA_DIR="$AGY_DATA" PITSTOP_HOOK_URL="http://127.0.0.1:9" \
         sh -x hooks/antigravity-cli/session-start.sh 2>"$TMP/agy-trace")"
 assert_eq "antigravity later turn sends no request" "" \
-    "$(grep -E 'ai_memory_(post_hook|get_(start_)?handoff)' "$TMP/agy-trace" | head -n 1)"
+    "$(grep -E 'pitstop_(post_hook|get_(start_)?handoff)' "$TMP/agy-trace" | head -n 1)"
 
 # --- a compaction's SessionStart claims nothing (#1983) ----------------
 # `"source": "compact"` is mid-session: every session-start script that
@@ -1794,14 +1794,14 @@ assert_eq "antigravity later turn sends no request" "" \
 # same payload with `"source": "startup"` still claims.
 COMPACT_SCRIPTS=0
 for script in "$(dirname "$0")"/../../hooks/*/session-start.sh; do
-    grep -q 'ai_memory_get_start_handoff "' "$script" || continue
+    grep -q 'pitstop_get_start_handoff "' "$script" || continue
     name="$(basename "$(dirname "$script")")/$(basename "$script")"
     COMPACT_SCRIPTS=$((COMPACT_SCRIPTS + 1))
     for source in compact startup; do
         rm -f "$FAKE_CURL_LOG"
         printf '{"session_id":"compact-s","cwd":"%s","source":"%s"}' "$TMP" "$source" \
-            | PATH="$FAKE_CURL_BIN:$PATH" AI_MEMORY_CURL_LOG="$FAKE_CURL_LOG" \
-                AI_MEMORY_DATA_DIR="$TMP/compact-data-$source" AI_MEMORY_HOOK_URL='http://memory.test' \
+            | PATH="$FAKE_CURL_BIN:$PATH" PITSTOP_CURL_LOG="$FAKE_CURL_LOG" \
+                PITSTOP_DATA_DIR="$TMP/compact-data-$source" PITSTOP_HOOK_URL='http://memory.test' \
                 sh "$script" >/dev/null 2>&1 || true
         GETS=$(grep -c '/handoff?' "$FAKE_CURL_LOG" 2>/dev/null || true)
         case "$source" in
@@ -1814,13 +1814,13 @@ assert_eq "every handoff-fetching session-start script was checked for compactio
 # PowerShell parity, pinned statically (no pwsh needed).
 assert_eq "powershell: a compaction start claims no handoff" "yes" \
     "$(grep -Fq '$Event -eq "session-start" -and $ParsedPayload -and [string]$ParsedPayload.source -eq "compact"' \
-        "$(dirname "$0")/../../hooks/lib/ai-memory-hook.ps1" && printf yes || printf no)"
+        "$(dirname "$0")/../../hooks/lib/pitstop-hook.ps1" && printf yes || printf no)"
 assert_eq "a compact source is a compaction start" "yes" \
-    "$(ai_memory_is_compaction_start '{"source": "compact"}' && printf yes || printf no)"
+    "$(pitstop_is_compaction_start '{"source": "compact"}' && printf yes || printf no)"
 assert_eq "a resume source is not a compaction start" "no" \
-    "$(ai_memory_is_compaction_start '{"source":"resume","x":"compact"}' && printf yes || printf no)"
+    "$(pitstop_is_compaction_start '{"source":"resume","x":"compact"}' && printf yes || printf no)"
 assert_eq "a payload without a source is not a compaction start" "no" \
-    "$(ai_memory_is_compaction_start '{"session_id":"s"}' && printf yes || printf no)"
+    "$(pitstop_is_compaction_start '{"session_id":"s"}' && printf yes || printf no)"
 
 # --- summary ----------------------------------------------------------
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

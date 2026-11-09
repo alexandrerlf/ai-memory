@@ -1,6 +1,6 @@
 # Local embeddings
 
-*2.0 item 5.* `AI_MEMORY_EMBEDDING_PROVIDER=local` runs sentence
+*2.0 item 5.* `PITSTOP_EMBEDDING_PROVIDER=local` runs sentence
 embeddings in-process, with no API key, external server, or GPU
 required. It uses pure-Rust BERT inference (candle) with
 `all-MiniLM-L6-v2` (384-dim), the sentence-transformers model the
@@ -34,7 +34,7 @@ enabling it cost one of two things:
   to ask of a system that records everything you do;
 - **a self-hosted engine** (Ollama / LM Studio via `openai-compat`):
   keyless, but another server to run, warm, and keep on the same
-  network as ai-memory.
+  network as pitstop.
 
 `local` removes both. Use it when any of these describe you:
 
@@ -88,7 +88,7 @@ Nothing is forced. `(provider, model, dim)` is stored on every
 embedding row, and hybrid search ignores vectors whose triple does not
 match the configured embedder. Local vectors therefore sit beside any
 provider vectors you already have, and switching back is a config
-change. `ai-memory embed --force` re-embeds a project under the
+change. `pitstop embed --force` re-embeds a project under the
 current provider when you want one consistent set.
 
 Existing installs keep their configured provider; `local` is opt-in.
@@ -97,7 +97,7 @@ Fresh-install defaults are decided by benchmark numbers.
 LongMemEval rows, reproducible via:
 
 ```bash
-cargo run --release -p ai-memory-eval -- retrieval --embeddings local
+cargo run --release -p pitstop-eval -- retrieval --embeddings local
 ```
 
 ## Operational notes
@@ -106,7 +106,7 @@ cargo run --release -p ai-memory-eval -- retrieval --embeddings local
   first-load reads ~87 MB into memory once per server process.
 - Local inference runs through a small process-wide scheduler sized from
   the CPU: half the available parallelism, clamped to between 2 and 6
-  slots (`local_capacity` in `ai-memory-llm`). all-MiniLM inference
+  slots (`local_capacity` in `pitstop-llm`). all-MiniLM inference
   already parallelizes across cores inside one embed, so this bounds
   concurrent calls while mild oversubscription keeps the CPU busy.
   Document embeddings may use all but one slot, so page writes and
@@ -129,8 +129,8 @@ capacity scheduler. It needs the downloaded model and is not part of the
 routine test tier:
 
 ```bash
-AI_MEMORY_TEST_MODELS_DIR=$PWD/evals/models \
-AI_MEMORY_EMBED_BENCH_WORKERS=8 \
-cargo test -p ai-memory-consolidate \
+PITSTOP_TEST_MODELS_DIR=$PWD/evals/models \
+PITSTOP_EMBED_BENCH_WORKERS=8 \
+cargo test -p pitstop-consolidate \
   local_query_latency_under_document_load -- --ignored --nocapture
 ```

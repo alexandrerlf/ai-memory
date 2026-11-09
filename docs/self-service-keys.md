@@ -1,7 +1,7 @@
 # Self-service MCP API keys
 
 Start the HTTP server with `--enable-self-service-keys`
-(`AI_MEMORY_ENABLE_SELF_SERVICE_KEYS=true`). It is off by default and requires
+(`PITSTOP_ENABLE_SELF_SERVICE_KEYS=true`). It is off by default and requires
 `--transport http`. Existing human browser sessions may GET or POST
 `/management/v1/credentials` and POST `/management/v1/credentials/{id}/revoke`.
 Machine bearers and password-change-required sessions cannot use these routes;
@@ -23,6 +23,6 @@ or an account disable ends browser sessions but does not revoke self-issued
 keys; revoke them separately. No identity provider, password implementation,
 database, or schema is added.
 
-Run `cargo t -p ai-memory-mcp -E 'test(/self_service_keys/)'` for the adversarial
+Run `cargo t -p pitstop-mcp -E 'test(/self_service_keys/)'` for the adversarial
 anonymous, machine, CSRF, pending-password, disabled-user, foreign, unknown and
 revoked id, label, key-limit, and legitimate owner tests.

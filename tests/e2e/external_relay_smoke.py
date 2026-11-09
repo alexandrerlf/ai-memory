@@ -4,8 +4,8 @@
 Run with:
 
     uv run --no-project python tests/e2e/external_relay_smoke.py \
-      --ai-memory-bin /absolute/ai-memory \
-      --relay-bin /absolute/ai-memory-relay
+      --pitstop-bin /absolute/pitstop \
+      --relay-bin /absolute/pitstop-relay
 
 The test starts only isolated local processes and gives them a minimal,
 synthetic environment. Every invocation preserves its temporary root, including
@@ -164,26 +164,26 @@ class DropFirstResponseProxy:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run an isolated real-server E2E test for ai-memory-relay. All "
+            "Run an isolated real-server E2E test for pitstop-relay. All "
             "artifacts are retained; exit status 0 means every assertion passed."
         ),
         epilog=(
             "Example: uv run --no-project python tests/e2e/external_relay_smoke.py "
-            "--ai-memory-bin /absolute/ai-memory "
-            "--relay-bin /absolute/ai-memory-relay"
+            "--pitstop-bin /absolute/pitstop "
+            "--relay-bin /absolute/pitstop-relay"
         ),
     )
     parser.add_argument(
-        "--ai-memory-bin",
+        "--pitstop-bin",
         required=True,
         type=Path,
-        help="absolute path to the ai-memory executable",
+        help="absolute path to the pitstop executable",
     )
     parser.add_argument(
         "--relay-bin",
         required=True,
         type=Path,
-        help="absolute path to the ai-memory-relay executable",
+        help="absolute path to the pitstop-relay executable",
     )
     parser.add_argument(
         "--timeout-seconds",
@@ -199,7 +199,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.timeout_seconds < 1:
         parser.error("--timeout-seconds must be at least 1")
-    for option in ("ai_memory_bin", "relay_bin"):
+    for option in ("pitstop_bin", "relay_bin"):
         value = getattr(args, option)
         if not value.is_absolute():
             parser.error(f"--{option.replace('_', '-')} must be an absolute path")
@@ -260,7 +260,7 @@ class Harness:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         parent = str(args.artifacts_parent) if args.artifacts_parent else None
-        self.root = Path(tempfile.mkdtemp(prefix="ai-memory-external-relay-", dir=parent))
+        self.root = Path(tempfile.mkdtemp(prefix="pitstop-external-relay-", dir=parent))
         self.home = self.root / "home"
         self.data = self.root / "data"
         self.project = self.root / "project"
@@ -278,7 +278,7 @@ class Harness:
             self.tmp,
         ):
             directory.mkdir()
-        (self.project / ".ai-memory.toml").write_text(
+        (self.project / ".pitstop.toml").write_text(
             f'workspace = "{WORKSPACE}"\nproject = "{PROJECT}"\n', encoding="utf-8"
         )
         self.empty_gitconfig = self.root / "empty-gitconfig"
@@ -307,12 +307,12 @@ class Harness:
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": str(self.empty_gitconfig),
             "GIT_CONFIG_SYSTEM": str(self.empty_gitconfig),
-            "AI_MEMORY_HOME": str(self.home),
-            "AI_MEMORY_DATA_DIR": str(self.data),
-            "AI_MEMORY_EMBEDDING_PROVIDER": "none",
-            "AI_MEMORY_BACKFILL_ON_START": "false",
-            "AI_MEMORY_CONSOLIDATE_ON_SESSION_END": "false",
-            "AI_MEMORY_AUTO_IMPROVE__SCHEDULER__ENABLED": "false",
+            "PITSTOP_HOME": str(self.home),
+            "PITSTOP_DATA_DIR": str(self.data),
+            "PITSTOP_EMBEDDING_PROVIDER": "none",
+            "PITSTOP_BACKFILL_ON_START": "false",
+            "PITSTOP_CONSOLIDATE_ON_SESSION_END": "false",
+            "PITSTOP_AUTO_IMPROVE__SCHEDULER__ENABLED": "false",
             "RUST_LOG": "off",
         }
         if os.name == "nt":
@@ -321,7 +321,7 @@ class Harness:
                 if value:
                     env[key] = value
         if token is not None:
-            env["AI_MEMORY_AUTH_TOKEN"] = token
+            env["PITSTOP_AUTH_TOKEN"] = token
         return env
 
     def run(
@@ -427,7 +427,7 @@ class Harness:
         self.server_log_handle = server_log.open("xb")
         self.server = subprocess.Popen(
             [
-                str(self.args.ai_memory_bin),
+                str(self.args.pitstop_bin),
                 "--data-dir",
                 str(self.data),
                 "serve",
@@ -450,7 +450,7 @@ class Harness:
         deadline = time.monotonic() + self.args.timeout_seconds
         while time.monotonic() < deadline:
             if self.server.poll() is not None:
-                raise SmokeFailure(f"ai-memory server exited {self.server.returncode} before readiness")
+                raise SmokeFailure(f"pitstop server exited {self.server.returncode} before readiness")
             request = urllib.request.Request(
                 f"{self.base_url}/mcp",
                 headers={"Authorization": f"Bearer {GOOD_TOKEN}"},
@@ -464,7 +464,7 @@ class Harness:
             except (urllib.error.URLError, TimeoutError):
                 pass
             time.sleep(0.05)
-        raise SmokeFailure("ai-memory server readiness timeout")
+        raise SmokeFailure("pitstop server readiness timeout")
 
     def stop_server(self) -> None:
         process = self.server
@@ -532,9 +532,9 @@ class Harness:
             }
         )
         env = self.environment(GOOD_TOKEN)
-        env["AI_MEMORY_CAPTURE_OWNER"] = "external-relay-e2e"
+        env["PITSTOP_CAPTURE_OWNER"] = "external-relay-e2e"
         command = [
-            str(self.args.ai_memory_bin),
+            str(self.args.pitstop_bin),
             "--data-dir",
             str(self.data),
             "hook",

@@ -36,7 +36,7 @@ Status 2026-10-08: docs done, verification mostly done; results in
    - [x] Codex desktop engine: `codex app-server` fires trusted hooks with
      the CLI payload; untrusted/modified hooks are skipped silently;
      `SessionEnd` on archive or shutdown.
-   - [ ] Codex desktop app: one in-app prompt with the ai-memory hooks in
+   - [ ] Codex desktop app: one in-app prompt with the pitstop hooks in
      place.
    - [x] Antigravity CLI: workspace hooks, per-turn `invocationNum` reset,
      transcript layout.
@@ -48,7 +48,7 @@ Status 2026-10-08: docs done, verification mostly done; results in
      (a launch-time `sessionStart` for a draft composer was captured).
    - [ ] Cursor desktop: one conversation in the probe workspace.
 3. Document that Claude Desktop Code-tab sessions already flow into
-   ai-memory, including the scratch-workspace project naming behavior:
+   pitstop, including the scratch-workspace project naming behavior:
    **done** (`docs/mcp-install.md`, `docs/support-matrix.md`).
 
 ## Phase 1 — Antigravity IDE capture parity (smallest new-code step)
@@ -124,8 +124,8 @@ payload. What shipped, under the existing `antigravity-cli` agent kind:
   stomping).
 - Signing/notarization costs as in RFC #878 (unchanged).
 - Status (3.1, #1273): the installer half exists as
-  `companions/ai-memory-desktop`, on Tauri v2. It installs or reuses the
-  binary following these coexistence rules and shows `ai-memory setup --web`
+  `companions/pitstop-desktop`, on Tauri v2. It installs or reuses the
+  binary following these coexistence rules and shows `pitstop setup --web`
   in its window; detect-before-spawn and `server_profiles` come from `setup`
   itself. CI builds unsigned installers on dispatch. Still open: signing and
   notarization, and the tray (status light, start and stop) that would let it
@@ -162,7 +162,7 @@ payload. What shipped, under the existing `antigravity-cli` agent kind:
    a second handoff.
 8. Cowork capture on Linux, where tasks run in a VM.
 9. Cursor runs the operator's Claude Code hooks by default, so a Cursor
-   session reaches ai-memory twice when Cursor's own hooks are installed
+   session reaches pitstop twice when Cursor's own hooks are installed
    (the #721 de-duplication covers that) and once otherwise; the
    launch-time `empty-state-draft` session start needs handling.
 10. Extensions (`extensions.md`): a Claude plugin loads hooks in Cowork but

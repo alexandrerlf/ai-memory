@@ -1,7 +1,7 @@
-<!-- ai-memory:start -->
-## Long-term memory (ai-memory)
+<!-- pitstop:start -->
+## Long-term memory (pitstop)
 
-This project uses [ai-memory](https://github.com/akitaonrails/ai-memory)
+This project uses [pitstop](https://github.com/akitaonrails/ai-memory)
 for cross-session continuity.
 
 **Choose project scope from the MCP client's identity support.**
@@ -14,7 +14,7 @@ for cross-session continuity.
   connecting that hook session id to MCP requests) must pass `workspace` and
   `project` together on every project-scoped call, including requests about "this
   project", "here", or "our work". Read the exact names from the nearest
-  `.ai-memory.toml` when it declares both. Without a marker override, derive the
+  `.pitstop.toml` when it declares both. Without a marker override, derive the
   project from the normalized `upstream` remote, then `origin`, using the full
   repository path without its host (`github.com/acme/api` → `acme-api`); use the
   folder basename only when no valid remote exists. Never rely on the server's
@@ -27,10 +27,10 @@ preference written with `scope: "global"`, omit `workspace` and `project`.
 ### Continue across harnesses
 
 When the user asks to "continue", "resume", or "pick up where we left off"
-inside a managed `ai-memory run`, check whether the wrapper-owned
-`AI_MEMORY_RUN_ID`, `AI_MEMORY_WORKSTREAM_ID`, and
-`AI_MEMORY_PREVIOUS_SESSION_HISTORY` environment variables are all set. If
-they are, read the exact file named by `AI_MEMORY_PREVIOUS_SESSION_HISTORY`
+inside a managed `pitstop run`, check whether the wrapper-owned
+`PITSTOP_RUN_ID`, `PITSTOP_WORKSTREAM_ID`, and
+`PITSTOP_PREVIOUS_SESSION_HISTORY` environment variables are all set. If
+they are, read the exact file named by `PITSTOP_PREVIOUS_SESSION_HISTORY`
 before deciding what work is unfinished. It is the checkout-validated local
 visible history of the harness used immediately before this one and exists
 specifically for quota exhaustion and other exits that cannot prepare a
@@ -47,7 +47,7 @@ handoff and memory retrieval flow.
 ### After a context compaction
 
 A compaction summary is lossy and often drops the start of the task: the
-original request, its constraints and early decisions. Re-ground on ai-memory
+original request, its constraints and early decisions. Re-ground on pitstop
 before continuing. Read the post-compaction anchor if the harness injected one;
 otherwise call `memory_read_session_observations` with `session_id: "current"`
 (or your session id) and `kinds: ["user-prompt","stop"]`. Trust those recorded
@@ -56,17 +56,17 @@ historical evidence. The installed handoff skill covers the details.
 
 **Lifecycle hooks already capture sanitized, bounded prompt and tool-lifecycle
 observations automatically.** They are not complete native transcripts;
-managed `ai-memory run` launches add the portable visible-event ledger. Do not
+managed `pitstop run` launches add the portable visible-event ledger. Do not
 manually write routine notes. Only write durable memory when the user explicitly asks
 to remember or annotate something permanently. For an explicitly time-bounded note,
 set `expires_at`; expired pages are hidden from normal reads and deleted by the next
-forget sweep, and a TTL outranks `pinned`. ai-memory is the cross-harness memory of
+forget sweep, and a TTL outranks `pinned`. pitstop is the cross-harness memory of
 record for this project: if the harness you run in has its own local memory feature,
 do not keep durable project facts there in parallel — a harness-local store is
 invisible to every other agent and fragments continuity, so capture them here instead.
 A reviewed decision record kept in the repository (an ADR directory, a Keep the Why
 `context/` tree) is not a harness-local store: when the project keeps one, record
-decisions there under the project's convention; ai-memory keeps recall, handoffs and
+decisions there under the project's convention; pitstop keeps recall, handoffs and
 session history and does not duplicate that record as a page.
 
 Cross-project messaging exists: `memory_message_send` is the ONLY way to
@@ -102,11 +102,11 @@ security, evidence, schema, and output rules.
 Browser inbox messages may target a harness within a project. Consult the
 installed messaging skill for the receiving-harness identity on a claim.
 
-### Use the installed ai-memory Agent Skills
+### Use the installed pitstop Agent Skills
 
-Detailed tool-routing guidance lives in the installed ai-memory Agent
-Skills. When a task matches an installed ai-memory Agent Skill, load and
-follow that skill before calling ai-memory tools. The skills cover memory
+Detailed tool-routing guidance lives in the installed pitstop Agent
+Skills. When a task matches an installed pitstop Agent Skill, load and
+follow that skill before calling pitstop tools. The skills cover memory
 retrieval, handoffs, durable pages, learning maintenance, and routing
 install or refresh work.
 
@@ -128,33 +128,33 @@ developer's own `CLAUDE.local.md`) load the same rules at session start.
 
 If the rule is a standing *user/team* preference that should apply to
 every project (tech choices, code style, personal conventions), save it
-to ai-memory's cross-project profile instead (`scope: "profile"`) — the
+to pitstop's cross-project profile instead (`scope: "profile"`) — the
 durable-pages skill covers how. Every project receives the profile as
 defaults at session start, below its own rules file.
 
 ### Refreshing this snippet
 
-This block is maintained by ai-memory. Two ways to refresh it with the
+This block is maintained by pitstop. Two ways to refresh it with the
 latest binary's recommended copy:
 
-- **From the agent** (no terminal needed): ask "refresh the ai-memory
+- **From the agent** (no terminal needed): ask "refresh the pitstop
   routing in this project". The agent calls `memory_install_self_routing`,
   picks the right filename for itself (Claude Code -> `CLAUDE.md`; Codex /
   OpenCode / OpenCode 2 / Cursor / Gemini / Grok -> `AGENTS.md`; Kimi Code / Kiro CLI / Command Code / Copilot CLI / Muse Code -> `AGENTS.md`),
   uses its Write / Edit tool to replace or append the returned
   `markered_block` while preserving
-  non-ai-memory user content, then writes or updates each returned
+  non-pitstop user content, then writes or updates each returned
   `managed_skills` item under the selected skill root from `target_hints`
   using its `relative_path`.
-- **From the CLI**: `ai-memory install-instructions` (defaults to
+- **From the CLI**: `pitstop install-instructions` (defaults to
   `CLAUDE.md`; pass `--target AGENTS.md` for non-Claude agents or projects
   that use `AGENTS.md` as the canonical instruction file).
 
-Both are idempotent: re-runs replace the block delimited by the ai-memory
+Both are idempotent: re-runs replace the block delimited by the pitstop
 start/end HTML-comment markers, without disturbing the rest of the file.
-<!-- ai-memory:end -->
+<!-- pitstop:end -->
 
-# AGENTS.md — ai-memory contributor guide
+# AGENTS.md — pitstop contributor guide
 
 This file is the single canonical instruction file for AI coding agents
 working in this repository (Claude Code, Codex, OpenCode, OpenCode 2, Cursor, Gemini
@@ -163,7 +163,7 @@ short pointer here — do not duplicate rules into it.
 
 ## Project overview
 
-ai-memory is a self-contained Rust binary that gives AI coding agents
+pitstop is a self-contained Rust binary that gives AI coding agents
 long-term, cross-session memory over MCP and lifecycle hooks. Quit Claude
 Code mid-task, open Codex in the same directory, and continue without
 re-explaining context.
@@ -194,7 +194,7 @@ Core design:
   and the auto-improvement loop.
 - **Per-project isolation by construction**: every row and page is keyed
   by `(workspace_id, project_id, path)`, resolved from the caller's cwd,
-  a `.ai-memory.toml` marker file, or explicit scope arguments.
+  a `.pitstop.toml` marker file, or explicit scope arguments.
 
 The full operational map is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md);
 historical rationale is in [`docs/design-decisions.md`](docs/design-decisions.md).
@@ -216,9 +216,9 @@ or prompt routing for learning review.
 - **Wiki:** atomic markdown writes (tmp + rename + fsync),
   `notify-debouncer-full` watcher, `git2` with vendored libgit2
   checkpoints.
-- **LLM:** typed providers in `ai-memory-llm` behind `LlmProvider` /
+- **LLM:** typed providers in `pitstop-llm` behind `LlmProvider` /
   `Embedder` traits; `reqwest` (rustls) for provider HTTP.
-- **Config:** `figment` (TOML + `AI_MEMORY_*` env); CLI via `clap` 4
+- **Config:** `figment` (TOML + `PITSTOP_*` env); CLI via `clap` 4
   derive; `clap_complete` for shell completions.
 - **Auth/secrets:** `secrecy`, `subtle` (constant-time compare),
   `getrandom`, `base64`, `sha2`.
@@ -234,39 +234,39 @@ profile: thin LTO, `codegen-units = 1`, stripped symbols.
 
 ```
 crates/
-├── ai-memory-core/        domain types, errors, ids. NO IO.
-├── ai-memory-store/       SQLite + writer actor + reader pool + decay math.
-├── ai-memory-wiki/        atomic markdown writes, file watcher, git.
-├── ai-memory-mcp/         rmcp transport + tool router + admin routes.
-├── ai-memory-hooks/       payload schemas, sanitizer, /hook ingress.
-├── ai-memory-llm/         provider auth boundary + LlmProvider / Embedder traits.
-├── ai-memory-consolidate/ Karpathy ingest / lint / sweep / auto-improve pipeline.
-├── ai-memory-web/         read-only /web UI and /api/v1 JSON routes.
-├── ai-memory-workstream/  read-only native transcript + launch adapters (`ai-memory run`).
-├── ai-memory-test-support/ shared test helpers (dev-dependency only, no test binary).
-└── ai-memory-cli/         `ai-memory` binary entry point + thin HTTP subcommands.
+├── pitstop-core/        domain types, errors, ids. NO IO.
+├── pitstop-store/       SQLite + writer actor + reader pool + decay math.
+├── pitstop-wiki/        atomic markdown writes, file watcher, git.
+├── pitstop-mcp/         rmcp transport + tool router + admin routes.
+├── pitstop-hooks/       payload schemas, sanitizer, /hook ingress.
+├── pitstop-llm/         provider auth boundary + LlmProvider / Embedder traits.
+├── pitstop-consolidate/ Karpathy ingest / lint / sweep / auto-improve pipeline.
+├── pitstop-web/         read-only /web UI and /api/v1 JSON routes.
+├── pitstop-workstream/  read-only native transcript + launch adapters (`pitstop run`).
+├── pitstop-test-support/ shared test helpers (dev-dependency only, no test binary).
+└── pitstop-cli/         `pitstop` binary entry point + thin HTTP subcommands.
 evals/                     live A/B harness; workspace member, not shipped.
-companions/ai-memory-importer/  standalone OMC, external-conversation, agentmemory and claude-mem importer; NOT a root
+companions/pitstop-importer/  standalone OMC, external-conversation, agentmemory and claude-mem importer; NOT a root
                            workspace member — build/test it with
-                           `--manifest-path companions/ai-memory-importer/Cargo.toml`.
-companions/ai-memory-client/    capture-privacy helpers shared by relay + importer; own workspace.
-companions/ai-memory-relay/     durable external-lifecycle event relay (POST /hook/batch); own workspace.
-companions/ai-memory-wikisync/  team-wiki git sync through the public MCP tools; own workspace.
-companions/ai-memory-macos/     Swift menu bar wrapper; NOT a root workspace member —
-                           `swift test --package-path companions/ai-memory-macos`
-                           and `./companions/ai-memory-macos/build.sh`.
-companions/ai-memory-ts/        optional TypeScript client SDK (npm, Node 22+); NOT a workspace
+                           `--manifest-path companions/pitstop-importer/Cargo.toml`.
+companions/pitstop-client/    capture-privacy helpers shared by relay + importer; own workspace.
+companions/pitstop-relay/     durable external-lifecycle event relay (POST /hook/batch); own workspace.
+companions/pitstop-wikisync/  team-wiki git sync through the public MCP tools; own workspace.
+companions/pitstop-macos/     Swift menu bar wrapper; NOT a root workspace member —
+                           `swift test --package-path companions/pitstop-macos`
+                           and `./companions/pitstop-macos/build.sh`.
+companions/pitstop-ts/        optional TypeScript client SDK (npm, Node 22+); NOT a workspace
                            member and never shipped with the server.
-companions/ai-memory-desktop/   Tauri v2 desktop installer (plain HTML, no npm) that installs the
+companions/pitstop-desktop/   Tauri v2 desktop installer (plain HTML, no npm) that installs the
                            binary and runs `setup --web` in a window; own workspace.
 hooks/                     per-agent lifecycle hook bundles (shell/native).
 plugins/                   generated Claude Code + Codex marketplace plugins (catalogs in
                            `.claude-plugin/`, `.agents/plugins/`); edit the templates in
-                           `crates/ai-memory-cli/templates/plugin/` and re-run
-                           `ai-memory render-plugins --out .` — a test fails on drift.
-bin/                       host wrapper scripts (`ai-memory`, `deploy`, `release`).
+                           `crates/pitstop-cli/templates/plugin/` and re-run
+                           `pitstop render-plugins --out .` — a test fails on drift.
+bin/                       host wrapper scripts (`pitstop`, `deploy`, `release`).
 install.sh                 two-command native install, step one (release asset).
-INSTALL_FOR_AGENTS.md      how an AI agent installs ai-memory for its user.
+INSTALL_FOR_AGENTS.md      how an AI agent installs pitstop for its user.
 docker/                    Dockerfile, compose files, TLS proxy templates.
 packaging/                 AUR/RPM/Scoop/systemd/launchd/sysusers/tmpfiles/env native packaging assets.
 nix/, flake.nix            Nix package + NixOS module.
@@ -291,7 +291,7 @@ full gate once before handing work off.
 ```bash
 # Everyday loop (nextest: `cargo install cargo-nextest --locked`).
 cargo t                        # every shipped crate: 11 test binaries, ~20s warm
-cargo t -p ai-memory-store     # one crate: builds only its binary, ~5s
+cargo t -p pitstop-store     # one crate: builds only its binary, ~5s
 cargo t -E 'test(/purge/)'     # one topic (still builds everything)
 
 # Before claiming a change is ready: the gates CI and bin/release enforce.
@@ -329,41 +329,41 @@ covers the same tests, slower, no tiers.
   two: its lib and `tests/suite`). A
   repo-layout test in the CLI suite fails on an undeclared file, a stray
   top-level `tests/*.rs`, or a `mod.rs` that `lib.rs` never includes.
-- **Shared test helpers** live in `crates/ai-memory-test-support`
+- **Shared test helpers** live in `crates/pitstop-test-support`
   (dev-dependency only, no workspace dependencies, no test binary of its own).
 - **Pre-push hook.** `scripts/install-git-hooks.sh` (from Git Bash on Windows)
   installs a hook that runs the full tier before every push and only touches
   its own marked block in `.git/hooks/pre-push`. Bypass a work-in-progress
   push with `git push --no-verify`.
 - **Regenerating the web stylesheet.** `TAILWIND_BUILD=1 cargo build -p
-  ai-memory-web` downloads the pinned Tailwind CLI and rewrites
+  pitstop-web` downloads the pinned Tailwind CLI and rewrites
   `static/tailwind.css`; commit the result. CI regenerates it on Linux and
   fails if the committed file is stale, so nothing else needs the download.
 - **Management console.** Its askama templates and plain POST form adapters
-  live in `ai-memory-web`. Follow [`docs/management-ui.md`](docs/management-ui.md)
+  live in `pitstop-web`. Follow [`docs/management-ui.md`](docs/management-ui.md)
   for feature-enabled checks. Regenerate the vendored Tailwind stylesheet
   when changing templates or styles; no JavaScript toolchain is needed.
-- Run each Cargo companion separately (`ai-memory-client`,
-  `ai-memory-importer`, `ai-memory-relay` and `ai-memory-wikisync`):
+- Run each Cargo companion separately (`pitstop-client`,
+  `pitstop-importer`, `pitstop-relay` and `pitstop-wikisync`):
   `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`
   and `cargo test --locked`, each with
   `--manifest-path companions/<name>/Cargo.toml`. CI also builds the relay
   and runs `uv run --no-project python tests/e2e/external_relay_smoke.py`
   against the real server. Root `--workspace` commands cover none of them.
 - Run the macOS menu bar companion separately:
-  `swift test --package-path companions/ai-memory-macos`
-  (plus `./companions/ai-memory-macos/build.sh` to stage `AI Memory.app`).
+  `swift test --package-path companions/pitstop-macos`
+  (plus `./companions/pitstop-macos/build.sh` to stage `Pitstop.app`).
   Root `--workspace` commands do not cover it.
 - Run the desktop installer separately (Linux needs the `webkit2gtk-4.1`,
   `gtk3`, `librsvg` and `libsoup3` development packages): `cargo fmt --check`,
   `cargo clippy --locked --all-targets -- -D warnings` and `cargo test
-  --locked`, each with `--manifest-path companions/ai-memory-desktop/Cargo.toml`.
+  --locked`, each with `--manifest-path companions/pitstop-desktop/Cargo.toml`.
   `.github/workflows/desktop.yml` runs them on a pull request that touches it
   and builds unsigned installers on dispatch.
-- Run the TypeScript SDK separately, from `companions/ai-memory-ts`:
+- Run the TypeScript SDK separately, from `companions/pitstop-ts`:
   `npm ci --ignore-scripts`, `npm run check` (typecheck, unit tests, schema
   and generated-docs checks, TypeDoc) and
-  `AI_MEMORY_BIN=../../target/debug/ai-memory npm run test:integration`
+  `PITSTOP_BIN=../../target/debug/pitstop npm run test:integration`
   (real server, schema drift test, examples). npm tooling and its lockfile
   stay inside that directory; nothing in the core workspace or the server
   distribution depends on Node.
@@ -417,7 +417,7 @@ covers the same tests, slower, no tiers.
   (package + NixOS module eval / sandbox-parity). `aarch64-darwin` and the
   privileged NixOS container smoke run on schedule, `workflow_dispatch`, or
   a PR labelled `nix` / `full-ci`.
-- CI additionally runs `cargo build --release --bin ai-memory` on
+- CI additionally runs `cargo build --release --bin pitstop` on
   Linux/macOS, a Docker image smoke test, `cargo audit` (with the ignores
   listed in `ci.yml`), and differential gitleaks scanning.
   `.github/workflows/secret-scan.yml` runs the separate weekly/manual
@@ -433,7 +433,7 @@ covers the same tests, slower, no tiers.
 - **Windows runs in its own workflow** (`.github/workflows/windows.yml`):
   nightly, on dispatch, and automatically on any PR touching the
   platform-sensitive paths in its `changes` filter (the wiki, store and
-  hooks crates, `install_hooks.rs`, `hooks/`, `tests/hooks/`, `bin/ai-memory.ps1`
+  hooks crates, `install_hooks.rs`, `hooks/`, `tests/hooks/`, `bin/pitstop.ps1`
   and the packaging fixtures that run it). It is the only
   place `#[cfg(windows)]` tests run, and it is ~4x slower than the same tests
   on Linux — keeping it out of `ci.yml` is what holds PR feedback near the
@@ -474,14 +474,14 @@ covers the same tests, slower, no tiers.
   JS-based harnesses), always under `companions/` or as generated output.
 - Keep CLI commands thin: parse args, resolve config once, call typed
   library functions, render output. Provider-specific behavior belongs in
-  `ai-memory-llm`, not in CLI/admin handlers.
+  `pitstop-llm`, not in CLI/admin handlers.
 
 ## Cross-cutting invariants (do not violate)
 
 These are carved into the architecture; each traces to a documented
 prior-art bug (see `docs/ARCHITECTURE.md` and `docs/issues-*.md`):
 
-1. **One config-read path.** ai-memory's own settings are read once by
+1. **One config-read path.** pitstop's own settings are read once by
    `Config::load()` at startup and passed down; never re-read them from the
    environment. Code that must read process or third-party-harness
    environment (harness homes, `HOME`, hook-client variables in processes
@@ -547,8 +547,8 @@ prior-art bug (see `docs/ARCHITECTURE.md` and `docs/issues-*.md`):
 
     Unit tests do not cover this: they exercise one session at a time, which
     is the exact shape that cannot see a collaboration or concurrency defect.
-    `crates/ai-memory-store/tests/suite/multi_session.rs` and the pointer tests in
-    `ai-memory-core::active_project` are the guards. Any change to scope
+    `crates/pitstop-store/tests/suite/multi_session.rs` and the pointer tests in
+    `pitstop-core::active_project` are the guards. Any change to scope
     resolution, page supersession, session identity, handoff acceptance, the
     writer actor, or owner filters must be argued against this invariant
     explicitly rather than assumed safe.
@@ -556,7 +556,7 @@ prior-art bug (see `docs/ARCHITECTURE.md` and `docs/issues-*.md`):
 Additional boundary rules:
 
 - **Scope resolution:** new MCP/admin/web routes must use
-  `ai_memory_store::ScopeResolver` or its explicit helpers
+  `pitstop_store::ScopeResolver` or its explicit helpers
   (`lookup_existing_scope`, `create_explicit_scope`,
   `resolve_many_existing_scopes`) — never hand-rolled workspace/project
   lookup chains. Read/search/embed/retention/destructive paths use
@@ -638,7 +638,7 @@ Additional boundary rules:
   one-case model of the import rules shipped in #1297 and had to be redone in
   #1298.
 - The recall-eval framework lives at
-  `crates/ai-memory-consolidate/tests/suite/recall_eval.rs`.
+  `crates/pitstop-consolidate/tests/suite/recall_eval.rs`.
 - Tests run with `cargo t` locally,
   `cargo nextest run --workspace --all-targets --profile ci` in Linux/macOS
   CI, and `cargo test --workspace --all-targets` on Windows (plus
@@ -648,27 +648,27 @@ Additional boundary rules:
 ## Security considerations
 
 - **Default posture:** loopback-only bind (`127.0.0.1:49374`). A fresh
-  `ai-memory init` mints a root bearer into `<data_dir>/auth-tokens/default`
+  `pitstop init` mints a root bearer into `<data_dir>/auth-tokens/default`
   (`[auth].bearer_token_file`); an install created before that keeps no
-  auth until `ai-memory auth enable`. Any non-loopback bind should set a
-  bearer token (`AI_MEMORY_AUTH_TOKEN`) and `AI_MEMORY_ALLOWED_HOSTS`
+  auth until `pitstop auth enable`. Any non-loopback bind should set a
+  bearer token (`PITSTOP_AUTH_TOKEN`) and `PITSTOP_ALLOWED_HOSTS`
   (DNS-rebinding guard). TLS is deliberately delegated to a reverse
   proxy (see `docs/https-via-proxy.md`).
 - **Never commit secrets.** gitleaks runs in CI with `.gitleaks.toml`;
   keep real tokens out of docs, fixtures, and tests.
 - **Sanitization is the trust boundary:** all untrusted hook payload text
-  passes through the `ai-memory-hooks` sanitizer before storage; do not
+  passes through the `pitstop-hooks` sanitizer before storage; do not
   create paths that bypass it (or hook backpressure, or the single-writer
   actor).
 - **Capture exclusions** (`[capture] ignore_paths` in the nearest
-  `.ai-memory.toml` marker) drop recognized file-tool events before they
+  `.pitstop.toml` marker) drop recognized file-tool events before they
   reach spool, transport, logs, or storage — preserve this behavior in
   native hook commands and generated integrations.
 - **Auth ladder** (`docs/users.md`): anonymous (no bearer configured) →
   static root bearer → proxy-asserted user (a distinct
   `actor_proxy_bearer_token` plus trusted actor headers) → DB-user `aim_`
   tokens (attribution only, never admin) → 401 for an unknown bearer. OIDC
-  device login (`ai-memory auth login oidc-device`) supplies client/hook
+  device login (`pitstop auth login oidc-device`) supplies client/hook
   tokens. `/admin/*` becomes root-only the moment the first DB user exists.
 - **Dependency policy:** `cargo deny --all-features check` and
   `cargo audit` run in CI; do not add dependencies without checking the
@@ -729,32 +729,32 @@ Additional boundary rules:
   Never tag a release whose SHA lacks a green full matrix.
 - **Every release updates the Homebrew tap — do not forget it.** After
   `release.yml` publishes the GitHub release and its per-target tarballs,
-  update `~/Projects/homebrew-tap/Formula/ai-memory.rb`: bump `version` and
+  update `~/Projects/homebrew-tap/Formula/pitstop.rb`: bump `version` and
   set each platform `sha256` to the value from the release's published
-  `ai-memory-<target>.tar.gz.sha256` assets (`macos-aarch64`, `macos-x86_64`,
-  `linux-aarch64`, `linux-x86_64`), then commit (`ai-memory X.Y.Z`) and push
+  `pitstop-<target>.tar.gz.sha256` assets (`macos-aarch64`, `macos-x86_64`,
+  `linux-aarch64`, `linux-x86_64`), then commit (`pitstop X.Y.Z`) and push
   the tap. Verify each `sha256` matches the published asset before pushing — a
   wrong hash makes `brew install` fail for everyone. This is a mandatory,
   recurring post-release step (it has been forgotten repeatedly); do not rely
   on a contributor PR to the tap to remember it.
 - **Check the Scoop bucket after every release.** `release.yml`'s `scoop`
-  job pushes `bucket/ai-memory.json` to `akitaonrails/scoop-bucket`, but it
+  job pushes `bucket/pitstop.json` to `akitaonrails/scoop-bucket`, but it
   only warns and skips when `SCOOP_BUCKET_TOKEN` is missing or cannot push.
   After the release, confirm the job ran green and that the bucket's manifest
   names the new version and the hash from
-  `ai-memory-windows-x86_64.zip.sha256`.
-- **Check the latest ai-jail release before every release.** `ai-memory run`
+  `pitstop-windows-x86_64.zip.sha256`.
+- **Check the latest ai-jail release before every release.** `pitstop run`
   re-execs harnesses under ai-jail and passes its flags, so a new ai-jail can
   add, rename or change what a flag does. Before tagging, compare the newest
   release (`gh release list -R akitaonrails/ai-jail`, and `ai-jail --help` from
-  it) with what ai-memory models: `JAIL_TOGGLES`, `RESERVED_JAIL_FLAGS` and
-  `build_ai_jail_invocation` in `crates/ai-memory-workstream/src/jail.rs`, the
+  it) with what pitstop models: `JAIL_TOGGLES`, `RESERVED_JAIL_FLAGS` and
+  `build_ai_jail_invocation` in `crates/pitstop-workstream/src/jail.rs`, the
   wrapper contract in `jail_contract.rs` (`ai-jail capabilities --json`, the
   `--harness` names, which provider keys ai-jail forwards per harness, and the
   `status --json` blocker codes; the real-binary tests in
   `tests/suite/yolo_ai_jail.rs` run against the installed one), the checklist notes, and `docs/design-yolo-safety-ai-jail.md`. Look for new flags
   worth offering, changed defaults or semantics (2.15's `--github` also shares
-  the keyring token), and flags ai-memory passes that changed or were removed.
+  the keyring token), and flags pitstop passes that changed or were removed.
   Adjust the integration in the same release, or say in the release notes which
   ai-jail version was checked and that nothing needed changing.
 - **A release that touches retrieval re-runs the retrieval benchmark once,
@@ -820,10 +820,10 @@ Additional boundary rules:
   branch as it finishes. Version bumps and tags always need explicit
   approval.
 - **MCP tool surface changes** require updating `MEMORY_INSTRUCTIONS`,
-  `ai_memory_core::SNIPPET_BODY`, README/docs tool references, and the
+  `pitstop_core::SNIPPET_BODY`, README/docs tool references, and the
   regression tests asserting every tool appears in both prompt surfaces.
   The tool count is currently 27 (see `docs/ARCHITECTURE.md`). They also
-  update the TypeScript SDK in `companions/ai-memory-ts` in the same change:
+  update the TypeScript SDK in `companions/pitstop-ts` in the same change:
   the schema snapshot (`npm run schema:update`), the wrapper or its
   classification in `src/coverage.ts`, types, tests and docs. The SDK's
   schema drift test in CI fails until they do. Changes to the `/api/v1`
@@ -852,7 +852,7 @@ Additional boundary rules:
   dormant. A PR's base branch follows its semver bucket: fixes → `main`,
   features → `release/X.Y`.
 - Keep `CLAUDE.md` as a pointer to this file.
-- **A new config key is documented in the same change, in two places.** Any key ai-memory accepts from `config.toml` (a `Config` field or a settings struct, whichever crate owns it) lands with (1) a commented entry in `crates/ai-memory-cli/templates/config.default.toml`, following the template's grammar (top-level keys above the first table, indented examples for credential or Option-typed keys, `[auth]` last; the two `the_shipped_default_config*` tests must pass), and (2) a row in `docs/config-properties.md`: key, default, env equivalent, one-line purpose. Env-only settings stay out of both; the `[auth]` keys `ai-memory init` appends itself stay out of the template and appear in `docs/config-properties.md` marked as init-managed. A config change that skips either file is incomplete.
+- **A new config key is documented in the same change, in two places.** Any key pitstop accepts from `config.toml` (a `Config` field or a settings struct, whichever crate owns it) lands with (1) a commented entry in `crates/pitstop-cli/templates/config.default.toml`, following the template's grammar (top-level keys above the first table, indented examples for credential or Option-typed keys, `[auth]` last; the two `the_shipped_default_config*` tests must pass), and (2) a row in `docs/config-properties.md`: key, default, env equivalent, one-line purpose. Env-only settings stay out of both; the `[auth]` keys `pitstop init` appends itself stay out of the template and appear in `docs/config-properties.md` marked as init-managed. A config change that skips either file is incomplete.
 
 ## Documentation map
 
@@ -890,7 +890,7 @@ Additional boundary rules:
 - [`docs/users.md`](docs/users.md) — multi-user attribution and the
   four-rung auth ladder.
 - [`docs/managed-workstreams.md`](docs/managed-workstreams.md) —
-  `ai-memory run` cross-harness continuity.
+  `pitstop run` cross-harness continuity.
 - [`docs/agent-messaging.md`](docs/agent-messaging.md) — cross-project
   agent-to-agent inbox/queue and the on-start hot-context notice.
 - [`docs/companion-crates.md`](docs/companion-crates.md) — boundary for

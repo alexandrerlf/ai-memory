@@ -1,6 +1,6 @@
 # Diagnostic report presentation
 
-On an interactive terminal, `ai-memory status` and `ai-memory doctor` group
+On an interactive terminal, `pitstop status` and `pitstop doctor` group
 their human reports into sections and use colors for counts and verdicts.
 Interactive report lines share a minimum two-column margin and wrap at spaces
 to fit the terminal width, keeping long tokens intact.

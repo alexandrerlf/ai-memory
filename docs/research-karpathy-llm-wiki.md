@@ -81,7 +81,7 @@ Translated faithfully, a "Karpathy-style" backend looks very different from naiv
 - **Ingest must be a *write fan-out*, an insert.** A new observation should *touch ~10–15 existing pages*: updating an entity page, a concept page, a decisions log, a gotchas page. This is the single biggest deviation from vector RAG, which only ever appends.
 - **`index.md` and `log.md` as first-class files.** The log is the audit trail and the consolidation trigger source. Use the prefix convention (`## [YYYY-MM-DD] action | title`) so it's grep-able.
 - **Retrieval is hierarchical, nearest-neighbor.** Read `index.md` → narrow to candidate pages → read them → optionally fall back to hybrid search (BM25 + vector, RRF-fused) for novel queries. The index *is* the synthesis; the embeddings are a backstop.
-- **Consolidation is an explicit, scheduled MCP operation**, not a side-effect. `memory_consolidate` is invoked on true session-end hooks where the client exposes them, on the manual `ai-memory finalize-session` flow for clients without a true session-end hook such as Antigravity CLI, on compaction events, or on a timer. It is LLM-driven (needs a provider key); if absent, it runs no-op as agentmemory does.
+- **Consolidation is an explicit, scheduled MCP operation**, not a side-effect. `memory_consolidate` is invoked on true session-end hooks where the client exposes them, on the manual `pitstop finalize-session` flow for clients without a true session-end hook such as Antigravity CLI, on compaction events, or on a timer. It is LLM-driven (needs a provider key); if absent, it runs no-op as agentmemory does.
 - **Cross-agent shared state.** Because the wiki is plain text, Claude Code, Codex, and OpenCode all read/write the *same* artifact. The MCP server is the gatekeeper and the markdown is the contract, so there is no vendor lock.
 - **Coding-specific page types**: library gotchas, architectural decisions (ADR-style), failed approaches, repo conventions, environment quirks. Karpathy's example domains were personal/research; for coding agents the high-value pages are *failure modes* and *decisions*, because those are exactly what gets dropped on context compaction.
 
@@ -104,7 +104,7 @@ One tension to resolve in design: Karpathy's gist is optimized for *human-curate
 - [Mem0 vs Letta vs MemGPT comparison (TokenMix, 2026)](https://tokenmix.ai/blog/ai-agent-memory-mem0-vs-letta-vs-memgpt-2026)
 - [Benchmarking AI Agent Memory: Is a Filesystem All You Need? (Letta)](https://www.letta.com/blog/benchmarking-ai-agent-memory)
 - [The Next Step After Karpathy's Wiki Idea - Avi Chawla](https://blog.dailydoseofds.com/p/the-next-step-after-karpathys-wiki)
-- [Gamgee: Why the Future of AI Memory Isn't RAG](https://gamgee.ai/blogs/karpathy-llm-wiki-memory-pattern/)
+- [Gamgee: Why the Future of Pitstop Isn't RAG](https://gamgee.ai/blogs/karpathy-llm-wiki-memory-pattern/)
 - [Beyond RAG: How Karpathy's LLM Wiki Pattern Builds Knowledge That Compounds (Plaban Nayak, Level Up Coding)](https://levelup.gitconnected.com/beyond-rag-how-andrej-karpathys-llm-wiki-pattern-builds-knowledge-that-actually-compounds-31a08528665e)
 - [Analytics Vidhya - LLM Wiki Revolution](https://www.analyticsvidhya.com/blog/2026/04/llm-wiki-by-andrej-karpathy/)
 - [Agentpedia - Karpathy's LLM Wiki: Complete Guide to His Idea File](https://agentpedia.codes/blog/karpathy-llm-wiki-idea-file)

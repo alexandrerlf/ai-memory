@@ -31,7 +31,7 @@ __pycache__/
 
 # Local debugging.
 *.log
-# Runtime logs are `ai-memory.log.<date>`, so `.log` is not the final
+# Runtime logs are `pitstop.log.<date>`, so `.log` is not the final
 # extension and `*.log` does not match them. Ignore the directory.
 logs/
 # Runtime spool, created in the CWD when a hook runs without an explicit
@@ -47,7 +47,7 @@ perf.data*
 .slim/deepwork/
 evals/runs/
 
-# ai-memory atomic-write backups (apply_atomic in apply_shared.rs)
+# pitstop atomic-write backups (apply_atomic in apply_shared.rs)
 *.bak-*
 evals/datasets/
 evals/models/

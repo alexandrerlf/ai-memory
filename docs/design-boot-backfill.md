@@ -31,7 +31,7 @@ behavior and touches the trust boundary (retroactive untrusted text enters the s
 the local sentinel, so it does not suppress a later automatic attempt.
 
 The automatic path runs detached and silent (like Claude Code's own auto-memory); the
-`📼 imported N session(s)` summary is shown on a **manual** `ai-memory backfill` only.
+`📼 imported N session(s)` summary is shown on a **manual** `pitstop backfill` only.
 `backfill --session <id>` looks up that exact native session, including one older
 than the newest 200 sessions enumerated per harness. It retains the adapter's
 checkout and top-level-session checks. The automatic scan and `--max-sessions`
@@ -49,11 +49,11 @@ Surfacing the count in the next session's on-start context is a possible follow-
 
 Capture is forward-only. The lifecycle hooks record events *from the moment they are
 installed*. If you have already been working in a project for weeks (a long Claude or
-Codex session on disk) and only now install ai-memory, none of that prior context is
+Codex session on disk) and only now install pitstop, none of that prior context is
 in memory. You get a "cold start": a tool meant to give cross-session continuity knows
 nothing about the session you are resuming.
 
-The `ai-memory doctor` command (shipped alongside this proposal) makes the related gap
+The `pitstop doctor` command (shipped alongside this proposal) makes the related gap
 visible: "this harness ran here but captured nothing." This proposal fills a specific
 instance of it: **when a project's store is brand new (empty) and the harness is resuming
 a session that already has local transcript history, import that history once, so the
@@ -65,23 +65,23 @@ The hard part (read a native transcript, sanitize it, get it into the store) is 
 built twice. This proposal adds a *trigger and guards* around existing ingest and does not
 add a new importer.
 
-- **`ai-memory-workstream` transcript adapters** read every supported harness's native
+- **`pitstop-workstream` transcript adapters** read every supported harness's native
   session store read-only, keyed by cwd, with per-harness path/id encoding in one place
   (`export_transcript`, `list_native_sessions`, `discover_native_session`). `doctor`
   already reuses `list_native_sessions`; boot-backfill reuses `export_transcript`.
 - **`export_transcript`** returns an `ExportedTranscript { native_session_id, events:
   Vec<NewWorkstreamEvent>, source_cursor, losses }`: a bounded, sanitizable visible-event
-  ledger plus an **opaque incremental cursor**. `ai-memory run` calls it after a managed
+  ledger plus an **opaque incremental cursor**. `pitstop run` calls it after a managed
   child exits and POSTs the events in size-bounded batches (`FinishManagedRunRequest`,
   `event_batches`) to the managed-workstream finish endpoint; the server persists
   `source_cursor` so the next read is incremental. This is a working backfill engine that
   only ever runs *after* a managed launch today.
-- **The companion importer** (`companions/ai-memory-importer`) has `ExternalConversation`
-  ("replay a generic external conversation through ai-memory's hook API") with the
+- **The companion importer** (`companions/pitstop-importer`) has `ExternalConversation`
+  ("replay a generic external conversation through pitstop's hook API") with the
   bounds this needs: `MAX_CONVERSATION_MESSAGES = 128`,
   `MAX_USER_MESSAGE_BYTES = 16 KiB`, `MAX_CONVERSATION_TOTAL_BYTES = 1 MiB`, a dedicated
   `external-import` agent kind, all through the sanitizer.
-- **The sanitizer** (`ai-memory-hooks`, `Sanitized<NewObservation>`) is the only path from
+- **The sanitizer** (`pitstop-hooks`, `Sanitized<NewObservation>`) is the only path from
   untrusted text into the store, and it is enforced by construction (invariant #6).
 - **Detached background work from the hook path** already exists: the native hook spools
   events and drains them via a separate detached process (`hook_drain_process`), so hooks
@@ -107,13 +107,13 @@ hot-context/handoff block). Extend that one round-trip to also learn, cheaply:
   duplicate/rewrite real history and confuse consolidation). Boot-backfill is strictly a
   **one-time bootstrap**.
 - **Backfill enabled?** `[capture] backfill_on_start` (default true), overridable by
-  `AI_MEMORY_BACKFILL_ON_START` and a `.ai-memory.toml` marker key.
+  `PITSTOP_BACKFILL_ON_START` and a `.pitstop.toml` marker key.
 
-If empty AND enabled, the hook **spawns a detached `ai-memory backfill` process** and
+If empty AND enabled, the hook **spawns a detached `pitstop backfill` process** and
 returns immediately. The hook never blocks boot and never does the import inline
 (invariant #5). If not empty, or disabled, the hook does nothing new.
 
-### 2. Worker — `ai-memory backfill` (new thin CLI subcommand)
+### 2. Worker — `pitstop backfill` (new thin CLI subcommand)
 
 A detached, read-only-on-the-local-side worker. For the resolved `(workspace, project)`
 and cwd:
@@ -128,10 +128,10 @@ and cwd:
    what forward capture would have used (Claude/Codex local id == server session id).
 4. Persist each session's `source_cursor` so a later real resume continues incrementally
    from where the backfill stopped, without double-capturing the overlap.
-5. Print one notice to the operator's next surface: `📼 ai-memory imported N prior local
-   sessions (~M events) for this project. Opt out with AI_MEMORY_BACKFILL_ON_START=0.`
+5. Print one notice to the operator's next surface: `📼 pitstop imported N prior local
+   sessions (~M events) for this project. Opt out with PITSTOP_BACKFILL_ON_START=0.`
 
-Manual control: `ai-memory backfill` can be run by hand (idempotent), with
+Manual control: `pitstop backfill` can be run by hand (idempotent), with
 `--all-sessions` / `--session <id>` / `--dry-run` / `--force` (re-import a non-empty
 store, explicit) for operators who want it outside the boot path.
 
@@ -189,9 +189,9 @@ Retroactive text is exactly as untrusted as live hook text, since it is old mode
   `Sanitized<NewObservation>` / workstream sanitize boundary and the same caps. The e2e
   canary secret must be scrubbed from a backfilled body just as from a live one.
 - **Capture exclusions honored.** `[capture] ignore_paths` from the nearest
-  `.ai-memory.toml` applies to the backfill path too, not just live hooks.
+  `.pitstop.toml` applies to the backfill path too, not just live hooks.
   As built (`commands/transcript_capture.rs`), each imported tool call is rebuilt in
-  its agent's hook shape (`ai_memory_hooks::tool_call_payload`) and inspected by the
+  its agent's hook shape (`pitstop_hooks::tool_call_payload`) and inspected by the
   checkout's `CapturePolicy`, the same decision table the live hook uses. A tool the
   transcript names differently from the hook is rebuilt under the hook's name and
   fields (Codex `exec_command` with `{cmd, workdir}` becomes `Bash`). Claude Code and
@@ -220,16 +220,16 @@ Retroactive text is exactly as untrusted as live hook text, since it is old mode
   recorded call or that has no call at all; a ledger placeholder keeps only the family
   and a call id the server's validation accepts, never the tool's name. A Drop removes both the call and its result before anything is posted; a
   metadata-only decision posts the hook's metadata-only body with its
-  `_ai_memory_capture` protocol, which the server validates and rebuilds from its
+  `_pitstop_capture` protocol, which the server validates and rebuilds from its
   allowlist. A result is paired with its call by native id; without one it takes the
   strictest decision of every call since the last user message, and a result whose id
   matches no call, or with no call, is dropped under a policy. Kept events carry no protocol: their body is a
   normalized transcript record, not the native payload the server's re-inspection
-  reads, and the server never receives the ignore patterns. The `ai-memory run` ledger
+  reads, and the server never receives the ignore patterns. The `pitstop run` ledger
   applies the same decisions before its segments are uploaded. Both also apply the
   hook's repository admission gate (`checkout_admits_capture`): under allowlist capture
   mode a checkout without a marker imports nothing, prompts included, exactly as the
-  live hook emits nothing there; a manual `ai-memory backfill` says so and stops before
+  live hook emits nothing there; a manual `pitstop backfill` says so and stops before
   contacting the server.
 - **Emptiness + lease** prevent a backfill from overwriting or racing an established
   project's real history.
@@ -240,17 +240,17 @@ Retroactive text is exactly as untrusted as live hook text, since it is old mode
   history is more sensitive than on a single-user box. Backfill attributes to the booting
   operator, imports only into an *empty* project scope, and is opt-outable per project via
   the marker. Consider gating the automatic path to the default (loopback/single-operator)
-  posture and requiring explicit `ai-memory backfill` on `deployment_distinguishes_operators()`
+  posture and requiring explicit `pitstop backfill` on `deployment_distinguishes_operators()`
   servers (an open question below).
 
 ### 7. Opt-out and configuration
 
 - `[capture] backfill_on_start = true` (default) in config.
-- `AI_MEMORY_BACKFILL_ON_START=0` env override (one config-read path: read in
+- `PITSTOP_BACKFILL_ON_START=0` env override (one config-read path: read in
   `Config::load`, never ad hoc).
-- `.ai-memory.toml` marker key so a specific project can opt out regardless of global
+- `.pitstop.toml` marker key so a specific project can opt out regardless of global
   config (mirrors how `ignore_paths` is project-scoped).
-- Manual `ai-memory backfill` is always available regardless of the auto setting.
+- Manual `pitstop backfill` is always available regardless of the auto setting.
 
 ### 8. Harness coverage
 
@@ -258,7 +258,7 @@ Exactly the set with read-only native transcript adapters (doctor's `SCANNED_HAR
 A harness whose store is unreadable/absent contributes nothing. Like doctor, backfill
 never invents history it cannot read.
 
-## Relationship to `ai-memory doctor`
+## Relationship to `pitstop doctor`
 
 The two commands complement each other. Doctor detects the coverage gap (a harness ran
 here but captured nothing); backfill fills the specific first-boot instance of it. The
@@ -287,11 +287,11 @@ note** at the top) resolved each:
 1. **Ingest path A vs B:** resolved to **B** (replay through `/hook`). A live smoke proved
    path A populated the workstream continuity ledger, not the searchable memory pipeline
    (observation count stayed zero), so it was abandoned.
-2. **Shared-server default:** shipped **on by default** with `AI_MEMORY_BACKFILL_ON_START=false`
+2. **Shared-server default:** shipped **on by default** with `PITSTOP_BACKFILL_ON_START=false`
    / `--no`-style opt-out; the emptiness gate makes it safe on any posture (it only ever
    bootstraps an empty project).
 3. **Notice delivery:** the automatic path runs detached and silent (like Claude Code's
-   own auto-memory); the summary shows on a manual `ai-memory backfill`. Surfacing it in
+   own auto-memory); the summary shows on a manual `pitstop backfill`. Surfacing it in
    the next session's on-start context remains a possible follow-up.
 4. **Consolidation quality:** shipped **behind the hard cap** (newest 25 sessions / 50k
    events) and iterating; a dedicated eval remains a follow-up.

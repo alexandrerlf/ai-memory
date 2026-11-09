@@ -1,3 +1,3 @@
-. "$PSScriptRoot\..\lib\ai-memory-hook.ps1"
-Invoke-AiMemoryHook -Event "session-start" -Agent "cursor" -FetchHandoff
+. "$PSScriptRoot\..\lib\pitstop-hook.ps1"
+Invoke-PitstopHook -Event "session-start" -Agent "cursor" -FetchHandoff
 exit 0

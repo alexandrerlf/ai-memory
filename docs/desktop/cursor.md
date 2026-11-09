@@ -14,7 +14,7 @@ Config and agent data live in `~/.cursor/` (`projects/<workspace>/`,
 `plugins/`, `skills-cursor/`, `cli-config.json`); the Electron profile is
 `~/.config/Cursor/`.
 
-ai-memory already supports Cursor: `install-mcp --client cursor`
+pitstop already supports Cursor: `install-mcp --client cursor`
 (`~/.cursor/mcp.json` or `.cursor/mcp.json`) and `install-hooks --agent
 cursor` (`~/.cursor/hooks.json`, flat `{"version": 1, "hooks": {...}}`
 schema); see `docs/mcp-install.md#cursor`.
@@ -50,15 +50,15 @@ default), maps `PreToolUse`, `PostToolUse`, `UserPromptSubmit`
 source. The page does not say which surfaces load them.
 
 **Verified live:** the running desktop app executed the operator's
-`~/.claude/settings.json` ai-memory `SessionStart` hook at launch, before
+`~/.claude/settings.json` pitstop `SessionStart` hook at launch, before
 any conversation, with Cursor's payload rather than Claude's
 (`conversation_id` and `session_id` both `"empty-state-draft"`,
 `composer_mode: "agent"`, `is_background_agent: false`, `cursor_version:
 "3.24.9"`, empty `workspace_roots`, null `transcript_path` and
 `user_email`). The hook ran as `--agent claude-code` with no `cwd`; the
 server relabels a payload carrying `cursor_version` as `cursor`
-(`agent_from_payload` in `crates/ai-memory-hooks/src/payload.rs`), and the
-#721 de-duplication drops this copy only when Cursor's own ai-memory hooks
+(`agent_from_payload` in `crates/pitstop-hooks/src/payload.rs`), and the
+#721 de-duplication drops this copy only when Cursor's own pitstop hooks
 are also installed.
 
 ## MCP
@@ -67,7 +67,7 @@ are also installed.
 HTTP/SSE, `command`/`args` for stdio (<https://cursor.com/docs/mcp>). In
 the empty window the app loaded only its built-in servers
 (`cursor-app-control`, `cursor-ide-browser`, `cursor-origin`,
-`cursor-subscriptions`), not the `ai-memory` and `blender` servers in the
+`cursor-subscriptions`), not the `pitstop` and `blender` servers in the
 operator's `~/.claude.json`: the third-party import brought the Claude
 hooks in but, at least there, not the Claude MCP servers.
 
@@ -104,7 +104,7 @@ and `Shell` classifies as a non-file tool, so neither is the cause; the
 remaining differences are `tool_output` instead of `tool_response`, the
 camelCase `hook_event_name`, and no `cwd` query parameter. The cause was
 neither: Cursor was missing from the tool-capture agent list
-(`closed_tool_agent` in `crates/ai-memory-hooks/src/payload.rs`, plus the
+(`closed_tool_agent` in `crates/pitstop-hooks/src/payload.rs`, plus the
 capture-policy name/input mapping), so its tool events fell through to the
 legacy path. Fixed in 2.6.3 (8bb89e28); Cursor tool events now get the same
 family title and output summary as Claude Code's.

@@ -17,19 +17,19 @@ observation stream enabled as it is in production.
   `08d8dad4be43ee2049a22ff5674eb86725d0ce5ff434cde2627e5e8e7e117894`.
 - hardware: AMD Ryzen 9 7950X3D (32 threads). No build or test workload ran
   concurrently with either measurement.
-- commands, after building `ai-memory` and `ai-memory-eval` in release mode:
+- commands, after building `pitstop` and `pitstop-eval` in release mode:
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true
   ```
 
 - run dirs: `evals/runs/2026-10-16T01-10-11-488161722Z-retrieval` (FTS)

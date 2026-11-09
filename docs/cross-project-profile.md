@@ -1,6 +1,6 @@
 # The cross-project profile
 
-ai-memory keeps knowledge per project, so switching harness costs nothing:
+pitstop keeps knowledge per project, so switching harness costs nothing:
 Claude Code, Codex and OpenCode in one checkout read the same pages. The
 **profile** removes the other cost, switching *project*. It is a small set of
 pages recording how you usually work (the package manager you reach for, how
@@ -50,7 +50,7 @@ only when you do, so leading with it keeps it in the part of the harness's
 prompt that can be cached:
 
 ```text
-> 🧭 ai-memory: your usual choices (cross-project profile)
+> 🧭 pitstop: your usual choices (cross-project profile)
 > Your usual choices from other projects. Use them as defaults when this
 > project's rules and the user say nothing; say which default you applied. …
 - [javascript] Use pnpm, not npm. (`profile/tools/pnpm.md`)
@@ -73,7 +73,7 @@ prompt that can be cached:
   until the profile changes, which keeps it in the harness's cached prompt.
 - **A baseline for new projects.** A project with no memory of its own gets a
   larger budget (`baseline_max_bytes`, default 6,000 bytes) and a note that the
-  agent can offer `ai-memory profile apply` to write your usual choices into
+  agent can offer `pitstop profile apply` to write your usual choices into
   the new repository's rules file.
 - Entries marked `enforced_by` (something else, like a hook, already enforces
   them) are left out of the digest.
@@ -102,7 +102,7 @@ folder: `stack`, `architecture`, `workflow`, `testing`, `tools`, `style` or
 | `applies_to` | Stack tags the entry is scoped to, e.g. `[rust]` or `typescript`. |
 | `enforced_by` | Something already enforces it (e.g. `pre-push hook`); kept out of the digest. |
 
-`memory_write_page` and `ai-memory write-page` set the last two directly:
+`memory_write_page` and `pitstop write-page` set the last two directly:
 `applies_to: ["rust"]` and `enforced_by: "pre-push hook"` in the tool call,
 or `--applies-to rust --enforced-by "pre-push hook"` on the command line
 (with `--workspace default --project _global --path profile/...` in the
@@ -121,15 +121,15 @@ the next section.
 From the command line (root token on a multi-user server):
 
 ```bash
-ai-memory profile status                 # on/off, where it lives, entries, digest size, opt-outs
-ai-memory profile list                   # every entry with its scope tags
-ai-memory profile show tools/pnpm.md     # one entry
-ai-memory profile forget tools/pnpm.md   # remove one entry (stays removed until you say it again)
-ai-memory profile review                 # entries with their evidence, habits still short of the bar
-ai-memory profile rebuild                # re-read every project from the start (safe to repeat; removes nothing)
-ai-memory profile apply                  # write the entries that fit this repo into its rules file
-ai-memory profile list --user alice      # an operator's private profile (share = "user")
-ai-memory profile list --workspace work  # a workspace profile (share = "workspace")
+pitstop profile status                 # on/off, where it lives, entries, digest size, opt-outs
+pitstop profile list                   # every entry with its scope tags
+pitstop profile show tools/pnpm.md     # one entry
+pitstop profile forget tools/pnpm.md   # remove one entry (stays removed until you say it again)
+pitstop profile review                 # entries with their evidence, habits still short of the bar
+pitstop profile rebuild                # re-read every project from the start (safe to repeat; removes nothing)
+pitstop profile apply                  # write the entries that fit this repo into its rules file
+pitstop profile list --user alice      # an operator's private profile (share = "user")
+pitstop profile list --workspace work  # a workspace profile (share = "workspace")
 ```
 
 ## Turning the profile into hard rules for one repository
@@ -139,9 +139,9 @@ When you want your usual choices to be **rules** in a repository, written down
 where every harness and every collaborator sees them, run this from inside it:
 
 ```bash
-ai-memory profile apply --dry-run   # show the block and the file it would go to
-ai-memory profile apply             # write it
-ai-memory profile apply --remove    # take it out again
+pitstop profile apply --dry-run   # show the block and the file it would go to
+pitstop profile apply             # write it
+pitstop profile apply --remove    # take it out again
 ```
 
 - **Which file.** `--target FILE` (relative to the repository root) wins.
@@ -152,9 +152,9 @@ ai-memory profile apply --remove    # take it out again
   digest (scoped to the stacks the project's activity shows, entries enforced
   elsewhere skipped, a new project gets them all), at most `apply_max_lines`
   (default 40), each with the page it came from, between
-  `<!-- ai-memory:profile:start -->` and `<!-- ai-memory:profile:end -->`.
+  `<!-- pitstop:profile:start -->` and `<!-- pitstop:profile:end -->`.
 - **What it never touches.** Anything outside those delimiters, including the
-  `<!-- ai-memory:start -->` routing block and your own rules. Re-running
+  `<!-- pitstop:start -->` routing block and your own rules. Re-running
   replaces only the block, and leaves the file byte-identical when the profile
   has not changed. `--remove` takes the block out and restores the file; a file
   `apply` created for the block alone is deleted.
@@ -164,7 +164,7 @@ ai-memory profile apply --remove    # take it out again
 - **Opt-outs.** A project with `[profile] consume = false` refuses `apply`.
 
 It is the only command that writes a file in your repository, and it only runs
-when you run it: ai-memory never edits a rules file on its own. Because the
+when you run it: pitstop never edits a rules file on its own. Because the
 block then sits in the rules file, it outranks the digest for that repository
 (step 2 of the order above).
 
@@ -190,7 +190,7 @@ is new since the last one.
   as well: a harness turn stored as a prompt (Claude Code's
   `<task-notification>` blocks), Claude Code cross-session/plugin turns and
   side-agent quote blocks, the instruction files Codex injects as a user
-  message, and ai-memory's own routing snippet or recalled-history digest
+  message, and pitstop's own routing snippet or recalled-history digest
   pasted into a prompt (only that block; your sentences around it still
   count). A prompt written by a program driving the agent through its SDK is
   skipped whole: one that wraps a transcript ("Here is a conversation between
@@ -286,7 +286,7 @@ The profile chain does not include the global `[[llm_fallbacks]]`. Add
 
 ### Correcting a wrong entry
 
-- **Remove it:** `ai-memory profile forget <path>`. The harvester remembers the
+- **Remove it:** `pitstop profile forget <path>`. The harvester remembers the
   entries it wrote, so a removed one is not recreated from the same evidence;
   it comes back only if you state it again later.
 - **Reword it:** edit the page (by hand, or with `memory_write_page` and
@@ -295,20 +295,20 @@ The profile chain does not include the global `[[llm_fallbacks]]`. Add
   it, and `profile review` lists it as edited by hand. The entry ledger keeps
   the page attached to its original topic even when the edit replaces its
   frontmatter, so the old wording is not recreated at a `-2` path.
-- **Start over:** `ai-memory profile rebuild` re-reads every project from the
+- **Start over:** `pitstop profile rebuild` re-reads every project from the
   beginning. It does not touch entries you edited or removed, and it never
   removes an entry: a candidate already recorded keeps the classification it
   was recorded with, and an entry whose evidence no longer meets the bar stays
   as written.
 - **After upgrading:** a release that tightens what the profile learns applies
   to sentences read from then on. Entries an earlier version admitted stay,
-  even after `profile rebuild`; list them with `ai-memory profile review` and
-  remove the ones you do not want with `ai-memory profile forget <path>`.
+  even after `profile rebuild`; list them with `pitstop profile review` and
+  remove the ones you do not want with `pitstop profile forget <path>`.
 
 ## Server settings
 
-In `config.toml` (or `AI_MEMORY_PROFILE__<KEY>`, for example
-`AI_MEMORY_PROFILE__SHARE=workspace`):
+In `config.toml` (or `PITSTOP_PROFILE__<KEY>`, for example
+`PITSTOP_PROFILE__SHARE=workspace`):
 
 ```toml
 [profile]
@@ -350,12 +350,12 @@ llm = true
 - **`digest_max_bytes`** / **`baseline_max_bytes`**: the digest budgets, in
   UTF-8 bytes. The floors keep room for the fixed precedence and security lines
   plus a few entries.
-- **`apply_max_lines`**: the most lines `ai-memory profile apply` writes into a
+- **`apply_max_lines`**: the most lines `pitstop profile apply` writes into a
   rules file.
 - **`llm`**: use the configured LLM provider, when there is one, to classify and
   merge entries; `false` keeps the profile fully zero-LLM.
 
-`ai-memory profile status` prints the effective values.
+`pitstop profile status` prints the effective values.
 
 ### Common customizations
 
@@ -388,7 +388,7 @@ For a shared team profile instead, set `share = "global"` (or `"workspace"`)
 and grant the curators `write` on `_global` (or that workspace's `_profile`):
 
 ```bash
-ai-memory user grant --user alice --workspace default --project _global --level write
+pitstop user grant --user alice --workspace default --project _global --level write
 ```
 
 **Team-profile trust model.** A team profile reaches every operator's session
@@ -405,7 +405,7 @@ with `scope: "profile"` still need root or a `write` grant on the scope.
 
 ## Per-project opt-outs
 
-In a project's `.ai-memory.toml`:
+In a project's `.pitstop.toml`:
 
 ```toml
 [profile]
@@ -426,7 +426,7 @@ back and forth).
 
 A marker that sets only `[profile]` keys is a settings boundary, like one
 that sets `[briefing]` keys: an outer marker's `workspace`/`project` do not
-apply through it. `ai-memory profile status` lists the projects that opted out
+apply through it. `pitstop profile status` lists the projects that opted out
 of contributing.
 
 ## Privacy and isolation
@@ -451,7 +451,7 @@ of contributing.
 
 ## Troubleshooting
 
-- **No digest at session start.** Run `ai-memory profile status`: the profile
+- **No digest at session start.** Run `pitstop profile status`: the profile
   may be off (a multi-user server needs `enabled = true`), it may have no
   entries yet, the project may set `consume = false`, or every entry may be
   scoped to a stack this project does not use. A session started inside the
@@ -462,7 +462,7 @@ of contributing.
 - **The agent did not apply a default.** The rules file and your instructions
   win; check that the repository does not say otherwise. Run
   `memory_read_page` on the entry to see what it actually says.
-- **A habit never became an entry.** `ai-memory profile review` shows it under
+- **A habit never became an entry.** `pitstop profile review` shows it under
   "not in the profile yet" with how many more projects it needs; say it once as
   a general rule ("in all my projects, …") to admit it now, or lower
   `min_projects`.
@@ -470,13 +470,13 @@ of contributing.
   it alone (`profile review` says so). Delete it to hand it back.
 - **An opt-out came back on.** Only an explicit value changes it: check that the
   project's marker still says `contribute = false` / `consume = false` and that
-  the agent runs in a directory under that marker (`ai-memory profile status`
+  the agent runs in a directory under that marker (`pitstop profile status`
   lists the projects opted out of contributing).
 - **A team entry is "waiting for another operator".** A team profile admits a
   statement only when at least two operators said it (see the trust model
   above). Have a second operator confirm it, or write the entry directly with
   `scope: "profile"` if you hold the grant.
-- **A private profile is unreachable after `ai-memory reindex`.** Reindex
+- **A private profile is unreachable after `pitstop reindex`.** Reindex
   rebuilds a clean database from the wiki, and users are database-only state:
   operators created again get new ids, so an old `_profile.<old id>` project
   belongs to nobody (only root can read it). Its entries are still markdown in

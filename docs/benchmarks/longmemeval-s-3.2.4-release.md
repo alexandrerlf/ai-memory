@@ -13,21 +13,21 @@ observation stream enabled.
   `08d8dad4be43ee2049a22ff5674eb86725d0ce5ff434cde2627e5e8e7e117894`.
 - hardware: AMD Ryzen 9 7950X3D (32 threads), with no other deliberate
   workload during the run.
-- commands, after building `ai-memory` and `ai-memory-eval` in release mode:
+- commands, after building `pitstop` and `pitstop-eval` in release mode:
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
   ```
 
 - run dirs: `evals/runs/2026-10-25T15-37-36-037419279Z-retrieval` (FTS)

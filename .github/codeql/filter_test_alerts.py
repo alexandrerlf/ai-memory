@@ -31,7 +31,7 @@ FILTERED_RULES = frozenset(
         "rust/hard-coded-cryptographic-value",
     }
 )
-TEST_CRATE_PREFIX = "crates/ai-memory-test-support/"
+TEST_CRATE_PREFIX = "crates/pitstop-test-support/"
 # rustfmt puts a top-level item's header and closing brace at column 0.
 TEST_MOD_HEADER = re.compile(r"^(pub(\([a-z]+\))? )?mod \w+ \{$")
 TEST_MOD_DECL = re.compile(r"^(pub(\([a-z]+\))? )?mod (\w+);$")

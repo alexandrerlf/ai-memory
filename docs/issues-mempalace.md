@@ -16,7 +16,7 @@
 
 ## What MemPalace is (one paragraph)
 
-Local-first AI memory with the *opposite* philosophy to ai-memory: **store
+Local-first AI memory with the *opposite* philosophy to pitstop: **store
 verbatim, never compile**. Conversation history and files are chunked raw into
 "drawers" (verbatim text), organised into "wings" (person/project) and "rooms"
 (topic), indexed in ChromaDB (SQLite + HNSW vector index, 384-dim
@@ -62,7 +62,7 @@ permission prompts / window close) leaves a malformed index.
   `mcp-proxy` helps avoid each client spawning its own server, but it does not
   by itself guarantee that all palace mutations are serialized."* They sketch a
   gateway → write-queue → **single writer**, which is the architecture
-  ai-memory has by construction.
+  pitstop has by construction.
 
 ### 2. Silent persistence failure - "filed N drawers" but nothing persisted
 
@@ -124,7 +124,7 @@ When corruption happens (theme 1) the recovery path is itself unsafe.
 
 - **#1561**: "persist and verify embedding model metadata in palace
   collections." There is currently **no stored `{provider, model, dim}` to
-  refuse on mismatch**, which is the failure ai-memory's invariant #8 prevents.
+  refuse on mismatch**, which is the failure pitstop's invariant #8 prevents.
 - **#1559**: support external embedding APIs (LM Studio, Ollama,
   OpenAI-compatible).
 - **#1563 / #1261**: embedding model is hardcoded to all-MiniLM-L6-v2; users
@@ -172,13 +172,13 @@ ChromaDB drags in `onnxruntime`, `grpcio`, `numpy`, and a Rust bindings layer.
 | Heavy native ML stack (onnxruntime + chromadb_rust_bindings) | #1355, #1247, #1488 | Platform-specific crashes, hard version floors |
 | Hooks spawn detached `mempalace mine` subprocesses | #1596, #1253, #1329 | N concurrent writers per machine; killed-mid-write corruption |
 
-## How ai-memory compares (invariant-by-invariant)
+## How pitstop compares (invariant-by-invariant)
 
-**MemPalace's biggest pain cluster is the set of failures ai-memory's
+**MemPalace's biggest pain cluster is the set of failures pitstop's
 cross-cutting invariants exist to prevent.** Someone else's 241 open issues
 support the architecture choices we made.
 
-| MemPalace pain | ai-memory invariant that prevents it |
+| MemPalace pain | pitstop invariant that prevents it |
 |---|---|
 | #1497/#1514/#1343: debating/retrofitting a single-writer gateway; concurrent writers corrupt HNSW | **#2 Single-writer SQLite actor.** All writes through one mpsc channel, by construction, since M1. No retrofit. |
 | #1597/#1579/#1537: "filed N" but not persisted; write returns before durable | **#3 Indexes commit in the same transaction as the data.** No background-task-indexing-after-return; tool responses block until durable. |
@@ -190,13 +190,13 @@ support the architecture choices we made.
 | #1329: verbatim-everything → 1.9 TB bloat | **Karpathy compile-don't-hoard** + **M8 decay/forget-sweep** + log rotation. We compress instead of accumulating raw data forever. |
 | #1574: wrong JSON-RPC error codes | rmcp typed `McpError` variants. (Worth a spot-check that we map param errors correctly; see "gotchas".) |
 
-## What ai-memory could learn / steal from MemPalace
+## What pitstop could learn / steal from MemPalace
 
 These ideas are worth a brainstorm. None is adopted yet.
 
 1. **A verbatim recall tier as a safety net under the compiled wiki.** This is
    the most important idea. MemPalace shows that *raw text + local semantic search*
-   scores 96.6% R@5 on LongMemEval with zero LLM. ai-memory compiles
+   scores 96.6% R@5 on LongMemEval with zero LLM. pitstop compiles
    observations into wiki pages, which is higher-signal but **lossy**:
    consolidation can drop a detail the user later needs. We already keep `raw/`
    immutable session logs. When vectors land (v0.2), we could expose semantic
@@ -251,7 +251,7 @@ These ideas are worth a brainstorm. None is adopted yet.
 MemPalace got popular, **impostor domains (`mempalace.tech`, etc.) appeared
 distributing malware** under the project name. Their mitigation was a loud
 "ONLY official sources are GitHub + PyPI + mempalaceofficial.com" warning.
-Lesson for ai-memory: when/if it gains traction, expect typosquatting of the
+Lesson for pitstop: when/if it gains traction, expect typosquatting of the
 name, the install one-liner (`curl … | sh`), and the Docker image. Cheap
 pre-emptive moves: claim the obvious domains, document the *only* official
 install sources (GitHub repo, the `akitaonrails/ai-memory` Docker Hub image,
@@ -263,7 +263,7 @@ nothing.
 
 MemPalace is a popular, well-tested retrieval engine with a sound verbatim
 philosophy and honest maintainers, and it is **struggling with the
-storage/concurrency/durability failures ai-memory designed around from the
+storage/concurrency/durability failures pitstop designed around from the
 first milestone**. The most useful thing to take from it is a feature idea: a
 *verbatim semantic-recall fallback* beneath the compiled wiki, so we get
 MemPalace's lossless recall without inheriting its ChromaDB corruption surface.

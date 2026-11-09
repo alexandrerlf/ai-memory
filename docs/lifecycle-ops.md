@@ -1,6 +1,6 @@
 # Lifecycle operations
 
-Reference for the destructive / state-touching ai-memory commands.
+Reference for the destructive / state-touching pitstop commands.
 Read this before running anything that mutates wiki + db, especially
 on a homelab box where mistakes are harder to undo.
 
@@ -20,14 +20,14 @@ on a homelab box where mistakes are harder to undo.
 | `move-session <id> --to --confirm` | ✅ yes | no | yes (move it back) | Re-stamps one session (or every session touching `--from-project`) into another project: `sessions`, `observations`, its `handoffs`, consolidation jobs, auto-improve runs/claims, profile prompt candidates, ingest keys and its `sessions/<id>.md` page, one transaction per session; the page file moves with it (`--pages move`, default) or is retired for regeneration. Without `--confirm` it is a real dry run (rolled back). Refuses with `409` an open session or a pending consolidation job unless `--force`. |
 | `repair-backfill-timestamps --project --confirm` | ✅ yes | no | yes, if the operator kept the audit row or the CLI's before/after report (nothing else) | Corrects `sessions.started_at`/`ended_at` for sessions an older `backfill` imported before it carried the transcript's own event time. The CLI reads the operator's local transcripts read-only and posts candidate `(session_id, started_at, ended_at)` tuples to `POST /admin/repair-session-times`, which validates each one against `(workspace, project)` (a candidate outside that scope is `not_found` and untouched), only rewrites a row whose `started_at` postdates the candidate's own end (`not_flattened` otherwise, so a correctly hook-captured session or a re-run is a no-op), refuses negative/inverted/future-dated times, and never assigns an end time to a session still open. Without `--confirm` the server validates and reports inside a rolled-back transaction, so it is a real dry run; a confirmed run writes one `audit_log` row per request with the before/after times. Touches only the two timestamp columns of rows already in scope; `observations` and pages (including the session's own page frontmatter) are untouched. |
 | `backup --to` | ✅ yes | no | n/a | Streams a gzipped tarball from the server's online `sqlite3 .backup` plus the wiki tree. Safe alongside the live writer. |
-| `forget-sweep` event-ledger pass (`[decay] ledger_retention_months`) | ✅ yes | old hook event ledger *files* (`log-YYYY-MM.md`) from disk, nothing in the database | no ai-memory command restores a ledger (`restore-page` restores pages only); the content stays in the wiki's git history when a checkpoint captured it, recoverable with plain git until the repository is compacted | **Off by default** (`0`). Runs inside the forget sweep, so `--dry-run` previews it: the report lists `ledgers_prunable` and `ledger_bytes_prunable`. Online through the admin API. Only a file whose name is `log-YYYY-MM.md` **and** whose content opens with a ledger hook entry qualifies; `log.md`, the current month and the previous month are never deleted, whatever the setting. Each removal consults the blocking admission chain (`delete_event_ledger` op); a `reject`-policy webhook keeps the file and the report counts it in `ledgers_undeleted`. |
+| `forget-sweep` event-ledger pass (`[decay] ledger_retention_months`) | ✅ yes | old hook event ledger *files* (`log-YYYY-MM.md`) from disk, nothing in the database | no pitstop command restores a ledger (`restore-page` restores pages only); the content stays in the wiki's git history when a checkpoint captured it, recoverable with plain git until the repository is compacted | **Off by default** (`0`). Runs inside the forget sweep, so `--dry-run` previews it: the report lists `ledgers_prunable` and `ledger_bytes_prunable`. Online through the admin API. Only a file whose name is `log-YYYY-MM.md` **and** whose content opens with a ledger hook entry qualifies; `log.md`, the current month and the previous month are never deleted, whatever the setting. Each removal consults the blocking admission chain (`delete_event_ledger` op); a `reject`-policy webhook keeps the file and the report counts it in `ledgers_undeleted`. |
 | `reclaim-ledger-versions` | ✅ yes | superseded pre-#660 ledger page *versions* only | no (the latest page version stays) | Dry-run by default; needs `--confirm` to delete. Online through the writer actor, safe alongside the live writer. Content-gated: only non-latest, non-decay `log.md`/`log-YYYY-MM.md` versions whose body opens with a ledger hook entry are removed; a real page that merely shares the name is untouched. `--compact` additionally rebuilds FTS and `VACUUM`s to reclaim the freed bytes. |
 | `checkpoints` | ✅ yes | no | n/a | Lists recent wiki git checkpoints. Read-only. |
 | `restore-page --path (--from REV \| --page-id UUID)` | ✅ yes | overwrites one markdown page version | yes (restore another retained version) | Restores one page from wiki git history or a retained SQLite page version, reindexes it, and writes a post-restore checkpoint. `--page-id` reaches source history preserved by `merge-project`; it does not restore other DB state. |
 | MCP `memory_restore_page` | ✅ yes | no (writes a new current version; the replaced one stays reachable) | yes (restore another checkpoint) | Lists a page's checkpoints, or writes one back through the `memory_write_page` path. Admin only, like `restore-page`. See [below](#mcp-memory_restore_page). |
 | `backup-agents --to` / `restore-agents --from <tarball>` | ✅ yes (client-side; never touches the server or its data dir) | no | yes (`restore-agents --apply` keeps timestamped copies of overwritten files) | Agent-config assets, not wiki/db: MCP configs (redacted unless `--include-secrets`), hook configs, instructions, skills, plugins. `restore-agents` is a dry run by default; `--apply` writes to disk and `--force` overwrites existing or differing targets. Non-MCP assets are restored verbatim and may contain secrets, so only `--apply` an archive whose source you trust. |
-| `restore --from <tarball>` | ❌ **stop the server first** | overwrites the data dir | no (without prior backup) | Refuses if any sibling `ai-memory` process is alive (sysinfo guard). Stages and verifies the archive before swapping it in, so a failed restore leaves `wiki/` and `db/` as they were. Keeps an existing `config.toml` and saves the backup's as `config.toml.from-backup` unless `--with-config` is passed. From the wiki's `.git` it restores only git's data (objects, refs, logs, HEAD, the index) and writes a fresh git config; hooks, the archived config and anything else git would run or follow are left out and listed. |
-| `reset --confirm` | ❌ **stop the server first** | yes, all data | no | Refuses if any sibling `ai-memory` process is alive (sysinfo guard). |
+| `restore --from <tarball>` | ❌ **stop the server first** | overwrites the data dir | no (without prior backup) | Refuses if any sibling `pitstop` process is alive (sysinfo guard). Stages and verifies the archive before swapping it in, so a failed restore leaves `wiki/` and `db/` as they were. Keeps an existing `config.toml` and saves the backup's as `config.toml.from-backup` unless `--with-config` is passed. From the wiki's `.git` it restores only git's data (objects, refs, logs, HEAD, the index) and writes a fresh git config; hooks, the archived config and anything else git would run or follow are left out and listed. |
+| `reset --confirm` | ❌ **stop the server first** | yes, all data | no | Refuses if any sibling `pitstop` process is alive (sysinfo guard). |
 | `reindex` | ❌ **stop the server first** | no wiki wipe; requires a clean DB | only with prior DB backup | Rebuilds pages/links/FTS from `wiki/` using `_meta.md` manifests. Refuses if SQLite already has rows so stale DB-only state cannot survive silently. |
 
 `purge-project`, `rename-project` and `move-project` also take `--project-id
@@ -39,7 +39,7 @@ workspace the command names. On the admin endpoints, sending both the name and
 the id, or neither, is a `400`, so is a malformed UUID, and an id that names no
 project in that workspace is a `404`. The CLI refuses both flags together before
 sending anything, and with neither it resolves the project the way other
-commands do: the `.ai-memory.toml` marker's `project`, then the git remote, then
+commands do: the `.pitstop.toml` marker's `project`, then the git remote, then
 the directory name. `--confirm`, the preview and every other guard behave the
 same as with a name.
 
@@ -67,7 +67,7 @@ that session; hand-written versions at the same path remain, including a later
 live wiki file.
 
 ```bash
-ai-memory purge-session \
+pitstop purge-session \
   --workspace default --project my-app \
   --session-id 0199f3d2-1c4e-7a10-9f3b-2b0c5d8e7a11 \
   --confirm
@@ -96,7 +96,7 @@ file next to `memory.sqlite` grows to roughly the database's size while it runs.
 `compact`, `reclaim-ledger-versions --compact` and the purges with `--compact`
 therefore run `PRAGMA wal_checkpoint(TRUNCATE)` right after the `VACUUM`, and the
 `-wal` goes back to zero bytes. If a reader holds an old snapshot the checkpoint
-cannot finish: the command still succeeds, `ai-memory` logs a `warn` with the
+cannot finish: the command still succeeds, `pitstop` logs a `warn` with the
 `busy`, `log` and `checkpointed` counts, and the `-wal` keeps its size until a
 later checkpoint after that reader is gone (the writer waits up to 5 seconds for
 readers before giving up). The writer connection also sets `journal_size_limit`
@@ -172,7 +172,7 @@ up.
 
 ### The same is true of `purge-project` and `delete-workspace`
 
-Every row above applies unchanged to `ai-memory purge-project --compact` and to
+Every row above applies unchanged to `pitstop purge-project --compact` and to
 `POST /admin/delete-workspace` with `{"compact": true}`. The table is a
 property of *any* SQLite delete, not of one command: rows go, bytes stay in
 free pages until the file is rewritten.
@@ -276,10 +276,10 @@ so a clean SQLite DB can be rebuilt from the UUID-keyed wiki tree alone.
 ### `purge-project`
 
 ```bash
-ai-memory purge-project --workspace default --project my-project --confirm
+pitstop purge-project --workspace default --project my-project --confirm
 
 # …and to reclaim the freed bytes as well (slow; rewrites the whole database):
-ai-memory purge-project --workspace default --project my-project --confirm --compact
+pitstop purge-project --workspace default --project my-project --confirm --compact
 ```
 
 Like `purge-session`, this is a logical delete unless `--compact` is given;
@@ -387,7 +387,7 @@ Why this is safe with the server running:
 ### `rename-project`
 
 ```bash
-ai-memory rename-project --workspace default --from old-name --to new-name
+pitstop rename-project --workspace default --from old-name --to new-name
 ```
 
 What happens:
@@ -523,10 +523,10 @@ collision:
 
 ```bash
 # Exact dry run: no files or rows change.
-ai-memory merge-project --workspace default --from Renato --into renato
+pitstop merge-project --workspace default --from Renato --into renato
 
 # Apply after inspecting the counts.
-ai-memory merge-project --workspace default --from Renato --into renato --confirm
+pitstop merge-project --workspace default --from Renato --into renato --confirm
 ```
 
 The command is root-only on a multi-user server, like every `/admin/*`
@@ -537,7 +537,7 @@ another workspace returns 404 and reaches no mutation.
 The writer verifies both latest-page sets under the transaction. It refuses if
 the source has an open session or an unexpired active managed-run lease. A
 same-path collision produces a new version whose body is the target body, a
-`<!-- ai-memory:merged-from workspace/source -->` marker, and the source body.
+`<!-- pitstop:merged-from workspace/source -->` marker, and the source body.
 The target frontmatter wins; `expires_at`/`stale_after` survive only when both
 sides were expiring. The new page keeps the earlier creation time and receives
 `stale` feedback naming the source, so `memory_lint` continues to report it
@@ -555,7 +555,7 @@ the result.
 ### `move-project`
 
 ```bash
-ai-memory move-project --from-workspace default --project my-project \
+pitstop move-project --from-workspace default --project my-project \
   --to-workspace other-workspace --confirm
 ```
 
@@ -652,7 +652,7 @@ at the same path):
 - **`duplicate`**: keep both. The source page lands at
   `<stem>-from-<src_workspace_slug>.md`, then `-2`, `-3`, … on
   further collisions. The `-from-` literal is the `DEDUP_FROM_TOKEN`
-  constant in `crates/ai-memory-mcp/src/admin.rs`; if you ever
+  constant in `crates/pitstop-mcp/src/admin.rs`; if you ever
   change one, change the other. Wikilinks pointing at the original
   path are not rewritten, so the lossless `true-move` path remains
   the way to preserve paths and links.
@@ -682,7 +682,7 @@ no such loss.
 > to.** Lifecycle hooks stamp a bounded observation on every supported tool-lifecycle event into the
 > session's project. If you move that very project mid-session, the next
 > hook re-creates the source (`scratch`-style) under the old workspace.
-> Before moving a live project, point the repo's `.ai-memory.toml` at the
+> Before moving a live project, point the repo's `.pitstop.toml` at the
 > **destination** workspace first, so new hook events already land there
 > and the move is a clean no-contention operation.
 
@@ -708,11 +708,11 @@ Failure modes:
 
 ```bash
 # One session, page and history included (dry run: no --confirm)
-ai-memory move-session 0192b6a1-4c2e-7d3f-8a5b-1234567890ab --to NAS_general
+pitstop move-session 0192b6a1-4c2e-7d3f-8a5b-1234567890ab --to NAS_general
 # Apply
-ai-memory move-session 0192b6a1-4c2e-7d3f-8a5b-1234567890ab --to NAS_general --confirm
+pitstop move-session 0192b6a1-4c2e-7d3f-8a5b-1234567890ab --to NAS_general --confirm
 # Every session of a stray project, into another workspace, page regenerated later
-ai-memory move-session --from-project tmp --to NAS_general --to-workspace home \
+pitstop move-session --from-project tmp --to NAS_general --to-workspace home \
   --pages regenerate --confirm
 ```
 
@@ -765,7 +765,7 @@ The audit row (`op = move_session`) carries the operator when the request
 was attributed. What does NOT move: `sessions.cwd` (historical truth; the
 response carries `cwd_warning` when its basename is not the destination
 project, since new sessions started there still resolve by basename unless a
-`.ai-memory.toml` marker pins the project), other pages written during the
+`.pitstop.toml` marker pins the project), other pages written during the
 session (decisions, gotchas: pages are not tracked per session), handoffs the
 session *accepted*, and `auto_improve_proposals` (they have no `session_id`;
 they target pages in the scope they were staged in). `entities` and
@@ -866,9 +866,9 @@ before confirming.
 
 ```bash
 # Dry run — reports how many superseded ledger versions (and bytes) would go:
-ai-memory reclaim-ledger-versions
+pitstop reclaim-ledger-versions
 # Apply, and rewrite the database to actually free the disk:
-ai-memory reclaim-ledger-versions --confirm --compact
+pitstop reclaim-ledger-versions --confirm --compact
 ```
 
 Before #660 the wiki indexer stored every rewrite of an OKF event ledger
@@ -892,17 +892,17 @@ all.
 
 ```bash
 # Preview: which ledgers and how many bytes the sweep would delete.
-ai-memory forget-sweep --dry-run
+pitstop forget-sweep --dry-run
 # Enable it (config.toml) — the sweep then deletes them on its schedule too:
 #   [decay]
 #   ledger_retention_months = 12
 ```
 
 The hook event ledgers (`log-YYYY-MM.md`, one per project per month) are an
-append-only audit trail that no ai-memory surface reads back: the indexer,
+append-only audit trail that no pitstop surface reads back: the indexer,
 consolidation, the OKF migration and export skip them. On a busy project a
 single month can hold hundreds of megabytes. With `[decay]
-ledger_retention_months = N` (env `AI_MEMORY_DECAY__LEDGER_RETENTION_MONTHS`)
+ledger_retention_months = N` (env `PITSTOP_DECAY__LEDGER_RETENTION_MONTHS`)
 the forget sweep deletes a project's ledger once `N` whole UTC calendar months
 have passed after its month ended. `0` (the default) keeps every ledger; a
 negative value is rejected at startup.
@@ -938,16 +938,16 @@ report counts it in `ledger_page_rows_left` and leaves it alone — run
 
 The sweep deletes the file from disk. The wiki's git repository keeps the
 blobs a checkpoint already captured; deleting a ledger does not shrink
-`wiki/.git` (that needs the repository to be compacted, which ai-memory does not
+`wiki/.git` (that needs the repository to be compacted, which pitstop does not
 do).
 
 ### `repair-backfill-timestamps`
 
 ```bash
 # Dry run: report what would change for this project
-ai-memory repair-backfill-timestamps --project my-app
+pitstop repair-backfill-timestamps --project my-app
 # Apply
-ai-memory repair-backfill-timestamps --project my-app --confirm
+pitstop repair-backfill-timestamps --project my-app --confirm
 ```
 
 Corrects `sessions.started_at`/`ended_at` for sessions an older `backfill`
@@ -1029,14 +1029,14 @@ values by hand; there is no automatic undo.
 ### `checkpoints`
 
 ```bash
-ai-memory checkpoints
+pitstop checkpoints
 ```
 
 Lists recent wiki git commits, newest first. The short OID is enough for
 `restore-page`, but the JSON output includes the full OID:
 
 ```bash
-ai-memory checkpoints --json
+pitstop checkpoints --json
 ```
 
 What it is for:
@@ -1052,11 +1052,11 @@ Fresh empty installs still have no commit until there is content to save.
 ### `restore-page`
 
 ```bash
-ai-memory restore-page --workspace default --project my-project \
+pitstop restore-page --workspace default --project my-project \
   --path notes/foo.md --from <checkpoint>
 
 # Restore a retained page version after merge-project moved its history
-ai-memory restore-page --workspace default --project canonical \
+pitstop restore-page --workspace default --project canonical \
   --path notes/foo.md --page-id <page-version-uuid>
 ```
 
@@ -1153,7 +1153,7 @@ Limits:
   `restore-page` on the profile's project.
 - Listing walks at most 5,000 commits back from `HEAD`, off the async runtime,
   so a page untouched for longer than that lists no checkpoints. Use
-  `ai-memory checkpoints` and `restore-page --from` for older history.
+  `pitstop checkpoints` and `restore-page --from` for older history.
 - A restored `expires_at` is kept as written. If it is already past, the page
   is hidden again at once and removed by the next forget sweep; restore an
   expired page with `memory_write_page` and a new expiry instead.
@@ -1184,7 +1184,7 @@ What this does **not** do: history already written keeps its old blobs, so
 `wiki/.git` does not shrink by itself, and checkpoints taken before the upgrade
 still contain old ledger versions. The server never rewrites or garbage-collects
 that history. Shrinking it is an operator task, and it is destructive: every
-commit id changes, so OIDs you noted from `ai-memory checkpoints` stop resolving,
+commit id changes, so OIDs you noted from `pitstop checkpoints` stop resolving,
 and `git gc --prune=now` makes the old blobs unrecoverable. Stop the server, take
 a `backup` first, and only then, as an example:
 
@@ -1202,12 +1202,12 @@ git gc --prune=now --aggressive
 ```
 
 Start the server again afterwards. `git filter-repo` is a separate tool and is
-not installed with ai-memory.
+not installed with pitstop.
 
 ### `backup`
 
 ```bash
-ai-memory backup --to /tmp/ai-memory-backup.tar.gz
+pitstop backup --to /tmp/pitstop-backup.tar.gz
 ```
 
 What happens on the server:
@@ -1221,7 +1221,7 @@ What happens on the server:
 
 CLI writes the response body to `--to`. For a homelab user
 this is the standard "snapshot before doing something dangerous"
-move: `ai-memory backup` first, then proceed.
+move: `pitstop backup` first, then proceed.
 
 This tarball is an online **data snapshot**, not a complete host image. It
 intentionally excludes `auth-tokens/`, the hook-side `auth-token` and
@@ -1244,7 +1244,7 @@ separately encrypted or otherwise access-controlled backup:
 - the config file the service actually loads, especially
   `[auth].token_pepper`; packaged systemd units keep it outside the data dir;
 - `auth-tokens/` if existing root bearers must keep working (otherwise run
-  `ai-memory auth enable` and rewire clients with the replacement);
+  `pitstop auth enable` and rewire clients with the replacement);
 - `raw/` when the immutable managed-workstream source ledger must be retained.
 
 Do not copy hook credential files as the destination's wiring. Run
@@ -1267,11 +1267,11 @@ Restoring a backup follows the inverse:
 
 ```bash
 # Stop the server first.
-docker compose -f ~/deploy/ai-memory/docker-compose.yml down
+docker compose -f ~/deploy/pitstop/docker-compose.yml down
 # Restore (sysinfo refuses if the container is still running).
-ai-memory restore --from /tmp/ai-memory-backup.tar.gz --data-dir /var/opt/docker/utils/ai-memory/data --force
+pitstop restore --from /tmp/pitstop-backup.tar.gz --data-dir /var/opt/docker/utils/pitstop/data --force
 # Start back up.
-docker compose -f ~/deploy/ai-memory/docker-compose.yml up -d
+docker compose -f ~/deploy/pitstop/docker-compose.yml up -d
 ```
 
 The `--data-dir` flag points the CLI at the host-side path of the
@@ -1281,10 +1281,10 @@ HTTP admin API).
 ### `restore`
 
 ```bash
-ai-memory restore --from <tarball> --data-dir <path> --force [--with-config]
+pitstop restore --from <tarball> --data-dir <path> --force [--with-config]
 ```
 
-Direct-disk operation. Refuses if any other `ai-memory` process is
+Direct-disk operation. Refuses if any other `pitstop` process is
 alive (uses `sysinfo` to scan the process table).
 
 Order of operations:
@@ -1294,7 +1294,7 @@ Order of operations:
    (`<data_dir>/.restore-staging-<stamp>/`), validating every entry and
    reading the gzip stream through its checksum and size trailer. A missing
    or invalid trailer fails here even when every tar entry was readable.
-3. Require an existing `db/memory.sqlite` snapshot with applied ai-memory
+3. Require an existing `db/memory.sqlite` snapshot with applied pitstop
    migration history, then open the staged store so pending migrations run
    and the SQLite snapshot is checked, still without touching the live data.
    A database with no pages is valid; an absent, zero-byte or uninitialized
@@ -1325,7 +1325,7 @@ copy exists.
 
 Failure modes:
 
-- **Server still running** → exits with "another ai-memory process is
+- **Server still running** → exits with "another pitstop process is
   alive (pid X); stop it before restoring" (same wording as `reset`).
 - **Data dir not empty + no `--force`** → exits with "data dir not
   empty; pass `--force` to overwrite".
@@ -1357,10 +1357,10 @@ Failure modes:
 ### `reset`
 
 ```bash
-ai-memory reset --confirm
+pitstop reset --confirm
 ```
 
-Direct-disk operation. Refuses if any sibling `ai-memory` process is
+Direct-disk operation. Refuses if any sibling `pitstop` process is
 alive. Removes the contents of `wiki/`, `db/`, and `raw/` under the
 configured data dir. `config.toml` is preserved.
 
@@ -1371,21 +1371,21 @@ data dir.
 
 For a docker deploy where the data lives in a host-path bind mount,
 you can also just `rm -rf <host-path>/*` after stopping the
-container, but `ai-memory reset` is the cross-platform path that
+container, but `pitstop reset` is the cross-platform path that
 works whether the data dir is local, bind-mounted, or in a named
 volume.
 
 ### `reindex`
 
 ```bash
-ai-memory reindex --data-dir <path>
+pitstop reindex --data-dir <path>
 ```
 
 If reindex reports a missing scope `_meta.md`, the error includes its exact
 path. Restore the original DB, start and stop the current server once so its
 startup backfill writes missing manifests, then retry against a clean DB.
 
-Direct-disk lifecycle operation. Refuses if any sibling `ai-memory` process is
+Direct-disk lifecycle operation. Refuses if any sibling `pitstop` process is
 alive, and also refuses if SQLite already contains rows. `reindex` is a
 rebuild-from-files path, not an in-place dirty-index repair.
 
@@ -1395,8 +1395,8 @@ SQLite migration lineage:
 1. Stop the server or container.
 2. Take a backup of the current data directory.
 3. Move or remove `<data-dir>/db/memory.sqlite` and its WAL/SHM siblings.
-4. Run `ai-memory reindex --data-dir <data-dir>`.
-5. Run `ai-memory embed` after restart if you need embeddings rebuilt.
+4. Run `pitstop reindex --data-dir <data-dir>`.
+5. Run `pitstop embed` after restart if you need embeddings rebuilt.
 
 What is rebuilt:
 
@@ -1432,42 +1432,42 @@ For a docker / bind-mount deploy where data lives on the host:
 
 ```bash
 ssh homelab
-cd ~/deploy/ai-memory
+cd ~/deploy/pitstop
 docker compose down
-sudo rm -rf /var/opt/docker/utils/ai-memory/data/*
+sudo rm -rf /var/opt/docker/utils/pitstop/data/*
 docker compose up -d
 ```
 
 Or via the CLI from any machine (slower but portable):
 
 ```bash
-docker stop ai-memory   # so sysinfo guard passes
-ai-memory reset --confirm   # against the same data dir
-docker start ai-memory
+docker stop pitstop   # so sysinfo guard passes
+pitstop reset --confirm   # against the same data dir
+docker start pitstop
 ```
 
 ### "Snapshot before risky op"
 
 ```bash
-ai-memory backup --to "/tmp/ai-memory-$(date +%Y%m%d-%H%M).tar.gz"
+pitstop backup --to "/tmp/pitstop-$(date +%Y%m%d-%H%M).tar.gz"
 # … do the risky thing …
 # … oh no something broke …
 docker compose down
-ai-memory restore --from /tmp/ai-memory-2026-05-23-1530.tar.gz --force
+pitstop restore --from /tmp/pitstop-2026-05-23-1530.tar.gz --force
 docker compose up -d
 ```
 
 ### "Drop one experimental project, keep everything else"
 
 ```bash
-ai-memory purge-project --project experimental --confirm
-# Sibling projects (ai-memory, distrobox-gaming, …) untouched.
+pitstop purge-project --project experimental --confirm
+# Sibling projects (pitstop, distrobox-gaming, …) untouched.
 ```
 
 ### "Rename a project after moving its directory"
 
 ```bash
-ai-memory rename-project --from old --to new
+pitstop rename-project --from old --to new
 # Future sessions in /path/to/new will append to the same project
 # (the hook router stamps by basename(cwd) = "new"); past
 # observations stay under that project too because the project_id
@@ -1477,17 +1477,17 @@ ai-memory rename-project --from old --to new
 ### "Reattach a session captured under the wrong project"
 
 ```bash
-ai-memory move-session <session-id> --to my-project          # dry run
-ai-memory move-session <session-id> --to my-project --confirm
+pitstop move-session <session-id> --to my-project          # dry run
+pitstop move-session <session-id> --to my-project --confirm
 # Or empty a stray project into the right one, then drop the husk:
-ai-memory move-session --from-project tmp --to my-project --confirm
-ai-memory purge-project --project tmp --confirm
+pitstop move-session --from-project tmp --to my-project --confirm
+pitstop purge-project --project tmp --confirm
 ```
 
 ### Wiki git history unreadable after a crash
 
 Every repository handle the server opens carries `core.fsyncObjectFiles = true`
-from `wiki/.git/ai-memory.gitconfig`, a file the git CLI never reads, so libgit2
+from `wiki/.git/pitstop.gitconfig`, a file the git CLI never reads, so libgit2
 syncs each object and ref before renaming it into place while `git status` in
 the wiki stays free of git's deprecation warning for that key. Setting
 `core.fsyncObjectFiles = false` in `wiki/.git/config` turns it off.

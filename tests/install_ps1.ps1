@@ -3,18 +3,18 @@
 # process holds the unpacked binary open, and a checksum mismatch, an archive
 # entry escaping the install dir, and an existing install are each refused
 # with nothing written. Outside GitHub Actions the user PATH is never touched
-# (AI_MEMORY_NO_MODIFY_PATH=1); on a runner, one case lets install.ps1 add to
+# (PITSTOP_NO_MODIFY_PATH=1); on a runner, one case lets install.ps1 add to
 # it and restores the value it found. Needs python on PATH for the HTTP server.
 #
-# Usage: pwsh -NoProfile -File tests/install_ps1.ps1 -Binary target\debug\ai-memory.exe
+# Usage: pwsh -NoProfile -File tests/install_ps1.ps1 -Binary target\debug\pitstop.exe
 
 param([Parameter(Mandatory = $true)][string] $Binary)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $script = Join-Path $root 'install.ps1'
-$asset = 'ai-memory-windows-x86_64.zip'
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ("ai-memory-install-ps1-" + [Guid]::NewGuid().ToString('N'))
+$asset = 'pitstop-windows-x86_64.zip'
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("pitstop-install-ps1-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -28,7 +28,7 @@ function Publish([string] $name, [switch] $Evil, [switch] $BadSum) {
     $zip = Join-Path $dir $asset
     $archive = [IO.Compression.ZipFile]::Open($zip, 'Create')
     try {
-        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, (Resolve-Path $Binary), 'ai-memory.exe') | Out-Null
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, (Resolve-Path $Binary), 'pitstop.exe') | Out-Null
         $hook = $archive.CreateEntry('hooks/_lib.sh')
         $writer = New-Object IO.StreamWriter($hook.Open())
         $writer.Write('echo hook'); $writer.Dispose()
@@ -59,30 +59,30 @@ try {
     # install <shell> <release> <dest> [-ModifyPath]: run install.ps1 with the
     # test env, leaving the user PATH alone unless -ModifyPath; returns the exit code.
     function Install([string] $shell, [string] $release, [string] $dest, [string] $log, [switch] $ModifyPath) {
-        $env:AI_MEMORY_RELEASE_BASE_URL = "http://127.0.0.1:$port/$release"
-        $env:AI_MEMORY_INSTALL_DIR = $dest
-        if (-not $ModifyPath) { $env:AI_MEMORY_NO_MODIFY_PATH = '1' }
+        $env:PITSTOP_RELEASE_BASE_URL = "http://127.0.0.1:$port/$release"
+        $env:PITSTOP_INSTALL_DIR = $dest
+        if (-not $ModifyPath) { $env:PITSTOP_NO_MODIFY_PATH = '1' }
         try {
             & $shell -NoProfile -ExecutionPolicy Bypass -File $script *> $log
             return $LASTEXITCODE
         } finally {
-            Remove-Item Env:AI_MEMORY_RELEASE_BASE_URL, Env:AI_MEMORY_INSTALL_DIR, Env:AI_MEMORY_NO_MODIFY_PATH -ErrorAction SilentlyContinue
+            Remove-Item Env:PITSTOP_RELEASE_BASE_URL, Env:PITSTOP_INSTALL_DIR, Env:PITSTOP_NO_MODIFY_PATH -ErrorAction SilentlyContinue
         }
     }
 
     Publish good | Out-Null
     foreach ($shell in @('pwsh', 'powershell')) {
-        $dest = Join-Path $tmp "inst-$shell\ai-memory"
+        $dest = Join-Path $tmp "inst-$shell\pitstop"
         $log = Join-Path $tmp "good-$shell.log"
         if ((Install $shell 'good' $dest $log) -ne 0) { Fail "$shell refused a good release: $(Get-Content $log -Raw)" }
-        if (-not (Test-Path (Join-Path $dest 'ai-memory.exe'))) { Fail "$shell did not unpack ai-memory.exe" }
+        if (-not (Test-Path (Join-Path $dest 'pitstop.exe'))) { Fail "$shell did not unpack pitstop.exe" }
         if (-not (Test-Path (Join-Path $dest 'hooks\_lib.sh'))) { Fail "$shell did not unpack hooks" }
         if ((Get-Content $log -Raw) -notmatch 'next: ') { Fail "$shell printed no next step: $(Get-Content $log -Raw)" }
 
-        # A second run finds the install and points to `ai-memory upgrade`.
+        # A second run finds the install and points to `pitstop upgrade`.
         $again = Join-Path $tmp "again-$shell.log"
         if ((Install $shell 'good' $dest $again) -eq 0) { Fail "$shell reinstalled over an existing install" }
-        if ((Get-Content $again -Raw) -notmatch 'ai-memory upgrade') { Fail "$shell did not point to upgrade: $(Get-Content $again -Raw)" }
+        if ((Get-Content $again -Raw) -notmatch 'pitstop upgrade') { Fail "$shell did not point to upgrade: $(Get-Content $again -Raw)" }
     }
 
     # An antivirus scan of the unpacked binary holds it open, sharing read and
@@ -103,7 +103,7 @@ public static class StagedBinaryScan
 
     public static void Start(string root)
     {
-        watcher = new FileSystemWatcher(root, "ai-memory.exe");
+        watcher = new FileSystemWatcher(root, "pitstop.exe");
         watcher.IncludeSubdirectories = true;
         watcher.Created += (sender, e) => Hold(e.FullPath);
         watcher.EnableRaisingEvents = true;
@@ -156,11 +156,11 @@ public static class StagedBinaryScan
         $env:TMP = $scanTemp
         $env:TEMP = $scanTemp
         foreach ($shell in @('pwsh', 'powershell')) {
-            $dest = Join-Path $tmp "inst-scan-$shell\ai-memory"
+            $dest = Join-Path $tmp "inst-scan-$shell\pitstop"
             $log = Join-Path $tmp "scan-$shell.log"
             if ((Install $shell 'good' $dest $log) -ne 0) { Fail "$shell failed while the unpacked binary was held open: $(Get-Content $log -Raw)" }
-            if (-not (Test-Path (Join-Path $dest 'ai-memory.exe'))) { Fail "$shell did not install ai-memory.exe while it was held open" }
-            if (-not (Test-Path (Join-Path $dest 'hooks\_lib.sh'))) { Fail "$shell did not install hooks while ai-memory.exe was held open" }
+            if (-not (Test-Path (Join-Path $dest 'pitstop.exe'))) { Fail "$shell did not install pitstop.exe while it was held open" }
+            if (-not (Test-Path (Join-Path $dest 'hooks\_lib.sh'))) { Fail "$shell did not install hooks while pitstop.exe was held open" }
         }
         if ([StagedBinaryScan]::Count -lt 2) { Fail "the unpacked binary was held open in $([StagedBinaryScan]::Count) of 2 installs" }
     } finally {
@@ -177,11 +177,11 @@ public static class StagedBinaryScan
         $environment = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
         $saved = $environment.GetValue('Path', $null, 'DoNotExpandEnvironmentNames')
         $savedKind = if ($null -ne $saved) { $environment.GetValueKind('Path') }
-        $probe = '%USERPROFILE%\ai-memory-path-probe'
+        $probe = '%USERPROFILE%\pitstop-path-probe'
         try {
             $environment.SetValue('Path', (@($probe, $saved) | Where-Object { $_ }) -join ';', 'ExpandString')
             foreach ($shell in @('pwsh', 'powershell')) {
-                $dest = Join-Path $tmp "inst-path-$shell\ai-memory"
+                $dest = Join-Path $tmp "inst-path-$shell\pitstop"
                 $log = Join-Path $tmp "path-$shell.log"
                 if ((Install $shell 'good' $dest $log -ModifyPath) -ne 0) { Fail "$shell failed to install with a PATH update: $(Get-Content $log -Raw)" }
                 $kind = $environment.GetValueKind('Path')
@@ -197,14 +197,14 @@ public static class StagedBinaryScan
     }
 
     Publish badsum -BadSum | Out-Null
-    $dest = Join-Path $tmp 'inst-badsum\ai-memory'
+    $dest = Join-Path $tmp 'inst-badsum\pitstop'
     $log = Join-Path $tmp 'badsum.log'
     if ((Install 'pwsh' 'badsum' $dest $log) -eq 0) { Fail 'a checksum mismatch was installed' }
     if ((Get-Content $log -Raw) -notmatch 'checksum mismatch') { Fail "mismatch not explained: $(Get-Content $log -Raw)" }
     if (Test-Path $dest) { Fail 'a refused release was unpacked' }
 
     Publish evil -Evil | Out-Null
-    $dest = Join-Path $tmp 'inst-evil\ai-memory'
+    $dest = Join-Path $tmp 'inst-evil\pitstop'
     $log = Join-Path $tmp 'evil.log'
     if ((Install 'pwsh' 'evil' $dest $log) -eq 0) { Fail 'an archive with a .. entry was installed' }
     if ((Get-Content $log -Raw) -notmatch 'unsafe path') { Fail "unsafe entry not explained: $(Get-Content $log -Raw)" }

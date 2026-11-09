@@ -1,8 +1,8 @@
-# How ai-memory compares
+# How pitstop compares
 
-This page is for anyone evaluating ai-memory against another agent-memory tool,
+This page is for anyone evaluating pitstop against another agent-memory tool,
 or migrating from one. It aims to be **fair and specific**: what each
-approach does well, where ai-memory differs, where others are ahead, and where
+approach does well, where pitstop differs, where others are ahead, and where
 other projects reached the same design choices independently. The detailed
 analysis behind it is in [`research-2026-landscape.md`](research-2026-landscape.md)
 and the per-project research docs; the numbers are from
@@ -15,16 +15,16 @@ Most memory tools optimize one of: extracting atomic **facts** (Mem0,
 LangMem), a temporal **knowledge graph** (Zep/Graphiti, Cognee), an
 agent-editable **memory OS** (Letta, MemOS), a **context database**
 (OpenViking), or **hook capture for coding agents** (claude-mem, MemPalace,
-agentmemory, and the coding plugins of most of the above). ai-memory keeps
+agentmemory, and the coding plugins of most of the above). pitstop keeps
 **a git-backed markdown wiki as the source of truth, with a derived index
 for retrieval**, captured automatically from lifecycle hooks and shared
 across agents and machines.
 
 Coding-agent memory is now the most-starred part of this field, and two
-choices that used to set ai-memory apart are now common: several tools keep
+choices that used to set pitstop apart are now common: several tools keep
 memory as git-backed or editable markdown (Letta, Supermemory's memoryrepo,
 OpenViking, EverOS), and hook capture is standard in the coding plugins.
-What still sets ai-memory apart:
+What still sets pitstop apart:
 
 - **Zero-LLM by default.** Capture, FTS5 + entity + graph retrieval, local
   embeddings, and rule-based summaries all work with **no API key**. An LLM is
@@ -46,7 +46,7 @@ What still sets ai-memory apart:
 - **Capture under the harness you already use.** One server; 20+ harnesses
   (Claude Code, Codex, Cursor, Gemini, OpenCode, Kimi, …) feed and read the
   same memory. Replication between servers is not automatic; in 3.0
-  the `ai-memory-wikisync` companion adds two-way,
+  the `pitstop-wikisync` companion adds two-way,
   conflict-aware sync between a server's wiki and a git repository.
 
 It also publishes retrieval numbers, produced by the in-repo harness with full
@@ -77,22 +77,22 @@ setup.
 
 ## By camp
 
-| Approach | Representatives | Strength | Trade-off vs ai-memory |
+| Approach | Representatives | Strength | Trade-off vs pitstop |
 |---|---|---|---|
-| Coding-agent hook capture | **claude-mem**, **MemPalace**, agentmemory | Lifecycle hooks tuned for Claude Code and Codex; large user bases; claude-mem shows past observations for a file when the agent reads it and answers native memory-folder reads from its store; MemPalace has a team server and temporal graph | claude-mem runs an LLM "observer" over every observation (SQLite FTS5 + Chroma) and has a paid cloud tier; agentmemory keeps state in iii-engine's KV store (file-backed or Redis) with a one-way Obsidian export; ai-memory adds claim-once handoffs and typed cross-project messaging |
+| Coding-agent hook capture | **claude-mem**, **MemPalace**, agentmemory | Lifecycle hooks tuned for Claude Code and Codex; large user bases; claude-mem shows past observations for a file when the agent reads it and answers native memory-folder reads from its store; MemPalace has a team server and temporal graph | claude-mem runs an LLM "observer" over every observation (SQLite FTS5 + Chroma) and has a paid cloud tier; agentmemory keeps state in iii-engine's KV store (file-backed or Redis) with a one-way Obsidian export; pitstop adds claim-once handoffs and typed cross-project messaging |
 | Fact extractors | Mem0, LangMem | Cheap personalization; Mem0 retrieval fuses semantic + BM25 + entity matches, and it ships native coding plugins for seven agents with repo, subdirectory and per-user scopes | Atomic facts lose relational/causal context (see [TriMem](research-2026-landscape.md#4-research-developments-worth-knowing)); LLM extraction; not file-first; Mem0's coding plugins need a Mem0 cloud API key and send telemetry under the account email |
 | Hosted memory API (hybrid) | **Supermemory**, **LiquidLM** | Chunk-RAG + LLM temporal fact-graph + per-user profiles in one query; managed connectors (Drive/Notion/GitHub), multimodal, metadata/tag query filters; Supermemory's Claude Code and Codex plugins capture through lifecycle hooks and inject matches on every prompt | Cloud-first (best features + extraction are paid/hosted); LLM-required quality path; the default store is opaque. Supermemory's self-host server binary is not open source (free within a lite licence), lacks its MCP server, and has telemetry on by default; LiquidLM is closed-source and cloud-only |
-| User-modeling / theory-of-mind | **Honcho** (Plastic Labs) | Reasoning-derived model of what each "peer" knows/believes over time; personalizes around the *human* the agent serves | Different problem: it remembers the *user*, ai-memory remembers the *project*. Opaque Postgres, LLM-required (Deriver/Dreamer), multi-service stack; adjacent (shares MCP/plugin delivery) but not a coding-memory migration target. ai-memory borrowed the *conveniences*, not the engine: an opt-in dialectic **answer** over its own hits and a **reasoning** tier now ship (both off by default, LLM-required) |
-| Temporal knowledge graph | Zep/Graphiti, Cognee | Bi-temporal "what was true vs believed when"; Cognee adds data connectors (Drive, Gmail, Slack), a repo code-graph indexer, and a Claude Code plugin listed in Anthropic's plugin directory | Graphiti needs a graph database (Neo4j, FalkorDB, or the embedded FalkorDBLite); Cognee 1.6 runs on embedded SQLite + LanceDB + Kuzu files and can start without an LLM key. In both, memory lives in database files, not git-versioned markdown. ai-memory ships **bi-temporal-lite** on SQLite ([`temporal.md`](temporal.md)) + typed edges ([`typed-edges.md`](typed-edges.md)) for the useful part |
+| User-modeling / theory-of-mind | **Honcho** (Plastic Labs) | Reasoning-derived model of what each "peer" knows/believes over time; personalizes around the *human* the agent serves | Different problem: it remembers the *user*, pitstop remembers the *project*. Opaque Postgres, LLM-required (Deriver/Dreamer), multi-service stack; adjacent (shares MCP/plugin delivery) but not a coding-memory migration target. pitstop borrowed the *conveniences*, not the engine: an opt-in dialectic **answer** over its own hits and a **reasoning** tier now ship (both off by default, LLM-required) |
+| Temporal knowledge graph | Zep/Graphiti, Cognee | Bi-temporal "what was true vs believed when"; Cognee adds data connectors (Drive, Gmail, Slack), a repo code-graph indexer, and a Claude Code plugin listed in Anthropic's plugin directory | Graphiti needs a graph database (Neo4j, FalkorDB, or the embedded FalkorDBLite); Cognee 1.6 runs on embedded SQLite + LanceDB + Kuzu files and can start without an LLM key. In both, memory lives in database files, not git-versioned markdown. pitstop ships **bi-temporal-lite** on SQLite ([`temporal.md`](temporal.md)) + typed edges ([`typed-edges.md`](typed-edges.md)) for the useful part |
 | Memory OS / self-editing | Letta (now Letta Code), MemOS, MIRIX | Agent curates its own tiered memory; Letta's memory is a git repo of markdown files with a `MEMORY.md` index, written by "dreaming" subagents through git worktrees | Token-expensive self-editing; Letta's V1 server is retired and its memory lives inside its own harness (Letta Code, Letta Cloud by default), not under the harness you already use |
 | Context database | **OpenViking** (ByteDance) | Progressive L0/L1/L2 loading; global recall + rerank with subtree filters; editable markdown memories; plugins for seven coding agents; a v0.5 gateway proxy that injects recall and keeps prompt caches valid | Needs a VLM (Ollama works); embeddings are local by default; AGPLv3 self-hostable server; its `ov-kanban` task handoff has no claim-once guard |
-| Paper-backed pages | **Hindsight** (Vectorize) | "Mental models" = living markdown pages an agent boots from; belief-strength consolidation; a preprint; a coding-agent package that hooks 16+ agents, ingests git history, and shares one bank per repo; reranker on by default | Postgres/pgvector-primary; needs an LLM (local via Ollama/llama.cpp, or a Claude/ChatGPT/Copilot subscription); markdown is a one-way mirror of the database. ai-memory ships belief-strength `confidence` + an opt-in LLM "dream" rewrite, both zero-LLM-default-preserving, off by default, and gated on a recall eval before default-on |
-| Fact-row store with hook capture | doobidoo/mcp-memory-service | SQLite(+vec), local ONNX, hook capture, typed edges, published numbers | Stores fact rows where ai-memory stores wiki **pages** |
+| Paper-backed pages | **Hindsight** (Vectorize) | "Mental models" = living markdown pages an agent boots from; belief-strength consolidation; a preprint; a coding-agent package that hooks 16+ agents, ingests git history, and shares one bank per repo; reranker on by default | Postgres/pgvector-primary; needs an LLM (local via Ollama/llama.cpp, or a Claude/ChatGPT/Copilot subscription); markdown is a one-way mirror of the database. pitstop ships belief-strength `confidence` + an opt-in LLM "dream" rewrite, both zero-LLM-default-preserving, off by default, and gated on a recall eval before default-on |
+| Fact-row store with hook capture | doobidoo/mcp-memory-service | SQLite(+vec), local ONNX, hook capture, typed edges, published numbers | Stores fact rows where pitstop stores wiki **pages** |
 | Platform-native | Claude Code auto-memory | Zero setup, on by default | Machine-local, **no sync**, single-agent, repo-scoped, no tool-lifecycle capture, no team |
-| **File-first wiki (ai-memory)** | ai-memory, basic-memory, OKF | Human-editable markdown truth + derived index; cross-agent; zero-LLM default; multi-user | No local reranker yet; LLM-optional means no VLM fact-extraction sophistication |
+| **File-first wiki (pitstop)** | pitstop, basic-memory, OKF | Human-editable markdown truth + derived index; cross-agent; zero-LLM default; multi-user | No local reranker yet; LLM-optional means no VLM fact-extraction sophistication |
 | File-first wiki (LLM-leaning) | **memU**, **EverOS** | Markdown source of truth + derived vector/SQLite(+LanceDB) indexes; offline consolidation; skill distillation from session history; EverOS ships an MCP server and published benchmarks; memU auto-detects unknown agents | LLM-required for the core capture/distill flow (no zero-LLM default); Python stacks + a hosted-cloud option, vs one self-contained zero-LLM binary; memU has no MCP server and patches host instruction files rather than exposing a git-diffable wiki |
 | Self-hosted coding-agent store | **Engram** | Single Go binary, SQLite+FTS5, MCP stdio, project-scoped, `mem_session_summary` handoffs, git-sync across machines | Structured rows the agent saves through MCP tools (SQLite is the truth, git-syncs compressed chunks), not a hand-editable git-markdown wiki captured automatically from lifecycle hooks |
-| Governed multi-agent / fleet memory | **Caura** | Shared fleet memory: agent/team/org visibility scopes, four trust tiers, audit log, PII flagging, contradiction/supersession, auto knowledge graph | Fleet-governance-first on Postgres+pgvector (LLM extraction), hosted option; ai-memory optimizes one project's git-backed wiki with `pages shared, batons owned`, not org-scale fleet governance |
+| Governed multi-agent / fleet memory | **Caura** | Shared fleet memory: agent/team/org visibility scopes, four trust tiers, audit log, PII flagging, contradiction/supersession, auto knowledge graph | Fleet-governance-first on Postgres+pgvector (LLM extraction), hosted option; pitstop optimizes one project's git-backed wiki with `pages shared, batons owned`, not org-scale fleet governance |
 | Shared memory server (proxy fan-in) | **TencentDB Agent Memory** | One proxy in front of many harnesses distills chats/docs/code into Chat Memory / Skill / Wiki / CodeGraph assets; v2 adds per-asset access control (private / team / restricted / agent) | Proxy base-URL interception, not MCP or OS lifecycle hooks; the v2 hub needs an LLM; despite the name it needs no Tencent DB product (SQLite by default); a Node three-service stack vs one file-first binary |
 
 ## Maturity and maintenance
@@ -142,25 +142,25 @@ Full figures, sources, and per-tool caveats: [`research-2026-landscape.md`](rese
 
 ## How the field validates the approach
 
-Other projects, built on different substrates, arrived at ai-memory's core
+Other projects, built on different substrates, arrived at pitstop's core
 design choices independently:
 
 - **Google standardized file-first.** The [Open Knowledge Format](okf.md) (June
   2026), markdown + YAML frontmatter with one concept per file and no runtime, is
-  the interop layer for agent memory. ai-memory's wiki is a native OKF bundle.
+  the interop layer for agent memory. pitstop's wiki is a native OKF bundle.
 - **Letta moved its memory into git-backed markdown.** Since February 2026
   ("context repositories") every Letta agent's memory is a git repository of
   markdown files with YAML frontmatter and a `MEMORY.md` index, with no vector
-  index by default. That is ai-memory's substrate, inside Letta's own harness.
+  index by default. That is pitstop's substrate, inside Letta's own harness.
 - **Hindsight's paper supports pages over facts.** A competitor on a
   different substrate (Postgres, LLM in the loop) makes its top tier "mental
   models": living markdown pages a background process rewrites and the agent
-  boots from. That is ai-memory's `wiki/` + [auto-improve loop](auto-improvement-loop.md)
+  boots from. That is pitstop's `wiki/` + [auto-improve loop](auto-improvement-loop.md)
   under another name, backed by arXiv:2512.12818.
 - **OpenViking uses document memory + a consolidation loop.** ByteDance's
   entrant stores document/directory-scoped memory as editable markdown (not
   atomic facts) with a background extract/merge pass and a "compile" step into
-  wikis. That is the same shape as ai-memory's consolidation, from a
+  wikis. That is the same shape as pitstop's consolidation, from a
   VLM-required starting point.
 - **Hook capture became standard.** claude-mem, MemPalace, Mem0, Supermemory,
   Hindsight, OpenViking and Cognee all capture coding sessions through
@@ -168,9 +168,9 @@ design choices independently:
 - **The literature backs it.** TriMem (arXiv:2605.19952) argues document/page/
   narrative hierarchies beat atomic-fact stores; the Storage→Reflection→
   Experience survey (arXiv:2605.06716) names cross-trajectory abstraction as
-  the frontier, which ai-memory's [experience pass](experience.md) targets.
+  the frontier, which pitstop's [experience pass](experience.md) targets.
 
-ai-memory also **shipped the borrowable ideas** from that research instead of
+pitstop also **shipped the borrowable ideas** from that research instead of
 only cataloguing them: typed relation edges, ingestion-time temporal validity
 with `as_of` queries, local (no-key) embeddings as the default, and the
 cross-session abstraction pass are all in the product today. The 2.4 line added
@@ -184,7 +184,7 @@ over the supersession chains.
 
 The 2.4 line also closed most of the **memory-aging** gap (the decay,
 compression, and consolidation machinery the field converged on) on
-ai-memory's own zero-LLM, file-first terms (design of record:
+pitstop's own zero-LLM, file-first terms (design of record:
 [`design-memory-aging.md`](design-memory-aging.md)):
 
 - **Per-tier decay curves** (mcp-memory-service's 365/180/90/30 shape): the
@@ -192,7 +192,7 @@ ai-memory's own zero-LLM, file-first terms (design of record:
   table. The default is the identity, so an upgrade changes no score.
 - **Extractive tier-down of cold episodic pages** (agentmemory and
   mcp-memory-service ship extractive, zero-LLM compression as a default):
-  instead of evicting a cold page, ai-memory can compact it to its abstract,
+  instead of evicting a cold page, pitstop can compact it to its abstract,
   a summary, and a regex-mined keep-token set (paths, URLs, code spans, error
   codes) and drop the prose. This is reversible through git + the supersession chain.
 - **Cold-cluster dedup** (mcp-memory-service's DBSCAN): near-duplicate cold
@@ -215,7 +215,7 @@ Two of these, belief-strength folded into ranking and the dream pass, change
 behavior only where a provider is configured and the operator opts in,
 and both are **off by default and gated on a recall eval before they may
 default on**. No eval has shown a gain yet (the zero-LLM benchmark corpus
-has no consolidation evidence for belief-strength to act on), so ai-memory
+has no consolidation evidence for belief-strength to act on), so pitstop
 claims *parity of mechanism, not a measured quality win*: the code ships,
 switched off.
 Everything else here is zero-LLM, reversible, and off by default until an
@@ -224,7 +224,7 @@ operator turns it on.
 ## Coming from another tool?
 
 Each entry lists what you gain by moving and what you give up. Where a tool
-ships something ai-memory does not, it is named.
+ships something pitstop does not, it is named.
 
 - **From claude-mem:** you keep automatic hook capture and progressive
   search. You gain zero-LLM capture (claude-mem runs an LLM "observer" over
@@ -235,9 +235,9 @@ ships something ai-memory does not, it is named.
   Claude Code's and Codex's native memory-folder reads from its store, the
   past observations it shows when the agent opens a file, and v14's polished
   local “My Work” dashboard. TeamBrain adds optional paid shared-work and
-  collision views; ai-memory shares project memory without that cloud layer
+  collision views; pitstop shares project memory without that cloud layer
   but has no equivalent human work queue yet. The optional
-  `ai-memory-importer claude-mem` command can plan or migrate supported local
+  `pitstop-importer claude-mem` command can plan or migrate supported local
   claude-mem SQLite schema families into explicitly mapped existing projects;
   sensitive rows are excluded and live writes use bounded atomic batches.
 - **From MemPalace:** you keep hook capture for Claude Code, Codex and Cursor
@@ -258,25 +258,25 @@ ships something ai-memory does not, it is named.
   License (iii-engine's engine is ELv2). You give up editing and forgetting
   memories in a browser (the 3.0 web UI adds page history with diffs, a
   session timeline, a recall trace and a health panel, but stays read-only by
-  design), the iii console's OpenTelemetry traces (ai-memory 3.0 has
+  design), the iii console's OpenTelemetry traces (pitstop 3.0 has
   per-stream timings in `explain=true` and a root-only Prometheus
   `/admin/metrics` instead), the coordination tools (leases, actions,
   routines, signals, sentinels), mesh sync (the nearest equivalent is the
-  git-based `ai-memory-wikisync` companion), image memory, the two-way Claude
-  `MEMORY.md` bridge, PaaS deploy templates, an npm package (ai-memory installs
+  git-based `pitstop-wikisync` companion), image memory, the two-way Claude
+  `MEMORY.md` bridge, PaaS deploy templates, an npm package (pitstop installs
   natively on Linux, macOS and Windows in two commands — `install.sh`/
-  `install.ps1` then `ai-memory setup` — but has no `npx` route), and the
+  `install.ps1` then `pitstop setup` — but has no `npx` route), and the
   opt-in local cross-encoder reranker. The benchmark numbers are not
   like-for-like (component vs pipeline, see above). To move your data, the
-  `ai-memory-importer` companion (3.0) reads agentmemory's Obsidian vault
+  `pitstop-importer` companion (3.0) reads agentmemory's Obsidian vault
   (`agentmemory-vault`) or its `ExportData` JSON (`agentmemory-export`), and
-  `ai-memory doctor` flags agentmemory MCP entries and rules-file guideline
+  `pitstop doctor` flags agentmemory MCP entries and rules-file guideline
   blocks left behind; see
   [Coming from agentmemory](cookbook.md#coming-from-agentmemory).
 - **From Mem0 / a fact extractor:** you keep automatic capture, but memory
   compiles into readable **pages** you can open and edit, not opaque fact rows.
   Both fuse lexical and semantic retrieval (Mem0 combines semantic, BM25 and
-  entity matches; ai-memory fuses FTS + entity + graph + local vectors). You
+  entity matches; pitstop fuses FTS + entity + graph + local vectors). You
   gain capture and retrieval with no cloud API key and no telemetry (Mem0's
   coding plugins need a Mem0 cloud key and report under the account email),
   plus handoffs and cross-project messaging. You give up Mem0's native
@@ -297,7 +297,7 @@ ships something ai-memory does not, it is named.
 - **From Letta / Letta Code:** both keep memory as git-versioned markdown
   files. The difference is where memory lives: Letta argues memory belongs
   inside the harness and ships its own (Letta Code, with Letta Cloud as the
-  default backend), while ai-memory sits under the harness you already use,
+  default backend), while pitstop sits under the harness you already use,
   zero-LLM by default and self-hosted. You give up Letta's "dreaming"
   subagents and an agent that edits its own memory.
 - **From Claude Code's built-in memory:** the same "remember my project"
@@ -323,9 +323,9 @@ ships something ai-memory does not, it is named.
   Supermemory's recall injected on every prompt; you gain data ownership, no
   required API spend, offline operation, claim-once handoffs, per-project
   team sharing, and (opt-in on the 2.4 line) a pin-before-search contract and
-  a bounded related-pages graph walk over the link neighbours ai-memory
+  a bounded related-pages graph walk over the link neighbours pitstop
   already computes. The jobs differ: they build a general "second brain,"
-  while ai-memory remembers *this repo*.
+  while pitstop remembers *this repo*.
 - **From Hindsight:** you trade a Postgres-primary service that needs an LLM
   (local or by subscription) for a self-contained binary that runs zero-LLM
   by default and keeps memory in markdown files that are the source of truth,
@@ -342,7 +342,7 @@ ships something ai-memory does not, it is named.
   numbers.
 - **From OpenViking:** you trade a self-hostable AGPL server that needs a VLM
   for a zero-LLM binary under a permissive licence. OpenViking's L0/L1/L2
-  progressive tiers map onto ai-memory's extractive tier-down (abstract +
+  progressive tiers map onto pitstop's extractive tier-down (abstract +
   summary + keep-tokens) and onto the opt-in session-start brief, which
   gives every standing page an excerpt and adds whole bodies while the
   budget lasts. You gain claim-once handoffs (its `ov-kanban`
@@ -354,34 +354,34 @@ ships something ai-memory does not, it is named.
   binary, SQLite+FTS5, MCP, project scope, and session-summary handoffs. The
   switch is Engram's
   agent-saved structured rows (the agent calls `mem_*` MCP tools; SQLite is the
-  truth, git-syncing compressed chunks) → ai-memory's automatic lifecycle-hook
+  truth, git-syncing compressed chunks) → pitstop's automatic lifecycle-hook
   capture compiled into a hand-editable git-markdown **wiki**, plus typed
   claim-once handoffs, cross-project messaging, and multi-user page sharing. You
   keep a keyless, offline, single-binary posture; you give up (for now) Engram's
   managed Cloud replication add-on.
 - **From memU / EverOS (file-first, LLM-leaning):** you keep markdown as the
-  source of truth, but ai-memory's core capture, retrieval, and summaries run
+  source of truth, but pitstop's core capture, retrieval, and summaries run
   **zero-LLM by default** rather than requiring a provider for the capture/
   distill flow, and ship as one binary instead of a Python stack.
   memU's skill-distillation and EverOS's offline consolidation map onto
-  ai-memory's [experience pass](experience.md) + auto-improve loop; EverOS's
-  SQLite+LanceDB derived indexes map onto ai-memory's derived SQLite/FTS5(+local
+  pitstop's [experience pass](experience.md) + auto-improve loop; EverOS's
+  SQLite+LanceDB derived indexes map onto pitstop's derived SQLite/FTS5(+local
   embeddings). You give up (for now) memU's turnkey skill-distillation
   packaging, its `memu-agent detect` for unknown agents, and its hosted cloud,
   and EverOS's ANN vector index, optional Milvus backend and published
   end-to-end benchmark. EverOS v1.4.2 also reserves query-embedding capacity
-  from background writes. ai-memory now does the same for in-process local
+  from background writes. pitstop now does the same for in-process local
   inference, backed by an opt-in real-model contention probe; hosted embedding
   providers keep their existing concurrency, and the reranker remains bounded
   and fail-open.
 - **From Caura (governed multi-agent fleet memory):** a different buyer. Caura
   optimizes org-scale fleet governance (agent/team/org visibility scopes, four
   trust tiers, an audit log, PII flagging) on Postgres+pgvector with LLM
-  extraction. ai-memory shares the multi-agent/multi-user goal but at
+  extraction. pitstop shares the multi-agent/multi-user goal but at
   *project* scope (`pages shared, batons owned`, invariant #16) with a
   self-hosted auth ladder and audit log, without fleet-wide trust tiers. If you need
   cross-fleet trust governance across hundreds of agents, use Caura; if you want
-  file-first, zero-LLM, single-binary project memory, use ai-memory. (Caura's
+  file-first, zero-LLM, single-binary project memory, use pitstop. (Caura's
   trust-tier governance is a real capability we do not match; see
   [`competitive-parity.md`](competitive-parity.md).) Caura's beta
   collaboration extension also adds live peer discovery, presence, leases,
@@ -394,7 +394,7 @@ ships something ai-memory does not, it is named.
   Despite the name, TencentDB Agent Memory needs no Tencent database (SQLite by
   default). You give up its zero-code proxy integration, the v2 hub's
   per-asset access control, and its CodeGraph code index (an adjacent,
-  codebase-intelligence feature ai-memory does not do); you gain hook
+  codebase-intelligence feature pitstop does not do); you gain hook
   capture, a git-markdown wiki, typed handoffs, and zero-LLM operation.
 
 ## Where we're behind, or different by choice
@@ -423,8 +423,8 @@ ships something ai-memory does not, it is named.
   VTT, or SRT file into attributed, sanitized markdown with
   bounded parsing and a conditional write. Unlike hosted multimodal products,
   it has no connectors, OCR, image understanding, or raw media transcription.
-- **Marketplace reach is narrower than harness support.** ai-memory now ships
-  its own Claude Code and Codex marketplace plugins and `ai-memory setup`
+- **Marketplace reach is narrower than harness support.** pitstop now ships
+  its own Claude Code and Codex marketplace plugins and `pitstop setup`
   detects and wires installed agents across Linux, macOS, and Windows. It is
   not listed in Anthropic's official directory, and long-tail agents still use
   setup/MCP recipes where no native plugin format exists.
@@ -435,11 +435,11 @@ ships something ai-memory does not, it is named.
   [`benchmarks/retrieval-ab-r2.md`](benchmarks/retrieval-ab-r2.md)), so it is
   not a headline claim.
 - **No git-history ingestion.** Hindsight ingests a repository's git history
-  on first run. ai-memory's `backfill` replays native agent transcripts, not
+  on first run. pitstop's `backfill` replays native agent transcripts, not
   commits.
 - **Recall is injected at session start, not on every prompt.** Supermemory's
   plugins search and inject on every prompt, and OpenViking's gateway injects
-  recall into each request. ai-memory's hooks inject the session brief at
+  recall into each request. pitstop's hooks inject the session brief at
   session start (on the first prompt for harnesses without a start hook);
   later recall is an agent tool call.
 - **No "show what was recalled" view in the agent.** The 3.0 web UI has a
@@ -469,7 +469,7 @@ ships something ai-memory does not, it is named.
 
   | Tool | Number | Kind | Setup |
   |---|---|---|---|
-  | ai-memory 3.4 | LongMemEval-S hit@5 0.951 FTS / 0.940 local (3.0: 0.951 / 0.945; 2.6: 0.666 / 0.815) | Retrieval through capture | In-repo harness, all 470 questions; component mode FTS 0.972; published local top-ten movement tracked in #1854 |
+  | pitstop 3.4 | LongMemEval-S hit@5 0.951 FTS / 0.940 local (3.0: 0.951 / 0.945; 2.6: 0.666 / 0.815) | Retrieval through capture | In-repo harness, all 470 questions; component mode FTS 0.972; published local top-ten movement tracked in #1854 |
   | MemPalace | 96.6% R@5 raw, 98.4% held-out (450 q) | Retrieval only | Different harness |
   | agentmemory | 95.2% `recall_any@5`; 2026-10-09 baseline 96.2% any-hit, 84.68% strict recall-all@5 | Retrieval, component | Whole raw sessions, reranker disabled; the authors say the baseline supports no competitive claim |
   | Mem0 | LongMemEval 94.4, LoCoMo 92.5, BEAM 64.1 (1M) / 48.6 (10M) | End-to-end QA, LLM-judged | Managed platform, top-200 budget; harness defaults to gpt-4o reader and judge; headline models not stated |
@@ -480,10 +480,10 @@ ships something ai-memory does not, it is named.
 
   None of these is like-for-like, and all but ours are self-reported. We
   publish a reproducible harness and a single stated metric.
-- **No VLM fact extraction.** Because the default path is zero-LLM, ai-memory
+- **No VLM fact extraction.** Because the default path is zero-LLM, pitstop
   does not do the LLM-per-turn atomic extraction the fact-extractor and
   LLM-required systems build on. Consolidation is opt-in and page-shaped.
-- **Not a graph database.** ai-memory chooses bi-temporal-lite on SQLite over a
+- **Not a graph database.** pitstop chooses bi-temporal-lite on SQLite over a
   full temporal knowledge graph. It covers the useful 80% without the graph-query surface.
 - **Single server, not SaaS.** There is no hosted multi-region tier and no enterprise
   console. That is intentional (own your data, one binary), but it matters

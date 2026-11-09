@@ -18,7 +18,7 @@ rule-only.
 provider = "openai-compat"
 model = "local-model"
 base_url = "http://127.0.0.1:49375/v1"
-api_key_env = "AI_MEMORY_LOCAL_ROUTER_TOKEN"
+api_key_env = "PITSTOP_LOCAL_ROUTER_TOKEN"
 
 [[llm.bootstrap.fallbacks]]
 provider = "gemini"
@@ -32,7 +32,7 @@ provider's default model, except `openai-compat` requires both `model` and
 environment variable, not a credential value. Without it, the provider uses
 its normal credential source. OpenAI OAuth, Codex and Cursor keep their
 native login files or CLI and reject `api_key_env`. An explicitly named
-variable that is missing fails `ai-memory serve` startup and never falls
+variable that is missing fails `pitstop serve` startup and never falls
 back to the default provider's key.
 
 When a task has no profile, it shares the same default provider instance and
@@ -42,7 +42,7 @@ the global provider is unset, without enabling other tasks. Existing timeout,
 compatibility, header and reasoning settings apply globally.
 
 Scalar fields have nested environment forms, such as
-`AI_MEMORY_LLM__BOOTSTRAP__PROVIDER` and `AI_MEMORY_LLM__BOOTSTRAP__MODEL`.
+`PITSTOP_LLM__BOOTSTRAP__PROVIDER` and `PITSTOP_LLM__BOOTSTRAP__MODEL`.
 Fallback lists are configured in `config.toml`, not through environment
 variables. For each fallback's required fields, see
 [`config-properties.md`](config-properties.md#llm_fallbacks).
@@ -87,7 +87,7 @@ llm_model = "mimo-v2.5-free"
 provider = "openai-compat"
 model = "poolside/laguna-s-2.1-free"
 base_url = "http://127.0.0.1:49375/v1"
-api_key_env = "AI_MEMORY_LOCAL_ROUTER_TOKEN"
+api_key_env = "PITSTOP_LOCAL_ROUTER_TOKEN"
 
 [[llm_fallbacks]]
 provider = "gemini"
@@ -99,8 +99,8 @@ api_key_env = "GEMINI_API_KEY"
 source, such as OpenAI OAuth or Copilot. The loader validates every profile and
 resolves all credential material once. An invalid provider or malformed profile
 fails every command at load. A credential whose `api_key_env` variable is absent
-fails `ai-memory serve` at startup, rather than leaving a latent fallback that
-only fails under an outage, but does not stop other commands: `ai-memory
+fails `pitstop serve` at startup, rather than leaving a latent fallback that
+only fails under an outage, but does not stop other commands: `pitstop
 status` and the other thin clients never build the chain, so the variable only
 has to be in the server's environment (for example a service wrapper's env
 block), not exported in every shell.
@@ -110,7 +110,7 @@ profiles have no environment-variable shorthand.
 
 ## Implementation boundary
 
-Add `FallbackLlmProvider` in `crates/ai-memory-llm/src/fallback.rs`:
+Add `FallbackLlmProvider` in `crates/pitstop-llm/src/fallback.rs`:
 
 ```text
 Config::load

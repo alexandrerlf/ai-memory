@@ -1,13 +1,13 @@
 # Optional companion crates and projects
 
 This page records the boundary for feature ideas that are useful around
-ai-memory, but should not become core ai-memory surface area. PR #118 and PR
+pitstop, but should not become core pitstop surface area. PR #118 and PR
 #123 are the historical motivation: both are valid product ideas, but both patch
 too much import, chat, UI, and mutation behavior into the core server. The better
-shape is optional companion software that orchestrates ai-memory through public
+shape is optional companion software that orchestrates pitstop through public
 APIs.
 
-ai-memory stays a memory substrate:
+pitstop stays a memory substrate:
 
 - one server binary owns hooks, MCP, the markdown wiki, SQLite indexes, auth,
   admission webhooks, and the built-in read-only browser;
@@ -37,7 +37,7 @@ Companion projects may:
 - call existing admin endpoints such as `/admin/write-page` and
   `/admin/delete-page` when running as an operator-side server process with an
   appropriate bearer token;
-- use `--web-ui-dir` to let ai-memory serve an alternate static SPA, as long as
+- use `--web-ui-dir` to let pitstop serve an alternate static SPA, as long as
   the SPA still uses public HTTP APIs and does not require in-process plugins;
 - run their own LLM prompts, import transforms, queues, confirmation flows,
   UI state, and project-specific policies;
@@ -46,23 +46,23 @@ Companion projects may:
 
 Companion projects should not:
 
-- become Cargo workspace members of core ai-memory by default;
+- become Cargo workspace members of core pitstop by default;
 - add core MCP tools, admin endpoints, or CLI subcommands unless a missing seam
-  is independently useful to ai-memory itself;
+  is independently useful to pitstop itself;
 - write wiki files or SQLite rows directly;
 - bypass `AuthLevel::authorize`, admission webhooks, actor attribution, scope
   resolution, or the single-writer store boundary;
-- require ai-memory to host arbitrary plugin code in-process.
+- require pitstop to host arbitrary plugin code in-process.
 
 Companion features are separate products. They can move faster than core, have their own UX, and carry source-specific or
-workflow-specific behavior without widening ai-memory's default install.
+workflow-specific behavior without widening pitstop's default install.
 
 If a companion exposes browser writes, it must implement its own server-side
 mutation broker. Browsers should talk to the companion; the companion should talk
-to ai-memory with an operator token. That keeps CSRF, confirmation, audit, rate
+to pitstop with an operator token. That keeps CSRF, confirmation, audit, rate
 limits, and UI-specific policy outside the core server.
 
-Read-only companions can start ai-memory with `serve --enable-api` to mount
+Read-only companions can start pitstop with `serve --enable-api` to mount
 `/api/v1` without the browser UI. `--enable-web` still implies the same API.
 Both modes use the normal machine Bearer or browser-session auth boundary;
 writes continue through MCP or authenticated admin routes.
@@ -82,12 +82,12 @@ All five slices of #986 have shipped. Slice 1 (read-only export) came first,
 in 2.x. Slice 2 (the compare-and-write seam in core), slice 3 (two-way sync
 through the MCP write tool), slice 4 (conditional writes and opt-in deletes)
 and slice 5 (the CI check and post-merge hook) ship in 3.0. The companion is
-[`ai-memory-wikisync`](#ai-memory-wikisync-team-wiki-export-and-sync)
+[`pitstop-wikisync`](#pitstop-wikisync-team-wiki-export-and-sync)
 below.
 
-## `ai-memory-client`: shared private capture privacy
+## `pitstop-client`: shared private capture privacy
 
-[`ai-memory-client`](../companions/ai-memory-client) supplies four privacy
+[`pitstop-client`](../companions/pitstop-client) supplies four privacy
 functions consumed by both the relay and external-conversation importer. New
 bodies are scrubbed before serialization, hashes and local persistence; native
 identities containing credentials are refused without being renamed. A relay
@@ -96,33 +96,33 @@ locally with a `dropped_policy` receipt, so its session keeps flowing. The packa
 server dependency. Server authorization and capture exclusions remain the
 authoritative boundaries.
 
-## `ai-memory-relay`: external lifecycle delivery
+## `pitstop-relay`: external lifecycle delivery
 
-[`ai-memory-relay`](../companions/ai-memory-relay) delivers events collected by
+[`pitstop-relay`](../companions/pitstop-relay) delivers events collected by
 an external orchestrator through `/hook/batch`. Its own local queue records events
 before sending and retains unacknowledged entries for a later flush. It does not
-launch agents, claim handoffs, or open ai-memory's database or wiki.
+launch agents, claim handoffs, or open pitstop's database or wiki.
 
 The orchestrator still maps its events to the native harness payloads and sets
-`AI_MEMORY_CAPTURE_OWNER` when launching that harness. The relay uses the native
+`PITSTOP_CAPTURE_OWNER` when launching that harness. The relay uses the native
 session identity and derives retry keys from the producer's stable event IDs.
 Only the first pending event for each session enters a batch; that session
 advances after acknowledgement, even when other sessions are rate-limited.
 
 The package has its own workspace, tests and CLI. Its README defines queue limits,
 local data handling and recovery, with an executable test against the real
-ai-memory server. Root workspace tests do not run the companion's unit tests.
+pitstop server. Root workspace tests do not run the companion's unit tests.
 
-## `ai-memory-importer`: migration and ingestion companion
+## `pitstop-importer`: migration and ingestion companion
 
 This is the companion shape for PR #118. The first implemented companion lives
-at [`companions/ai-memory-importer`](../companions/ai-memory-importer) as a
+at [`companions/pitstop-importer`](../companions/pitstop-importer) as a
 standalone Cargo package with its own `[workspace]`; it is not a member of the
 root workspace and is not covered by root `cargo test --workspace`.
 
 ### Goal
 
-Import or normalize existing memory corpora without making ai-memory core own
+Import or normalize existing memory corpora without making pitstop core own
 every source format and migration workflow.
 
 Initial source support is intentionally narrow:
@@ -142,7 +142,7 @@ Initial source support is intentionally narrow:
   when its complete body matches the sanitized plan. A destination body edit
   retaining the key stops resumption before another version replaces it.
   Observations are dropped unless replayed as `external-import` sessions
-  through `/hook/batch`; records with no ai-memory counterpart are counted in
+  through `/hook/batch`; records with no pitstop counterpart are counted in
   the manifest. Details are in the importer README.
 - claude-mem's local SQLite database (`claude-mem`, with a required project or
   checkout mapping). The importer snapshots a regular source file through
@@ -170,9 +170,9 @@ Future sources can include:
 Run companion checks explicitly from the repository root:
 
 ```bash
-cargo fmt --check --manifest-path companions/ai-memory-importer/Cargo.toml
-cargo test --manifest-path companions/ai-memory-importer/Cargo.toml
-cargo clippy --manifest-path companions/ai-memory-importer/Cargo.toml --all-targets -- -D warnings
+cargo fmt --check --manifest-path companions/pitstop-importer/Cargo.toml
+cargo test --manifest-path companions/pitstop-importer/Cargo.toml
+cargo clippy --manifest-path companions/pitstop-importer/Cargo.toml --all-targets -- -D warnings
 ```
 
 Root hygiene checks remain separate:
@@ -187,23 +187,23 @@ git diff --check
 Prefer a separate repository and binary crate, for example:
 
 ```text
-companions/ai-memory-importer/
+companions/pitstop-importer/
 ├── Cargo.toml
 ├── src/main.rs
 └── README.md
 ```
 
 It can share Rust libraries later only if those libraries are published with a
-stable API and are useful outside ai-memory. It should not need to be a member of
+stable API and are useful outside pitstop. It should not need to be a member of
 this workspace.
 
-### How it talks to ai-memory
+### How it talks to pitstop
 
 Read and plan:
 
 - use `/api/v1/workspaces`, `/api/v1/projects`, `/api/v1/pages`,
   `/api/v1/search`, and `/api/v1/graph` to inspect the destination;
-- default to dry-run, printing planned page writes without mutating ai-memory.
+- default to dry-run, printing planned page writes without mutating pitstop.
 
 Write:
 
@@ -222,12 +222,12 @@ Re-home by kind:
 
 - compute the move/link-rewrite plan in the companion;
 - apply moves as normal writes to the new path plus deletes of the old path;
-- preserve frontmatter that ai-memory returns through page reads;
+- preserve frontmatter that pitstop returns through page reads;
 - fail closed on collisions, missing pages, or changed source hashes.
 
 ### Safety requirements
 
-- Never open ai-memory's SQLite database or wiki directory directly.
+- Never open pitstop's SQLite database or wiki directory directly.
 - Require an explicit destination workspace/project.
 - Preserve only metadata supported by the public write surface (`title`, `kind`,
   `tier`, `tags`, `pinned`, body, and the bounded `entities`, `abstract`, and
@@ -250,36 +250,36 @@ Re-home by kind:
   changed.
 - Keep LLM normalization optional; deterministic import should work with no LLM.
 - Keep provider-specific performance tweaks, such as model parameter changes, out
-  of importer PRs. If ai-memory core needs a provider bugfix or optimization,
+  of importer PRs. If pitstop core needs a provider bugfix or optimization,
   land it as a small standalone core change.
 
 ### Implementation plan
 
 1. Build a read-only planner for one source format and snapshot fixtures.
 2. Add dry-run output and collision detection.
-3. Add live writes through existing ai-memory public write/delete surfaces.
+3. Add live writes through existing pitstop public write/delete surfaces.
 4. Add optional LLM normalization as a companion-side pass.
 5. Add re-home/link-rewrite as a separate subcommand after import is stable.
 6. Reuse the bounded conditional `memory_write_pages_batch` seam for corpus
    imports. Add another public mutation surface only when repeated use proves
    that this generic batch cannot preserve the required safety contract.
 
-## `ai-memory-wikisync`: team-wiki export and sync
+## `pitstop-wikisync`: team-wiki export and sync
 
 Slices 1, 3, 4 and 5 of the accepted [team-wiki sync](#team-wiki-sync-986)
-shape, implemented at [`companions/ai-memory-wikisync`](../companions/ai-memory-wikisync)
+shape, implemented at [`companions/pitstop-wikisync`](../companions/pitstop-wikisync)
 as a standalone Cargo package with its own `[workspace]` (mirroring the
 importer): it is not a member of the root workspace and is not covered by
 root `cargo test --workspace`.
 
 ### Goal
 
-Mirror a team's shared ai-memory pages into a project repository as
+Mirror a team's shared pitstop pages into a project repository as
 reviewable markdown, so the wiki a team actually maintains can travel with
 the code it documents, and let reviewed repository edits flow back. Both
 directions are family-scoped and dry-run by default.
 
-### How it talks to ai-memory
+### How it talks to pitstop
 
 - `plan` (always dry-run) and `export` (dry-run unless `--apply`) against
   the documented read-only `/api/v1` surface: incremental `recent` listing
@@ -300,13 +300,13 @@ directions are family-scoped and dry-run by default.
   that block.
 - `--include FAMILY` is an explicit, repeatable allowlist of top-level
   wiki directories; at least one is required and a bare `*` is refused.
-- Auth is a bearer token via `--token` or `AI_MEMORY_AUTH_TOKEN` only;
+- Auth is a bearer token via `--token` or `PITSTOP_AUTH_TOKEN` only;
   tokens are never logged or persisted.
 - Each file is the server body under a fixed frontmatter of the fields a
   write round-trips (`title`, `tags`, `pinned`, and `tier` when not the
   default), never server-generated or attribution keys. All local bookkeeping
   lives in one state file under the destination
-  (`.ai-memory-wikisync/state.json`, 0600, atomically replaced after each
+  (`.pitstop-wikisync/state.json`, 0600, atomically replaced after each
   successful write batch). The directory ignores itself with a `.gitignore`
   of `*`, so the state stays per clone and never reaches a commit.
 
@@ -345,7 +345,7 @@ directions are family-scoped and dry-run by default.
   only if it still holds the classified bytes. A delete that is not
   propagated keeps its state entry.
 - The post-merge hook never stores a token (`--token` is refused; the hook
-  reads `AI_MEMORY_AUTH_TOKEN` at merge time), single-quotes every argument
+  reads `PITSTOP_AUTH_TOKEN` at merge time), single-quotes every argument
   and refuses newlines or NUL, is written atomically with mode 0755, refuses
   a symlinked hook, appends to a foreign hook only with `--append` and a
   POSIX shell shebang, and refuses a repository whose config sets
@@ -365,9 +365,9 @@ directions are family-scoped and dry-run by default.
 ### Validation
 
 ```bash
-cargo fmt --check --manifest-path companions/ai-memory-wikisync/Cargo.toml
-cargo test --manifest-path companions/ai-memory-wikisync/Cargo.toml
-cargo clippy --manifest-path companions/ai-memory-wikisync/Cargo.toml --all-targets -- -D warnings
+cargo fmt --check --manifest-path companions/pitstop-wikisync/Cargo.toml
+cargo test --manifest-path companions/pitstop-wikisync/Cargo.toml
+cargo clippy --manifest-path companions/pitstop-wikisync/Cargo.toml --all-targets -- -D warnings
 ```
 
 Unit tests cover the path-safety matrix, the allowlist rules, state
@@ -400,19 +400,19 @@ never reaches the hook file.
 5. Post-merge hook / CI integration (shipped: `install-hook`,
    `uninstall-hook`, `sync --check`).
 
-## `ai-memory-macos`: menu bar wrapper
+## `pitstop-macos`: menu bar wrapper
 
 Self-contained macOS accessory app at
-[`companions/ai-memory-macos`](../companions/ai-memory-macos). It is a
-**wrapper** rather than a data-seam dashboard: it ships the `ai-memory` binary and
+[`companions/pitstop-macos`](../companions/pitstop-macos). It is a
+**wrapper** rather than a data-seam dashboard: it ships the `pitstop` binary and
 `hooks/` tree inside an `.app`, governs the existing LaunchAgent, and opens
-`/web`, `ai-memory status`, `config.toml`, the data directory, and logs.
+`/web`, `pitstop status`, `config.toml`, the data directory, and logs.
 
 It is not a root workspace member. Build and test it separately:
 
 ```bash
-./companions/ai-memory-macos/build.sh
-swift test --package-path companions/ai-memory-macos
+./companions/pitstop-macos/build.sh
+swift test --package-path companions/pitstop-macos
 ```
 
 ### Goal
@@ -420,12 +420,12 @@ swift test --package-path companions/ai-memory-macos
 Give macOS a first-class install that does not require a prior tarball, without
 reimplementing status, search, wiki browsing, or config editing in SwiftUI.
 
-### How it talks to ai-memory
+### How it talks to pitstop
 
 - `GET /admin/status` for the menu-bar traffic light and two headline lines
   (version, page/session counts, LLM role).
-- Bundled `ai-memory status` / `ai-memory init` via `Process` (the real CLI).
-- `launchctl` against `com.github.akitaonrails.ai-memory` and the checked-in
+- Bundled `pitstop status` / `pitstop init` via `Process` (the real CLI).
+- `launchctl` against `com.github.akitaonrails.pitstop` and the checked-in
   plist template in `packaging/launchd/`.
 - `NSWorkspace` to open `/web`, `config.toml`, the data dir, and logs.
 
@@ -434,47 +434,47 @@ does not add MCP tools.
 
 ### Data vs bundle
 
-Durable state stays in `~/Library/Application Support/ai-memory` (the binary’s
-existing macOS default) and logs under `~/Library/Logs/ai-memory`. Replacing
-`/Applications/AI Memory.app` does not rewrite that tree. An optional data-dir
+Durable state stays in `~/Library/Application Support/pitstop` (the binary’s
+existing macOS default) and logs under `~/Library/Logs/pitstop`. Replacing
+`/Applications/Pitstop.app` does not rewrite that tree. An optional data-dir
 override is written only into the rendered LaunchAgent plist
-(`AI_MEMORY_DATA_DIR`), never into the bundle.
+(`PITSTOP_DATA_DIR`), never into the bundle.
 
 ### Safety requirements
 
 - Do not silently start the LaunchAgent on first launch; **Install & Start**
   is an explicit click.
-- Do not write `AI_MEMORY_AUTH_TOKEN` into the plist. The menu bar’s own HTTP
+- Do not write `PITSTOP_AUTH_TOKEN` into the plist. The menu bar’s own HTTP
   client may keep a bearer in the Keychain.
 - Do not sandbox the app in a way that blocks `launchctl` or LaunchAgents.
 
 See [`docs/macos.md`](macos.md#scenario-d-menu-bar-app).
 
-## `ai-memory-desktop`: desktop installer
+## `pitstop-desktop`: desktop installer
 
 A [Tauri v2](https://v2.tauri.app) app at
-[`companions/ai-memory-desktop`](../companions/ai-memory-desktop) for people
+[`companions/pitstop-desktop`](../companions/pitstop-desktop) for people
 who would rather not open a terminal (#1273, RFC #878 Phase 4). Its window
-starts on a plain HTML page and then shows the page `ai-memory setup --web`
+starts on a plain HTML page and then shows the page `pitstop setup --web`
 serves, so the whole setup UI and its safety rules stay in the CLI. There is
 no npm or JavaScript toolchain.
 
 It is not a root workspace member. Check it separately:
 
 ```bash
-cargo clippy --locked --manifest-path companions/ai-memory-desktop/Cargo.toml --all-targets -- -D warnings
-cargo test --locked --manifest-path companions/ai-memory-desktop/Cargo.toml
+cargo clippy --locked --manifest-path companions/pitstop-desktop/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path companions/pitstop-desktop/Cargo.toml
 ```
 
-### How it talks to ai-memory
+### How it talks to pitstop
 
-- Finds an existing `ai-memory` (the `install.sh`/`install.ps1` location,
+- Finds an existing `pitstop` (the `install.sh`/`install.ps1` location,
   `PATH`, the package-manager directories) and uses it as it is.
 - With none, copies the binary it carries (a Tauri sidecar) and the `hooks/`
   bundle into the same per-user layout the scripts use, links
-  `~/.local/bin/ai-memory` when that name is free, and on Windows adds the
+  `~/.local/bin/pitstop` when that name is free, and on Windows adds the
   directory to the user `PATH`.
-- Runs `ai-memory setup --web --no-open --stop-on-stdin-eof` and navigates its
+- Runs `pitstop setup --web --no-open --stop-on-stdin-eof` and navigates its
   window to the address that command prints, accepting only the exact
   `http://127.0.0.1:<port>/s/<secret>/` shape.
 
@@ -482,7 +482,7 @@ It does not open SQLite or the wiki, call `/admin` routes, or add MCP tools.
 
 ### Safety requirements
 
-- Never replace an existing install or someone else's `~/.local/bin/ai-memory`.
+- Never replace an existing install or someone else's `~/.local/bin/pitstop`.
 - Never run `setup` from inside the bundle: the service it registers names the
   binary it ran from, and a `.app` path, a replaced install directory or an
   AppImage mount would stop the server from starting later.
@@ -498,14 +498,14 @@ attached to releases until the project has an Apple Developer ID with
 notarization and a Windows Authenticode certificate. That decision, and its
 cost, belong to the maintainers (RFC #878).
 
-## `ai-memory-ts`: TypeScript client SDK
+## `pitstop-ts`: TypeScript client SDK
 
 A typed client for programs that are not coding-agent harnesses (issue #1165):
 custom agents and bots, editor and app extensions (RFC #1166) and automation
-scripts. It lives at [`companions/ai-memory-ts`](../companions/ai-memory-ts),
-has no runtime dependencies, and talks to ai-memory only through the public
+scripts. It lives at [`companions/pitstop-ts`](../companions/pitstop-ts),
+has no runtime dependencies, and talks to pitstop only through the public
 MCP tools at `/mcp`, the read-only `/api/v1` routes, `GET /identity` and, from
-the separate `ai-memory-ts/admin` entry point, the root-only `/admin/*`
+the separate `pitstop-ts/admin` entry point, the root-only `/admin/*`
 lifecycle routes. It adds no core surface. Python is a later, separate
 decision.
 
@@ -516,19 +516,19 @@ referencing it. It is unpublished until the maintainer picks the npm name and
 owner. Build and test it separately:
 
 ```bash
-cd companions/ai-memory-ts
+cd companions/pitstop-ts
 npm ci --ignore-scripts
 npm run check                                        # typecheck, unit, schema, docs
-AI_MEMORY_BIN=../../target/debug/ai-memory npm run test:integration
+PITSTOP_BIN=../../target/debug/pitstop npm run test:integration
 ```
 
 CI runs its integration tests, schema drift test and examples against the
 server built in the `test` job, so a change to an MCP tool schema fails until
 the SDK's `schema/tools.json` is updated. The design, test plan and decisions
 are in [design-client-sdk.md](design-client-sdk.md); usage is in the package
-[README](../companions/ai-memory-ts/README.md).
+[README](../companions/pitstop-ts/README.md).
 
-## `ai-memory-web-editor`: browser chat/editor companion
+## `pitstop-web-editor`: browser chat/editor companion
 
 This is the companion shape for PR #123.
 
@@ -537,7 +537,7 @@ review. The useful writable version is larger than it first appears: it needs a
 safe core compare-and-write seam, a companion mutation broker, browser auth/CSRF,
 confirmation state, diffing, conflict handling, audit, and later LLM proposal
 policy. It is not clear that this complexity brings enough benefit for
-ai-memory's main goal. The system is meant to auto-improve its own memory through
+pitstop's main goal. The system is meant to auto-improve its own memory through
 capture, consolidation, review, pending writes, and eval gates; manual memory
 editing may be less valuable than it seems, and could distract from improving the
 automatic loop.
@@ -556,18 +556,18 @@ editor can move faster and make stronger product decisions.
 Prefer a separate repository with a backend plus frontend, for example:
 
 ```text
-ai-memory-web-editor/
+pitstop-web-editor/
 ├── crates/server/        # auth, CSRF, mutation broker, LLM orchestration
 ├── crates/client/        # UI or generated assets
 ├── src/                  # if kept as a single binary crate initially
 └── tests/e2e/
 ```
 
-The companion can be deployed next to ai-memory and reverse-proxied under a
+The companion can be deployed next to pitstop and reverse-proxied under a
 separate path or host, for example `https://memory.example.com/editor`, while
-ai-memory remains at `/api/v1`, `/mcp`, `/admin`, `/hook`, and `/web`.
+pitstop remains at `/api/v1`, `/mcp`, `/admin`, `/hook`, and `/web`.
 
-### How it talks to ai-memory
+### How it talks to pitstop
 
 Read:
 
@@ -578,11 +578,11 @@ Read:
 
 Write:
 
-- browser requests go to the companion backend, not directly to ai-memory admin
+- browser requests go to the companion backend, not directly to pitstop admin
   routes;
 - the companion backend performs CSRF checks, user/session policy, rate limiting,
   and confirmation state;
-- after approval, it calls ai-memory's existing write/delete surfaces with a
+- after approval, it calls pitstop's existing write/delete surfaces with a
   server-side token.
 
 Mutation flow:
@@ -591,7 +591,7 @@ Mutation flow:
 2. The UI shows an explicit diff and the target workspace/project/path.
 3. The user confirms or rejects the pending action.
 4. The companion re-reads the current page and verifies the expected base hash.
-5. The companion applies the write/delete through ai-memory's public mutation
+5. The companion applies the write/delete through pitstop's public mutation
    path and records its own audit trail.
 
 ### Safety requirements
@@ -603,7 +603,7 @@ Mutation flow:
   must independently authorize the target page before applying a change.
 - If the UI advertises folder-scoped editing, the companion must enforce that
   target paths stay inside the allowed folder or project on the server side.
-- The companion must not rely on cookie/basic auth to perform non-GET ai-memory
+- The companion must not rely on cookie/basic auth to perform non-GET pitstop
   mutations from the browser. Use a server-side token and companion CSRF/session
   protection.
 - In multi-user mode, `/admin/*` is root-only. A companion must either run with an
@@ -611,7 +611,7 @@ Mutation flow:
   assume normal user tokens can admin-write.
 - Propagate actor/author context where the public write surface supports it so
   admission webhooks and audit stay meaningful.
-- Keep `/api/v1` read-only; do not ask core ai-memory to expose writable CORS
+- Keep `/api/v1` read-only; do not ask core pitstop to expose writable CORS
   browser endpoints for this product.
 
 ### Implementation plan
@@ -621,10 +621,10 @@ This plan is intentionally parked until the benefit is clearer.
 1. Build a read-only editor shell against `/api/v1` first.
 2. Add chat over selected page/search context, still read-only.
 3. Add pending edit proposals with diff preview, but no apply button.
-4. Add confirmed writes through the companion backend and ai-memory public write
+4. Add confirmed writes through the companion backend and pitstop public write
    endpoints.
 5. Add confirmed deletes last.
-6. Keep the built-in `/web` UI unchanged unless core ai-memory independently
+6. Keep the built-in `/web` UI unchanged unless core pitstop independently
    needs a small read-only API enhancement.
 
 ### Appendix: browser constraints and prerequisites (not approved)
@@ -686,23 +686,23 @@ and preference for a separate repository above remain unchanged.
 
 ## Two kinds of companion: data-seam vs. independent hook consumer
 
-`ai-memory-importer` and `ai-memory-web-editor` are *data-seam* companions: they
-talk to ai-memory's public HTTP/MCP surfaces and build on the data it stores.
+`pitstop-importer` and `pitstop-web-editor` are *data-seam* companions: they
+talk to pitstop's public HTTP/MCP surfaces and build on the data it stores.
 Not every adjacent tool is that shape.
 
 **Working-tree coordination is out of core, and is an *independent hook
 consumer*, not a data-seam companion** (decided in #620). Several agent sessions
 sharing one checkout collide over the single git index: one session's
 `git add .` sweeps up another's staged work, or a `--fix` run rewrites an
-unclaimed tree. Building the guard on ai-memory's captured
+unclaimed tree. Building the guard on pitstop's captured
 `PreToolUse`/`PostToolUse` signal does not work, for two deliberate reasons:
 
-- **ai-memory cannot block a tool action.** The `/hook` path is capture-only and
+- **pitstop cannot block a tool action.** The `/hook` path is capture-only and
   fire-and-forget (it returns `202`/`429`, never allow/deny/ask, and processes
   after responding). Hooks that await a REST round-trip can deadlock the engine
   (agentmemory #221), so by design there is no synchronous veto channel back to
   the harness.
-- **ai-memory does not retain the file paths.** For closed-tool agents the
+- **pitstop does not retain the file paths.** For closed-tool agents the
   stored observation is reduced to a `tool_family` label plus outcome (and an
   MCP tool's validated server and tool names); raw arguments, paths, and other
   tool names are extracted only transiently for denylist matching, then dropped
@@ -714,17 +714,17 @@ Reversing either (persisting paths, or adding a blocking hook) would trade away 
 privacy/bounding invariant or the anti-deadlock invariant, so both stay.
 
 So a working-tree coordinator installs its **own** `PreToolUse` hook alongside
-ai-memory's, reads the raw `tool_input`, and arbitrates synchronously in its own
+pitstop's, reads the raw `tool_input`, and arbitrates synchronously in its own
 process with its own ephemeral ownership state (a lock file or small store,
 never the wiki or SQLite). It is a *sibling on the same hook event* rather than a
 seam-consumer. It may still live under `companions/` for discoverability, but it
-depends on the harness's hook mechanism, not on ai-memory's surfaces. Scope it
+depends on the harness's hook mechanism, not on pitstop's surfaces. Scope it
 to the shared-index / file-ownership class; stale-tree builds and host
 saturation are build/CI-orchestration, a separate problem.
 
 ## When to move a seam into core
 
-A companion may reveal a missing primitive that belongs in ai-memory. Move only
+A companion may reveal a missing primitive that belongs in pitstop. Move only
 small, generic seams into core, and only after the companion proves the need.
 
 Good core candidates:
@@ -742,4 +742,4 @@ Poor core candidates:
 - project-specific scoring, pruning, or normalization policies;
 - companion-only admin commands.
 
-That keeps ai-memory stable while richer tools grow around it.
+That keeps pitstop stable while richer tools grow around it.

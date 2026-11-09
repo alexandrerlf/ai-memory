@@ -36,26 +36,26 @@ References name the file and the symbol.
 
 | Part | Where | Fact |
 |---|---|---|
-| Table | `crates/ai-memory-store/migrations/V01__init.sql`, `V10__observation_extension_events.sql` | `observations` keys every row by `session_id`, `workspace_id` and `project_id`, all `ON DELETE CASCADE`. No path column. V10 added two nullable columns (`extension`, `source_event`) and a partial index `WHERE extension IS NOT NULL AND source_event IS NOT NULL` scoped by `(workspace_id, project_id, ...)`. The highest migration is V97. |
-| Body | `crates/ai-memory-hooks/src/payload.rs` `safe_tool_body`, `closed_tool_agent`; `capture_policy.rs` `tool_observation_metadata` | Closed schema for the agents in `closed_tool_agent`. `tool_observation_metadata` keeps family, call id and MCP names; it never reads a path field. |
-| FTS | `crates/ai-memory-store/migrations/V97__fts_split_path_separators.sql` (`observations_fts`) | The tokenizer keeps `_` and `-` inside tokens and splits on `/`, so an absolute path in tool output (`/repo/src/lib.rs`) matches a query for `lib.rs`, `lib` or `src/lib.rs`. Before V97 `/` was a token character and only a bare `lib.rs` mention matched. The CJK index added in V87 covers only unspaced Han, Kana and Hangul. |
-| Client policy | `crates/ai-memory-cli/src/commands/hook.rs` `run_with_payload_in_home` | The native client applies `[capture] ignore_paths` before the spool: Drop sends nothing, MetadataOnly rebuilds the body, Keep under an active or invalid policy attaches `_ai_memory_capture`. Keep under an **inactive** policy (no marker, or no `ignore_paths`, the common case) attaches nothing. |
-| TS policy | `crates/ai-memory-cli/src/commands/render_shared.rs` `ts_capture_policy_v1` | The generated integrations (OpenCode, OMP, Pi, OpenClaw) implement the same table and return early on an inactive policy, also without a claim. The template is generated from `capture_policy.rs` so the two front doors cannot drift. |
+| Table | `crates/pitstop-store/migrations/V01__init.sql`, `V10__observation_extension_events.sql` | `observations` keys every row by `session_id`, `workspace_id` and `project_id`, all `ON DELETE CASCADE`. No path column. V10 added two nullable columns (`extension`, `source_event`) and a partial index `WHERE extension IS NOT NULL AND source_event IS NOT NULL` scoped by `(workspace_id, project_id, ...)`. The highest migration is V97. |
+| Body | `crates/pitstop-hooks/src/payload.rs` `safe_tool_body`, `closed_tool_agent`; `capture_policy.rs` `tool_observation_metadata` | Closed schema for the agents in `closed_tool_agent`. `tool_observation_metadata` keeps family, call id and MCP names; it never reads a path field. |
+| FTS | `crates/pitstop-store/migrations/V97__fts_split_path_separators.sql` (`observations_fts`) | The tokenizer keeps `_` and `-` inside tokens and splits on `/`, so an absolute path in tool output (`/repo/src/lib.rs`) matches a query for `lib.rs`, `lib` or `src/lib.rs`. Before V97 `/` was a token character and only a bare `lib.rs` mention matched. The CJK index added in V87 covers only unspaced Han, Kana and Hangul. |
+| Client policy | `crates/pitstop-cli/src/commands/hook.rs` `run_with_payload_in_home` | The native client applies `[capture] ignore_paths` before the spool: Drop sends nothing, MetadataOnly rebuilds the body, Keep under an active or invalid policy attaches `_pitstop_capture`. Keep under an **inactive** policy (no marker, or no `ignore_paths`, the common case) attaches nothing. |
+| TS policy | `crates/pitstop-cli/src/commands/render_shared.rs` `ts_capture_policy_v1` | The generated integrations (OpenCode, OMP, Pi, OpenClaw) implement the same table and return early on an inactive policy, also without a claim. The template is generated from `capture_policy.rs` so the two front doors cannot drift. |
 | `apply_patch` | `capture_policy.rs` `extract`, `patch_paths` | Codex `apply_patch` and Droid `ApplyPatch` carry no direct path field. `patch_paths` reads the `Add File`, `Update File`, `Delete File` and `Move to` headers, and feeds only the cross-checkout lookup. A file call without a direct path is `MissingOrMalformed`, so under an active policy it becomes metadata-only, whatever the paths. |
 | Protocol | `capture_policy.rs` `CaptureProtocol` | Parses through a `deny_unknown_fields` wire struct with a fixed version. |
-| Reserved fields | `crates/ai-memory-hooks/src/assistant_capture.rs` `apply_assistant_backstop`; `router.rs` (`_ai_memory_usage`) | Precedent for a separate top-level field: `_ai_memory_assistant` is versioned, parsed with `deny_unknown_fields`, and always removed from the raw payload before storage, whether or not its gates accept it. |
-| Server check | `crates/ai-memory-hooks/src/router.rs` `inspect_capture_envelope` | An unparsable claim is treated as invalid; for a file tool that rewrites the event to metadata-only. A parsed claim is re-inspected against the payload; the server never receives the client's patterns. |
-| Checkout root | `crates/ai-memory-cli/src/marker.rs` `checkout_root` | The nearest ancestor holding `.git` (a worktree's `.git` file counts). `ignore_paths` patterns root at the marker directory, not the checkout root. |
+| Reserved fields | `crates/pitstop-hooks/src/assistant_capture.rs` `apply_assistant_backstop`; `router.rs` (`_pitstop_usage`) | Precedent for a separate top-level field: `_pitstop_assistant` is versioned, parsed with `deny_unknown_fields`, and always removed from the raw payload before storage, whether or not its gates accept it. |
+| Server check | `crates/pitstop-hooks/src/router.rs` `inspect_capture_envelope` | An unparsable claim is treated as invalid; for a file tool that rewrites the event to metadata-only. A parsed claim is re-inspected against the payload; the server never receives the client's patterns. |
+| Checkout root | `crates/pitstop-cli/src/marker.rs` `checkout_root` | The nearest ancestor holding `.git` (a worktree's `.git` file counts). `ignore_paths` patterns root at the marker directory, not the checkout root. |
 | Normalization | `capture_policy.rs` `normalize_segments`, `marker.rs` `absolute_normalized` | Lexical; `.` and `..` folded; symlinks never resolved. |
-| Sanitizer | `crates/ai-memory-core/src/sanitize.rs` `scrub` | Credential directories (`.ssh`, `.aws`, `.kube`, `.config/gcloud`, `.gnupg`) are redacted as `credential_path`; the patterns need a separator before the directory. |
+| Sanitizer | `crates/pitstop-core/src/sanitize.rs` `scrub` | Credential directories (`.ssh`, `.aws`, `.kube`, `.config/gcloud`, `.gnupg`) are redacted as `credential_path`; the patterns need a separator before the directory. |
 | Ingest config | `docs/config-properties.md` (`[ingest]`) | Holds the server-side capture filters, among them `record_tool_names`, off by default. |
-| Ownership | `crates/ai-memory-core/src/actor.rs` `OwnerFilter`; `crates/ai-memory-store/src/reader.rs` `sessions_hidden_from` | Observations are owned through `sessions.actor_user` (V40). The observation stream hides other operators' sessions with `sessions_hidden_from`. `session_observations_scoped` takes no owner and relies on its callers checking the session first. |
-| Session reads | `crates/ai-memory-mcp/src/server.rs` `memory_read_page`, `memory_read_session_observations` | `memory_read_page` takes a page `path` or a `query`, never an id, and applies no owner filter (pages are shared, invariant 16). `memory_read_session_observations` takes a `session_id`, admits it through `session_summary_scoped` under `OwnerFilter::for_actor_context`, and bounds the rows and each body. |
-| Session page | `crates/ai-memory-hooks/src/synth.rs` `synthesize_session_page`; `reader.rs` `latest_page_ids_by_paths` | The rule-based `sessions/<id>.md` page is written without an LLM at a substantive SessionEnd, at a checkpoint and at idle auto-end. An open session that has not checkpointed has none. `latest_page_ids_by_paths` resolves a batch of paths to page ids only, so it cannot say which path, and so which session, a page belongs to. |
-| Ingest metrics | `crates/ai-memory-core/src/ingest_metrics.rs` `IngestMetrics`, `IngestMetricsSnapshot`; `crates/ai-memory-mcp/src/metrics.rs` `render_prometheus` | A fixed set of `AtomicU64` scalars, never a map, reset when the process restarts. Read by `/admin/status`, `/admin/metrics` and the web health panel, all root-only on a multi-user server and content-free (`docs/security-boundaries.md` rows 3d and 3e). `render_prometheus` names each field explicitly under a compile-time family and the closed labels `result`, `outcome`, `kind`; the test `snapshot_is_content_free` pins the key list. No counter has a tool-family dimension, nothing records why a file-tool event has no path, and the snapshot has no process start time. |
+| Ownership | `crates/pitstop-core/src/actor.rs` `OwnerFilter`; `crates/pitstop-store/src/reader.rs` `sessions_hidden_from` | Observations are owned through `sessions.actor_user` (V40). The observation stream hides other operators' sessions with `sessions_hidden_from`. `session_observations_scoped` takes no owner and relies on its callers checking the session first. |
+| Session reads | `crates/pitstop-mcp/src/server.rs` `memory_read_page`, `memory_read_session_observations` | `memory_read_page` takes a page `path` or a `query`, never an id, and applies no owner filter (pages are shared, invariant 16). `memory_read_session_observations` takes a `session_id`, admits it through `session_summary_scoped` under `OwnerFilter::for_actor_context`, and bounds the rows and each body. |
+| Session page | `crates/pitstop-hooks/src/synth.rs` `synthesize_session_page`; `reader.rs` `latest_page_ids_by_paths` | The rule-based `sessions/<id>.md` page is written without an LLM at a substantive SessionEnd, at a checkpoint and at idle auto-end. An open session that has not checkpointed has none. `latest_page_ids_by_paths` resolves a batch of paths to page ids only, so it cannot say which path, and so which session, a page belongs to. |
+| Ingest metrics | `crates/pitstop-core/src/ingest_metrics.rs` `IngestMetrics`, `IngestMetricsSnapshot`; `crates/pitstop-mcp/src/metrics.rs` `render_prometheus` | A fixed set of `AtomicU64` scalars, never a map, reset when the process restarts. Read by `/admin/status`, `/admin/metrics` and the web health panel, all root-only on a multi-user server and content-free (`docs/security-boundaries.md` rows 3d and 3e). `render_prometheus` names each field explicitly under a compile-time family and the closed labels `result`, `outcome`, `kind`; the test `snapshot_is_content_free` pins the key list. No counter has a tool-family dimension, nothing records why a file-tool event has no path, and the snapshot has no process start time. |
 | Admission order | `router.rs` `admit_hook`, `HookProcessingOutcome::record` | `inspect_capture_envelope` runs first, before the subagent drop, the ingest drop list, the semaphore and the per-source rate limiter (429). Storage happens later, in the spawned `process_envelope`, which records the final outcome (`stored`, `replayed`, `failed`, ...). |
-| Delivery and latency | `crates/ai-memory-cli/src/commands/hook.rs`, `hook_spool.rs`; `install_hooks.rs` `postHook`; `router.rs` `handle_hook`; `crates/ai-memory-core/src/latency.rs` | The native client writes each event to a local spool, and a detached `hook-drain` delivers it through `POST /hook/batch`. Two drains run inside the hook the agent waits on: `session-start` drains the backlog within `start_drain_budget` before fetching its handoff, and Zero, whose sandbox kills detached children, drains in-process within a short budget. The generated TS integrations queue each event in process (`postHook` returns `void`), a background flush posts it to `POST /hook`, and the spool takes it when delivery fails. `hook_latency` times `POST /hook` admission only, server-wide, in buckets 2 to 2.5 times apart (`LATENCY_BUCKET_BOUNDS_US`). |
-| Backfill | `crates/ai-memory-cli/src/commands/backfill.rs` `BACKFILL_EXTENSION`; `payload.rs` `HookQuery` | Backfill posts to `/hook/batch` with `extension=ai-memory-backfill` in the query, and its tool events carry a title and message, not the harness's tool payload. The native client and the generated TS integrations send no `extension`. |
+| Delivery and latency | `crates/pitstop-cli/src/commands/hook.rs`, `hook_spool.rs`; `install_hooks.rs` `postHook`; `router.rs` `handle_hook`; `crates/pitstop-core/src/latency.rs` | The native client writes each event to a local spool, and a detached `hook-drain` delivers it through `POST /hook/batch`. Two drains run inside the hook the agent waits on: `session-start` drains the backlog within `start_drain_budget` before fetching its handoff, and Zero, whose sandbox kills detached children, drains in-process within a short budget. The generated TS integrations queue each event in process (`postHook` returns `void`), a background flush posts it to `POST /hook`, and the spool takes it when delivery fails. `hook_latency` times `POST /hook` admission only, server-wide, in buckets 2 to 2.5 times apart (`LATENCY_BUCKET_BOUNDS_US`). |
+| Backfill | `crates/pitstop-cli/src/commands/backfill.rs` `BACKFILL_EXTENSION`; `payload.rs` `HookQuery` | Backfill posts to `/hook/batch` with `extension=pitstop-backfill` in the query, and its tool events carry a title and message, not the harness's tool payload. The native client and the generated TS integrations send no `extension`. |
 
 ## 3. Proposal
 
@@ -80,10 +80,10 @@ code.
 
 Only the two front doors that implement capture policy v1 produce a path: the
 native client and the generated TS integrations. They add a reserved top-level
-field, versioned like `_ai_memory_assistant`:
+field, versioned like `_pitstop_assistant`:
 
 ```json
-"_ai_memory_file": { "version": 1, "path": "src/lib.rs" }
+"_pitstop_file": { "version": 1, "path": "src/lib.rs" }
 ```
 
 **When the field is sent.** All four must hold:
@@ -107,7 +107,7 @@ reaches this point under an inactive policy (section 2); section 10, question
 cannot produce a key (section 3.3), it sends the field without a path:
 
 ```json
-"_ai_memory_file": { "version": 1, "skipped": "outside_checkout" }
+"_pitstop_file": { "version": 1, "skipped": "outside_checkout" }
 ```
 
 `skipped` says why: `outside_checkout`, `no_checkout` (no `.git` ancestor) or
@@ -123,7 +123,7 @@ event even when the server key is off. The cost is one short JSON object per
 kept file-tool post, which the server removes on arrival (section 3.4).
 
 **Why a separate field.** `CaptureProtocol` parses with `deny_unknown_fields`,
-so a new key inside `_ai_memory_capture` would make an older server treat every
+so a new key inside `_pitstop_capture` would make an older server treat every
 claim as invalid and rewrite every file event to metadata-only. An unknown
 top-level field is ignored by older servers, and older clients never send it.
 
@@ -175,8 +175,8 @@ refuses.
 
 ### 3.4 Server acceptance
 
-The server always removes `_ai_memory_file` from the raw payload, as
-`apply_assistant_backstop` does with `_ai_memory_assistant`, on both routes
+The server always removes `_pitstop_file` from the raw payload, as
+`apply_assistant_backstop` does with `_pitstop_assistant`, on both routes
 that build an envelope: `handle_hook` and the batch route. It stores
 `file_path` only when all of these hold:
 
@@ -206,7 +206,7 @@ envelope to the point where the delivery's outcome is recorded
 (`HookProcessingOutcome::record`). A counter of section 3.8 moves there, once,
 and only for a delivery that ends `stored`. A 429 the client retries, a replayed
 delivery, and an event the subagent rule, the drop list or authorization
-discards move none. Backfill (`extension=ai-memory-backfill`) is skipped before
+discards move none. Backfill (`extension=pitstop-backfill`) is skipped before
 inspection. With the key off nothing new is inspected or counted.
 
 The inspection runs in admission, before the 202. The agent waits on it only
@@ -298,7 +298,7 @@ reason when it records the delivery (section 3.4). New scalars in
 the snapshot. They reach `/admin/status`, which serializes the whole
 snapshot, and `/admin/metrics`, where `render_prometheus` renders them as one
 compile-time family,
-`ai_memory_hook_file_paths_total`, under the existing `outcome` label. All are
+`pitstop_hook_file_paths_total`, under the existing `outcome` label. All are
 root-only on a multi-user server, server-wide, with no scope, path or
 client-supplied label. Row 3d of `docs/security-boundaries.md` is updated in
 the same PR.
@@ -313,7 +313,7 @@ counter; the first matching row wins:
 | 2 | `file_path_metadata_only` | a valid claim whose disposition is MetadataOnly: a file call with no readable path under an active policy, an output-spool read, a match that could not be proven, or a broken marker (`PolicyState::Invalid`) |
 | 3 | `file_path_no_file` | the call names no file the server can read (an empty or malformed patch) |
 | 4 | `file_path_multi_file` | the call names more than one file, a move, or a glob |
-| 5 | `file_path_field_absent` | no `_ai_memory_file` field (an older or unsupported client) |
+| 5 | `file_path_field_absent` | no `_pitstop_file` field (an older or unsupported client) |
 | 6 | `file_path_unknown_version` | a field version this server does not read (a newer client) |
 | 7 | `file_path_skipped_outside_checkout`, `_no_checkout`, `_refused`, `_other` | the field carries `skipped` |
 | 8 | `file_path_server_rejected` | a malformed field, `path` and `skipped` together or neither, or a failed check in section 3.4 |
@@ -475,7 +475,7 @@ policy already places in the client.
 
 **Integration**
 
-- `crates/ai-memory-store/tests/suite/multi_session.rs`, `project_authz.rs`: the
+- `crates/pitstop-store/tests/suite/multi_session.rs`, `project_authz.rs`: the
   project and operator rows in section 5.
 - Hooks router tests, on `handle_hook` and the batch route: forged and
   malformed fields, key off, no field from a legacy-shaped payload, a field on
@@ -497,7 +497,7 @@ policy already places in the client.
 - Recovery: the migration applied to a store with existing observations, and a
   failed observation insert that leaves no `file_path` behind (AGENTS.md: new
   disk+SQL mutations need recovery and rollback tests).
-- `crates/ai-memory-cli/tests/suite/external_capture_ts.rs`: the generated
+- `crates/pitstop-cli/tests/suite/external_capture_ts.rs`: the generated
   plugin, run in Node against a loopback stand-in for the server, sends the
   field with the checkout-relative path. That the server stores the path from
   these integrations' payloads is checked by the OpenCode run of the live
@@ -557,7 +557,7 @@ section 10, question 7.
 - **A side table:** fits several paths per call (a multi-file `apply_patch`), at
   the cost of a join and its own lifecycle. Deferred until multi-file calls are
   in scope.
-- **The path inside `_ai_memory_capture`:** breaks older servers (section 3.2).
+- **The path inside `_pitstop_capture`:** breaks older servers (section 3.2).
 - **A protocol version bump:** same effect on older servers.
 - **A hash instead of the path:** a repository path has little entropy, so the
   hash hides little, and it makes the index unreadable for diagnosis.
@@ -583,8 +583,8 @@ Each question carries the default this note assumes.
    retention and purge already remove them, and a clearing sweep would be new
    code.
 4. **Path length bound.** Default: reuse 512. `HANDOFF_FILE_MAX_CHARS` is
-   private to `ai-memory-mcp`, so the hooks crate needs its own constant or a
-   shared one in `ai-memory-core`.
+   private to `pitstop-mcp`, so the hooks crate needs its own constant or a
+   shared one in `pitstop-core`.
 5. **`observations_for_file` in step 2 or with delivery.** Default: step 2, with
    test-only callers and the `FileSessionRef` result of section 3.6, because
    #1843 asks for isolation to be proven before delivery. Deferring it moves

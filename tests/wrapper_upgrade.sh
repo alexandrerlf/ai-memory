@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/ai-memory-wrapper-upgrade.XXXXXX")"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/pitstop-wrapper-upgrade.XXXXXX")"
 trap 'rm -rf "${TMP_ROOT}"' EXIT
 
 fail() {
@@ -27,17 +27,17 @@ FAKE_DOCKER="${TMP_ROOT}/podman"
 cat >"${FAKE_DOCKER}" <<'DOCKER'
 #!/usr/bin/env bash
 set -euo pipefail
-printf '%s\n' "$*" >>"${AI_MEMORY_WRAPPER_TEST_LOG}"
+printf '%s\n' "$*" >>"${PITSTOP_WRAPPER_TEST_LOG}"
 
 case "${1:-}" in
   pull)
     exit 0
     ;;
   ps)
-    printf 'ai-memory\n'
+    printf 'pitstop\n'
     ;;
   compose)
-    if [ "${2:-}" = "ps" ] && [ "${AI_MEMORY_TEST_COMPOSE_OWNS:-}" = "1" ]; then
+    if [ "${2:-}" = "ps" ] && [ "${PITSTOP_TEST_COMPOSE_OWNS:-}" = "1" ]; then
       printf 'running-container-id\n'
     fi
     ;;
@@ -48,15 +48,15 @@ case "${1:-}" in
       *PortBindings*) printf '%s\n' '-p 127.0.0.1:49374:49374/tcp ' ;;
       *Mounts*)
         if printf '%s\n' "${4:-}" | grep -q 'if \.Mode'; then
-          printf '%s\n' '-v ai-memory-data:/data:Z '
+          printf '%s\n' '-v pitstop-data:/data:Z '
         else
-          printf '%s\n' '-v ai-memory-data:/data '
+          printf '%s\n' '-v pitstop-data:/data '
         fi
         ;;
       *RestartPolicy*) printf '%s\n' '--restart unless-stopped' ;;
       '{{json .Config.Cmd}}') printf '[]\n' ;;
       *'.Config.Env'*)
-        if [ "${2:-}" = "ai-memory" ]; then
+        if [ "${2:-}" = "pitstop" ]; then
           printf 'CUSTOM_VAR=custom_val\nHOSTNAME=container-id-123\ncontainer=podman\n'
         fi
         ;;
@@ -86,29 +86,29 @@ run_upgrade_case() {
     cd "${case_dir}"
     HOME="${case_dir}/home" \
     XDG_CACHE_HOME="${case_dir}/cache" \
-    AI_MEMORY_DOCKER="${FAKE_DOCKER}" \
-    AI_MEMORY_NATIVE_BIN="${case_dir}/native-client" \
-    AI_MEMORY_SKIP_SELF_UPGRADE=1 \
-    AI_MEMORY_WRAPPER_TEST_LOG="${log}" \
-    AI_MEMORY_TEST_COMPOSE_OWNS="${owns}" \
-      "${ROOT}/bin/ai-memory" "$@" upgrade >"${output}" 2>&1
+    PITSTOP_DOCKER="${FAKE_DOCKER}" \
+    PITSTOP_NATIVE_BIN="${case_dir}/native-client" \
+    PITSTOP_SKIP_SELF_UPGRADE=1 \
+    PITSTOP_WRAPPER_TEST_LOG="${log}" \
+    PITSTOP_TEST_COMPOSE_OWNS="${owns}" \
+      "${ROOT}/bin/pitstop" "$@" upgrade >"${output}" 2>&1
   )
 }
 
 run_upgrade_case standalone 0
-assert_contains "${TMP_ROOT}/standalone/output.log" "does not manage the running ai-memory container"
+assert_contains "${TMP_ROOT}/standalone/output.log" "does not manage the running pitstop container"
 assert_not_contains "${TMP_ROOT}/standalone/docker.log" "compose up -d"
-assert_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "-v ai-memory-data:/data:Z"
-assert_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "-e CUSTOM_VAR=custom_val"
-assert_not_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "HOSTNAME="
-assert_not_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "container=podman"
-assert_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "${FAKE_DOCKER} stop ai-memory"
-assert_not_contains "${TMP_ROOT}/standalone/cache/ai-memory/recreate-ai-memory.sh" "docker stop ai-memory"
+assert_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "-v pitstop-data:/data:Z"
+assert_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "-e CUSTOM_VAR=custom_val"
+assert_not_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "HOSTNAME="
+assert_not_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "container=podman"
+assert_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "${FAKE_DOCKER} stop pitstop"
+assert_not_contains "${TMP_ROOT}/standalone/cache/pitstop/recreate-pitstop.sh" "docker stop pitstop"
 
 run_upgrade_case compose 1
-assert_contains "${TMP_ROOT}/compose/output.log" "restarting local ai-memory container via ${FAKE_DOCKER} compose"
+assert_contains "${TMP_ROOT}/compose/output.log" "restarting local pitstop container via ${FAKE_DOCKER} compose"
 assert_contains "${TMP_ROOT}/compose/docker.log" "compose up -d"
-if [ -e "${TMP_ROOT}/compose/cache/ai-memory/recreate-ai-memory.sh" ]; then
+if [ -e "${TMP_ROOT}/compose/cache/pitstop/recreate-pitstop.sh" ]; then
   fail "Compose-owned container unexpectedly produced a standalone recreation script"
 fi
 
@@ -201,10 +201,10 @@ if pid == 0:
     os.close(slave)
     env = dict(os.environ)
     env["PATH"] = sys.argv[1] + ":" + env["PATH"]
-    env["AI_MEMORY_DOCKER"] = sys.argv[2]
-    env["AI_MEMORY_NO_TTY"] = "1"
+    env["PITSTOP_DOCKER"] = sys.argv[2]
+    env["PITSTOP_NO_TTY"] = "1"
     env["XDG_CACHE_HOME"] = sys.argv[3]
-    env.pop("AI_MEMORY_NO_VERSION_CHECK", None)
+    env.pop("PITSTOP_NO_VERSION_CHECK", None)
     os.execvpe(sys.argv[4], [sys.argv[4], "status"], env)
 else:
     os.close(slave)
@@ -220,7 +220,7 @@ else:
     os.waitpid(pid, 0)
     with open(sys.argv[5], "wb") as f:
         f.write(output)
-' "${case_dir}" "${fake_engine}" "${case_dir}/cache" "${ROOT}/bin/ai-memory" "${out}"
+' "${case_dir}" "${fake_engine}" "${case_dir}/cache" "${ROOT}/bin/pitstop" "${out}"
 
     if [ "${expect_warn}" -eq 1 ]; then
       assert_contains "${out}" "a newer image is available on Docker Hub"
@@ -254,17 +254,17 @@ fi
 BRIDGE_CASE_DIR="${TMP_ROOT}/mcp_bridge"
 mkdir -p "${BRIDGE_CASE_DIR}/home" "${BRIDGE_CASE_DIR}/cache"
 
-FAKE_NATIVE="${BRIDGE_CASE_DIR}/native-ai-memory"
+FAKE_NATIVE="${BRIDGE_CASE_DIR}/native-pitstop"
 cat >"${FAKE_NATIVE}" <<'NATIVE'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >>"${AI_MEMORY_WRAPPER_TEST_LOG}"
+printf '%s\n' "$*" >>"${PITSTOP_WRAPPER_TEST_LOG}"
 NATIVE
 chmod 0755 "${FAKE_NATIVE}"
 
 BRIDGE_DOCKER="${BRIDGE_CASE_DIR}/docker"
 cat >"${BRIDGE_DOCKER}" <<'DOCKER'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >>"${AI_MEMORY_DOCKER_TEST_LOG}"
+printf '%s\n' "$*" >>"${PITSTOP_DOCKER_TEST_LOG}"
 exit 0
 DOCKER
 chmod 0755 "${BRIDGE_DOCKER}"
@@ -273,11 +273,11 @@ chmod 0755 "${BRIDGE_DOCKER}"
 : >"${BRIDGE_CASE_DIR}/docker.log"
 HOME="${BRIDGE_CASE_DIR}/home" \
 XDG_CACHE_HOME="${BRIDGE_CASE_DIR}/cache" \
-AI_MEMORY_DOCKER="${BRIDGE_DOCKER}" \
-AI_MEMORY_NATIVE_BIN="${FAKE_NATIVE}" \
-AI_MEMORY_WRAPPER_TEST_LOG="${BRIDGE_CASE_DIR}/native.log" \
-AI_MEMORY_DOCKER_TEST_LOG="${BRIDGE_CASE_DIR}/docker.log" \
-  "${ROOT}/bin/ai-memory" mcp-bridge --server-url http://127.0.0.1:49374/mcp </dev/null
+PITSTOP_DOCKER="${BRIDGE_DOCKER}" \
+PITSTOP_NATIVE_BIN="${FAKE_NATIVE}" \
+PITSTOP_WRAPPER_TEST_LOG="${BRIDGE_CASE_DIR}/native.log" \
+PITSTOP_DOCKER_TEST_LOG="${BRIDGE_CASE_DIR}/docker.log" \
+  "${ROOT}/bin/pitstop" mcp-bridge --server-url http://127.0.0.1:49374/mcp </dev/null
 
 assert_contains "${BRIDGE_CASE_DIR}/native.log" "mcp-bridge --server-url http://127.0.0.1:49374/mcp"
 if [ -s "${BRIDGE_CASE_DIR}/docker.log" ]; then
@@ -287,28 +287,28 @@ printf 'wrapper mcp-bridge native routing checks passed\n'
 
 # ---- lifecycle hook native host routing ----------------------------------
 
-# `ai-memory hook` is what every generated hook config and plugin calls. Inside
+# `pitstop hook` is what every generated hook config and plugin calls. Inside
 # the helper container it costs ~280 ms per event and its default loopback URL
 # is the container, not the host server. The wrapper must exec the native
 # client with the payload on stdin and never touch the container engine: not
-# through AI_MEMORY_DOCKER, and not through a `docker` found on PATH.
+# through PITSTOP_DOCKER, and not through a `docker` found on PATH.
 HOOK_CASE_DIR="${TMP_ROOT}/hook"
 mkdir -p "${HOOK_CASE_DIR}/home" "${HOOK_CASE_DIR}/cache" "${HOOK_CASE_DIR}/path"
 
-HOOK_NATIVE="${HOOK_CASE_DIR}/native-ai-memory"
+HOOK_NATIVE="${HOOK_CASE_DIR}/native-pitstop"
 cat >"${HOOK_NATIVE}" <<'NATIVE'
 #!/usr/bin/env bash
-printf 'argv: %s\n' "$*" >>"${AI_MEMORY_WRAPPER_TEST_LOG}"
-printf 'stdin: %s\n' "$(cat)" >>"${AI_MEMORY_WRAPPER_TEST_LOG}"
-printf 'arg: <%s>\n' "$@" >>"${AI_MEMORY_WRAPPER_TEST_LOG}"
-exit "${AI_MEMORY_TEST_NATIVE_EXIT:-0}"
+printf 'argv: %s\n' "$*" >>"${PITSTOP_WRAPPER_TEST_LOG}"
+printf 'stdin: %s\n' "$(cat)" >>"${PITSTOP_WRAPPER_TEST_LOG}"
+printf 'arg: <%s>\n' "$@" >>"${PITSTOP_WRAPPER_TEST_LOG}"
+exit "${PITSTOP_TEST_NATIVE_EXIT:-0}"
 NATIVE
 chmod 0755 "${HOOK_NATIVE}"
 
 for engine in docker podman; do
   cat >"${HOOK_CASE_DIR}/path/${engine}" <<'DOCKER'
 #!/usr/bin/env bash
-printf '%s %s\n' "$(basename "$0")" "$*" >>"${AI_MEMORY_DOCKER_TEST_LOG}"
+printf '%s %s\n' "$(basename "$0")" "$*" >>"${PITSTOP_DOCKER_TEST_LOG}"
 exit 0
 DOCKER
   chmod 0755 "${HOOK_CASE_DIR}/path/${engine}"
@@ -320,11 +320,11 @@ run_hook_case() {
   HOME="${HOOK_CASE_DIR}/home" \
   XDG_CACHE_HOME="${HOOK_CASE_DIR}/cache" \
   PATH="${HOOK_CASE_DIR}/path:${PATH}" \
-  AI_MEMORY_DOCKER="${HOOK_CASE_DIR}/path/docker" \
-  AI_MEMORY_NATIVE_BIN="${native_bin}" \
-  AI_MEMORY_WRAPPER_TEST_LOG="${HOOK_CASE_DIR}/native.log" \
-  AI_MEMORY_DOCKER_TEST_LOG="${HOOK_CASE_DIR}/docker.log" \
-    "${ROOT}/bin/ai-memory" "$@"
+  PITSTOP_DOCKER="${HOOK_CASE_DIR}/path/docker" \
+  PITSTOP_NATIVE_BIN="${native_bin}" \
+  PITSTOP_WRAPPER_TEST_LOG="${HOOK_CASE_DIR}/native.log" \
+  PITSTOP_DOCKER_TEST_LOG="${HOOK_CASE_DIR}/docker.log" \
+    "${ROOT}/bin/pitstop" "$@"
 }
 
 assert_no_container() {
@@ -362,8 +362,8 @@ for subcommand in run show continue resume workstreams rename-workstream install
       native_status=0
       # The bind-mounted data directory needs no volume-token refresh during
       # install-hooks; the entire invocation must stay on the host.
-      printf '{"session_id":"prefixed"}' | AI_MEMORY_DATA_DIR="${HOOK_CASE_DIR}/home" \
-        AI_MEMORY_TEST_NATIVE_EXIT=7 run_hook_case "${HOOK_NATIVE}" "${args[@]}" \
+      printf '{"session_id":"prefixed"}' | PITSTOP_DATA_DIR="${HOOK_CASE_DIR}/home" \
+        PITSTOP_TEST_NATIVE_EXIT=7 run_hook_case "${HOOK_NATIVE}" "${args[@]}" \
         || native_status=$?
       [ "${native_status}" -eq 7 ] || fail "${args[*]} returned ${native_status}, want native exit 7"
       printf 'arg: <%s>\n' "${args[@]}" >"${HOOK_CASE_DIR}/expected-args"
@@ -415,7 +415,7 @@ done
 
 # The explicit compatibility path still uses the helper with a prefix.
 : >"${HOOK_CASE_DIR}/docker.log"
-AI_MEMORY_HOOK_PLATFORM=posix run_hook_case "${HOOK_NATIVE}" \
+PITSTOP_HOOK_PLATFORM=posix run_hook_case "${HOOK_NATIVE}" \
   --data-dir '/tmp/ai memory' install-hooks --agent claude-code --apply </dev/null
 [ ! -s "${HOOK_CASE_DIR}/native.log" ] || fail "explicit compatibility install reached native client"
 assert_contains "${HOOK_CASE_DIR}/docker.log" 'install-hooks --agent claude-code --apply'
@@ -425,11 +425,11 @@ assert_contains "${HOOK_CASE_DIR}/docker.log" 'install-hooks --agent claude-code
 # and still exits 0 at once; it never falls back to the container.
 : >"${HOOK_CASE_DIR}/native.log"
 hook_status=0
-printf '{}' | run_hook_case "${HOOK_CASE_DIR}/missing-ai-memory" \
+printf '{}' | run_hook_case "${HOOK_CASE_DIR}/missing-pitstop" \
   --config /tmp/memory.toml hook --agent claude-code --event session-start 2>"${HOOK_CASE_DIR}/missing.err" \
   || hook_status=$?
 [ "${hook_status}" -eq 0 ] || fail "hook without a native client exited ${hook_status}, want 0"
-assert_contains "${HOOK_CASE_DIR}/missing.err" "AI_MEMORY_NATIVE_BIN is not executable"
+assert_contains "${HOOK_CASE_DIR}/missing.err" "PITSTOP_NATIVE_BIN is not executable"
 assert_contains "${HOOK_CASE_DIR}/missing.err" "lifecycle hook event not captured"
 assert_no_container "hook without a native client"
 
@@ -438,7 +438,7 @@ assert_no_container "hook without a native client"
 # never runs curl; with a client installed it execs it without asking GitHub.
 cat >"${HOOK_CASE_DIR}/path/curl" <<'CURL'
 #!/usr/bin/env bash
-printf 'curl %s\n' "$*" >>"${AI_MEMORY_DOCKER_TEST_LOG}"
+printf 'curl %s\n' "$*" >>"${PITSTOP_DOCKER_TEST_LOG}"
 exit 1
 CURL
 chmod 0755 "${HOOK_CASE_DIR}/path/curl"
@@ -447,10 +447,10 @@ run_cached_hook_case() {
   XDG_CACHE_HOME="${HOOK_CASE_DIR}/cache" \
   XDG_DATA_HOME="${HOOK_CASE_DIR}/data" \
   PATH="${HOOK_CASE_DIR}/path:${PATH}" \
-  AI_MEMORY_DOCKER="${HOOK_CASE_DIR}/path/docker" \
-  AI_MEMORY_WRAPPER_TEST_LOG="${HOOK_CASE_DIR}/native.log" \
-  AI_MEMORY_DOCKER_TEST_LOG="${HOOK_CASE_DIR}/docker.log" \
-    "${ROOT}/bin/ai-memory" "$@"
+  PITSTOP_DOCKER="${HOOK_CASE_DIR}/path/docker" \
+  PITSTOP_WRAPPER_TEST_LOG="${HOOK_CASE_DIR}/native.log" \
+  PITSTOP_DOCKER_TEST_LOG="${HOOK_CASE_DIR}/docker.log" \
+    "${ROOT}/bin/pitstop" "$@"
 }
 : >"${HOOK_CASE_DIR}/docker.log"
 hook_status=0
@@ -460,8 +460,8 @@ printf '{}' | run_cached_hook_case hook --agent claude-code --event session-star
 assert_contains "${HOOK_CASE_DIR}/uncached.err" "not installed yet"
 assert_no_container "hook with no installed client (no curl, no engine)"
 
-mkdir -p "${HOOK_CASE_DIR}/data/ai-memory/native-runner"
-cp "${HOOK_NATIVE}" "${HOOK_CASE_DIR}/data/ai-memory/native-runner/ai-memory"
+mkdir -p "${HOOK_CASE_DIR}/data/pitstop/native-runner"
+cp "${HOOK_NATIVE}" "${HOOK_CASE_DIR}/data/pitstop/native-runner/pitstop"
 : >"${HOOK_CASE_DIR}/native.log"
 : >"${HOOK_CASE_DIR}/docker.log"
 printf '{"session_id":"s-2"}' \

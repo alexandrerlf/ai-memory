@@ -77,7 +77,7 @@ jobs:
       # NixOS system closure. See nix/nixos-module.nix and the assertions
       # in flake.nix's checks.x86_64-linux.
       - run: nix build --print-build-logs '.#checks.x86_64-linux.nixos-module-eval'
-      # One runtime path: packages.x86_64-linux.nixos-ai-memory-docker builds
+      # One runtime path: packages.x86_64-linux.nixos-pitstop-docker builds
       # system.build.toplevel once (via the docker-image tarball) and the
       # script imports that rootfs, starts systemd, and checks install +
       # /healthz + dataDir restart/volume persistence.

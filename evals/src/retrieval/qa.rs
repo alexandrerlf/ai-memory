@@ -19,7 +19,7 @@
 //! by default; when it is requested but a provider/key cannot be resolved,
 //! the caller SKIPS QA (retrieval metrics are unaffected) rather than
 //! failing the run. Provider construction and structured output reuse the
-//! same `ai-memory-llm` path the product uses; keys are read from env by the
+//! same `pitstop-llm` path the product uses; keys are read from env by the
 //! provider auth boundary and never logged, printed, or written to reports.
 
 use std::sync::Arc;
@@ -30,7 +30,7 @@ use schemars::JsonSchema;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
-use ai_memory_llm::{
+use pitstop_llm::{
     AuthRequirement, ChatMessage, ChatRequest, LlmProvider, ProviderAuth, ProviderChoice,
     ProviderConfig, Role, complete_structured,
 };
@@ -455,7 +455,7 @@ fn build_llm_provider(
             ProviderAuth::copilot(tf.to_path_buf(), None, None, base_url.map(str::to_string))
         }
         AuthRequirement::AnthropicOAuthToken => ProviderAuth::anthropic_oauth_token(api_key),
-        AuthRequirement::CursorCli => ProviderAuth::cursor(ai_memory_llm::CursorAuth::new(
+        AuthRequirement::CursorCli => ProviderAuth::cursor(pitstop_llm::CursorAuth::new(
             "agent",
             std::env::temp_dir(),
             &std::env::vars_os().collect::<Vec<_>>(),
@@ -472,11 +472,11 @@ fn build_llm_provider(
         // keep the product default (off) for every candidate.
         compat_disable_thinking: false,
         compat_stream: None,
-        request_timeout_secs: ai_memory_llm::DEFAULT_REQUEST_TIMEOUT_SECS,
+        request_timeout_secs: pitstop_llm::DEFAULT_REQUEST_TIMEOUT_SECS,
         reasoning_effort: None,
-        extra_headers: ai_memory_llm::ExtraHeaders::default(),
+        extra_headers: pitstop_llm::ExtraHeaders::default(),
     };
-    ai_memory_llm::build_provider(config)
+    pitstop_llm::build_provider(config)
         .map_err(anyhow::Error::from)
         .map_err(|e| e.context(format!("{role}: building provider `{provider_str}`")))
 }
@@ -553,7 +553,7 @@ mod tests {
             "gemini-2.5-flash",
             None,
             None,
-            Some("AI_MEMORY_EVAL_QA_DEFINITELY_UNSET_KEY"),
+            Some("PITSTOP_EVAL_QA_DEFINITELY_UNSET_KEY"),
             None,
         )
         .map(|_| ())

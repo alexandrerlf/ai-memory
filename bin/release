@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cut a release of ai-memory.
+# Cut a release of pitstop.
 #
 # Usage: bin/release <version>
 #
@@ -104,10 +104,10 @@ if new_text == text:
     sys.exit("ERROR: could not find [workspace.package] version in Cargo.toml")
 
 # 2. Bump version constraints in [workspace.dependencies] for the intra-crate
-#    path deps (ai-memory-core, ai-memory-store, etc.).  These always use the
+#    path deps (pitstop-core, pitstop-store, etc.).  These always use the
 #    same version as the workspace package itself.
 new_text = re.sub(
-    r'(ai-memory-[\w-]+\s*=\s*\{[^}]*version\s*=\s*")[^"]+(")',
+    r'(pitstop-[\w-]+\s*=\s*\{[^}]*version\s*=\s*")[^"]+(")',
     r'\g<1>$VERSION\g<2>',
     new_text,
     flags=re.MULTILINE,
@@ -131,7 +131,7 @@ cargo update --workspace --offline 2>/dev/null || cargo update --workspace
 # the bumped tree. The tag then carries catalogs that point at itself and
 # nothing has to be pushed after the release (#1166).
 echo "==> Re-rendering the marketplace plugins for ${VERSION}"
-cargo run --quiet --locked --bin ai-memory -- render-plugins --out "$REPO_ROOT"
+cargo run --quiet --locked --bin pitstop -- render-plugins --out "$REPO_ROOT"
 
 # ── update CHANGELOG.md ────────────────────────────────────────────────────
 

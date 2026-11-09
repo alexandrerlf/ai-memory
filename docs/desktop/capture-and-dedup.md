@@ -12,17 +12,17 @@ apps; Cursor is the exception") needs revision after this research:
 
 | Surface | Capture mechanism | Effort |
 | --- | --- | --- |
-| Claude Desktop **Code** tab (local) | Already captured: desktop runs Claude Code with user `~/.claude/settings.json` → ai-memory hooks fire (`agent=claude-code`; a folderless session's cwd is a scratch workspace). Verified from transcripts 2026-10-08. **Zero new code.** | 0 |
+| Claude Desktop **Code** tab (local) | Already captured: desktop runs Claude Code with user `~/.claude/settings.json` → pitstop hooks fire (`agent=claude-code`; a folderless session's cwd is a scratch workspace). Verified from transcripts 2026-10-08. **Zero new code.** | 0 |
 | Claude Desktop **Cowork** | Unverified: on Linux its tasks run in a QEMU/KVM VM; never run on the research machine. | verify |
 | Codex desktop (Codex mode) | Same host config as CLI (`~/.codex/hooks.json`); `codex app-server`, which the app runs, fires trusted hooks (verified 2026-10-08). One in-app prompt still to confirm. **Then zero code.** | verify |
-| Antigravity IDE / 2.0 / CLI | Native hooks (`~/.gemini/config/hooks.json` + `.agents/hooks.json`); payload has `conversationId`, `transcriptPath`, `workspacePaths[]`, `toolCall`. Map to `/hook` observations. ai-memory already ships `install-hooks --agent antigravity-cli`; IDE reads the same global file. | adapter polish |
+| Antigravity IDE / 2.0 / CLI | Native hooks (`~/.gemini/config/hooks.json` + `.agents/hooks.json`); payload has `conversationId`, `transcriptPath`, `workspacePaths[]`, `toolCall`. Map to `/hook` observations. pitstop already ships `install-hooks --agent antigravity-cli`; IDE reads the same global file. | adapter polish |
 | Zed (ACP + terminal agents) | Agent's own hooks; Zed transparent. | 0 |
 | Claude Desktop **Chat tab**, hosted ChatGPT chat, Grok Bot | No hooks, no local store → model-discretion MCP tool calls (option a) and/or explicit capture tool. | RFC Phase 1 |
 | Hosted ChatGPT plugins | Remote-only; needs published plugin + reachable server. | new surface |
 
 ### What the MCP server can see server-side (all apps)
 
-ai-memory *is* the MCP server, so on any MCP-connected app we observe:
+pitstop *is* the MCP server, so on any MCP-connected app we observe:
 tool calls (name + args + results) and call timestamps, and nothing else
 through the MCP session. We do **not** see chat turns, prompts, or model
 output. Practical consequences:
@@ -53,7 +53,7 @@ Now concrete per app (paths verified locally unless noted):
   watcher class does not apply.
 
 A watcher/importer remains the importer-envelope (`/hook/batch`) pattern
-from `companions/ai-memory-importer`; keep it out of core (RFC #878 rule).
+from `companions/pitstop-importer`; keep it out of core (RFC #878 rule).
 
 ## 2. Session identity & dedup design
 
@@ -63,7 +63,7 @@ Verified mechanics (see `claude-desktop.md`):
 
 - Desktop Code sessions **are** Claude Code sessions: one `session_id`
   (CLI UUID). `/desktop` and `claude --desktop --resume <id>` move the same
-  id across surfaces. ai-memory's `(agent=claude-code, session_id)` key
+  id across surfaces. pitstop's `(agent=claude-code, session_id)` key
   therefore sees **one session**, no dedup needed.
 - A desktop Code session started without a project folder is a **new** CLI
   session under an ephemeral scratch cwd
@@ -108,11 +108,11 @@ avoid double-counting with local rollouts.
 `conversationId` (UUID) is the session key, identical across IDE/CLI/2.0
 for the same conversation; the surface is distinguishable by the
 `transcriptPath` prefix (`antigravity-ide/` vs `antigravity-cli/` vs
-`antigravity/`). Map to ai-memory: `agent=antigravity`, session_id =
+`antigravity/`). Map to pitstop: `agent=antigravity`, session_id =
 `conversationId`, cwd = `workspacePaths[0]` (fallback: last path; the
 payload has no scalar `cwd`). The hook set lacks SessionStart/SessionEnd, so
 derive session boundaries from first/last observation timestamps per
-conversation id (ai-memory sessions are already built from observation
+conversation id (pitstop sessions are already built from observation
 streams, so a Stop-hook flush marker is enough; optional).
 
 ### General rule

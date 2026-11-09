@@ -1,3 +1,3 @@
-. "$PSScriptRoot\..\lib\ai-memory-hook.ps1"
-Invoke-AiMemoryHook -Event "post-tool-use" -Agent "codex"
+. "$PSScriptRoot\..\lib\pitstop-hook.ps1"
+Invoke-PitstopHook -Event "post-tool-use" -Agent "codex"
 exit 0

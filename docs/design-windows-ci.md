@@ -16,8 +16,8 @@ untrusted; only facts were extracted.
 ## Problem
 
 Windows is a real, shipped target. It is "Experimental" in the support matrix
-(`docs/support-matrix.md`), but tagged releases publish `ai-memory-windows-x86_64.zip`
-with `ai-memory.exe`, and the PowerShell hook/wrapper surface exists *only* for Windows.
+(`docs/support-matrix.md`), but tagged releases publish `pitstop-windows-x86_64.zip`
+with `pitstop.exe`, and the PowerShell hook/wrapper surface exists *only* for Windows.
 The `#[cfg(windows)]` regression tests are the one place several Windows-only code paths
 ever execute: the Linux/macOS matrix in `ci.yml` never compiles them. So we need that
 coverage, but the way we get it is expensive.
@@ -71,19 +71,19 @@ already covers; otherwise the cost/benefit of every option is guesswork. Enumera
 
 ### Only faithfully validated on real Windows
 
-- **Drain-lock `ERROR_LOCK_VIOLATION`**: `crates/ai-memory-cli/src/commands/hook_spool.rs`
+- **Drain-lock `ERROR_LOCK_VIOLATION`**: `crates/pitstop-cli/src/commands/hook_spool.rs`
   defines `ERROR_LOCK_VIOLATION = 33` and `is_drain_lock_busy_error` treats it as
   "busy, retry." The *unit* test injects the code via `Error::from_raw_os_error(33)` and so
   runs on any platform, but whether the OS actually *returns* code 33 for a contended
   drain lock is a real-Windows fact.
 - **NTFS file-index "inode" + sharing-violation retry**:
-  `crates/ai-memory-wiki/src/atomic.rs` reads the NTFS file index via
+  `crates/pitstop-wiki/src/atomic.rs` reads the NTFS file index via
   `GetFileInformationByHandle` (`winapi_util::file::information`) so the watcher can skip
   its own writes, and `persist_with_retry` absorbs a transient
   `ERROR_SHARING_VIOLATION (32)`, "the Windows-CI antivirus scenario." The retry test
   injects error 32 everywhere; the *real* NTFS file-index value and a *real* scanner-held
   sharing violation only occur on Windows.
-- **libgit2 path-resolution fallback**: `crates/ai-memory-wiki/src/git.rs` carries a
+- **libgit2 path-resolution fallback**: `crates/pitstop-wiki/src/git.rs` carries a
   whole `#[cfg(windows)]` fallback family (`commit_all_fallback`,
   `should_try_commit_cli_fallback`, `commit_count_fallback`,
   `recent_checkpoints_fallback`, `file_at_rev_fallback`) that shells out to the `git` CLI
@@ -96,11 +96,11 @@ already covers; otherwise the cost/benefit of every option is guesswork. Enumera
   lower-cased form), plus verbatim-path (`\\?\`) concerns in git/atomic writes and the
   `%USERPROFILE%`-then-`dirs::home_dir` HOME fallback (`Config::load`). Path *casing* and
   verbatim semantics are OS behaviors, and we cannot prove the code correct for them on Linux.
-- **PowerShell hook transport**: `crates/ai-memory-hooks/tests/suite/powershell_utf8.rs`
+- **PowerShell hook transport**: `crates/pitstop-hooks/tests/suite/powershell_utf8.rs`
   and `powershell_home.rs` are `#![cfg(windows)]` and drive the real
-  `hooks/lib/ai-memory-hook.ps1` under a native PowerShell interpreter (UTF-8 body framing,
+  `hooks/lib/pitstop-hook.ps1` under a native PowerShell interpreter (UTF-8 body framing,
   marker-boundary handling). This is where the cold-start flake lives.
-- **PowerShell wrapper `bin/ai-memory.ps1`**: the Docker-Desktop wrapper. It has had
+- **PowerShell wrapper `bin/pitstop.ps1`**: the Docker-Desktop wrapper. It has had
   PowerShell 5.1-specific crashes (redirected native stderr becoming a terminating error,
   fixed with a localized probe). PS 5.1 behavior is Windows-only.
 - **Detached hook-drain process launch**: `hook_drain_process.rs` detaches the background
@@ -121,7 +121,7 @@ already covers; otherwise the cost/benefit of every option is guesswork. Enumera
 
 The real-Windows-only surface comes down to **two Rust concerns** (file-locking /
 NTFS-index / sharing-violation, and the libgit2 path-resolution fallback + verbatim/UNC
-path casing) plus **the PowerShell layer** (hook transport + `bin/ai-memory.ps1` + the
+path casing) plus **the PowerShell layer** (hook transport + `bin/pitstop.ps1` + the
 PowerShell half of the shell suite). Everything else is either injected-and-Linux-covered
 or lexical. Because the target is small and well bounded, a local VM loop is
 worthwhile and not over-engineered.
@@ -172,7 +172,7 @@ sync the repo in (bind-mounted `/shared` → drive `Z:` in the guest, or RDP/SSH
   keep a snapshot.
 - **Coverage vs the surface:** **Full.** Real NTFS file-index + sharing violations, real
   libgit2 path-resolution fallback, real verbatim/UNC + drive-letter casing, real
-  PowerShell transport and `bin/ai-memory.ps1` under a native interpreter. That is everything the
+  PowerShell transport and `bin/pitstop.ps1` under a native interpreter. That is everything the
   enumerated surface needs.
 - **Integration with `windows.yml`:** **Supplement / local-only.** Keep `windows.yml`
   as-is for drift detection; the VM becomes the *fast* pre-merge and mandatory pre-release
@@ -183,7 +183,7 @@ sync the repo in (bind-mounted `/shared` → drive `Z:` in the guest, or RDP/SSH
 Register a self-hosted `windows` runner (inside a dockur VM or a dedicated Windows VM on
 marvin) and point `windows.yml`'s `runs-on` at it.
 
-- **The disqualifying caveat:** ai-memory is a **public** repo. GitHub's own guidance is
+- **The disqualifying caveat:** pitstop is a **public** repo. GitHub's own guidance is
   explicit: *"We recommend that you only use self-hosted runners with private repositories.
   This is because forks of your public repository can potentially run dangerous code on
   your self-hosted runner machine by creating a pull request that executes the code in a
@@ -308,7 +308,7 @@ Each phase is independently shippable and reversible; nothing removes `windows.y
   Phase 2 is worth automating (it almost certainly is, given local cache + more cores).
 - **Phase 2: the `bin/` helper.** Script "up → sync tree (`/shared`→`Z:`) → `cargo test` +
   hook suite → report → down" as a `bin/`-style command, mirroring existing helpers
-  (`bin/ai-memory`, `bin/deploy`, `bin/release`). Keep it read/report only; never let it
+  (`bin/pitstop`, `bin/deploy`, `bin/release`). Keep it read/report only; never let it
   mutate the host tree. Document it in `docs/windows.md` and reference it from AGENTS.md's
   pre-release Windows step as the *fast* pre-check that precedes the mandatory
   `windows.yml` dispatch on the RC SHA.
@@ -334,7 +334,7 @@ green-before-tag on the RC SHA.
   dockur quickstart could silently reintroduce the retail default. Call this out in
   `docs/windows.md`.
 - **PowerShell parity.** The guest must run the *Windows PowerShell 5.1* (and/or the pinned
-  PowerShell the hook lib targets) that `bin/ai-memory.ps1` and the hook suite exercise.
+  PowerShell the hook lib targets) that `bin/pitstop.ps1` and the hook suite exercise.
   The 5.1-specific redirected-stderr crash we already fixed shows the version matters. Ensure
   the eval edition ships the right PowerShell, or install it during provisioning.
 - **Nested-virt / GPU / `/dev/kvm` availability.** Confirmed available on marvin per the
@@ -344,7 +344,7 @@ green-before-tag on the RC SHA.
   `windows-latest`'s nightly is what catches *upstream* drift the snapshot would hide. This
   is why `windows.yml` must stay instead of being replaced: the two complement each other.
 - **Cross-compile ABI gap.** `-gnu` cross-builds catch most compile breaks, but the shipped
-  release is MSVC (`ai-memory.exe`); a `-gnu`-only gate could miss an MSVC-specific break.
+  release is MSVC (`pitstop.exe`); a `-gnu`-only gate could miss an MSVC-specific break.
   If Phase 0 uses `-gnu` for simplicity, note the gap and consider `cargo-xwin` (`-msvc`)
   for fidelity.
 
@@ -376,11 +376,11 @@ External sources (fetched as untrusted data; facts only):
   https://github.com/cross-rs/cross/issues/550
 
 Repo grounding (this repository): `.github/workflows/windows.yml`;
-`crates/ai-memory-cli/src/commands/hook_spool.rs` (`ERROR_LOCK_VIOLATION`);
-`crates/ai-memory-wiki/src/atomic.rs` (NTFS file-index, sharing-violation retry);
-`crates/ai-memory-wiki/src/git.rs` (`#[cfg(windows)]` libgit2 path-resolution fallbacks);
-`crates/ai-memory-hooks/tests/suite/powershell_utf8.rs`, `powershell_home.rs`;
-`hooks/lib/ai-memory-hook.ps1`, `bin/ai-memory.ps1`; `docs/support-matrix.md`,
+`crates/pitstop-cli/src/commands/hook_spool.rs` (`ERROR_LOCK_VIOLATION`);
+`crates/pitstop-wiki/src/atomic.rs` (NTFS file-index, sharing-violation retry);
+`crates/pitstop-wiki/src/git.rs` (`#[cfg(windows)]` libgit2 path-resolution fallbacks);
+`crates/pitstop-hooks/tests/suite/powershell_utf8.rs`, `powershell_home.rs`;
+`hooks/lib/pitstop-hook.ps1`, `bin/pitstop.ps1`; `docs/support-matrix.md`,
 `docs/windows.md`; CHANGELOG + commits `94057581` (#842), `032ec2fc`, `2cd18840`/`d5afdcbf`
 (#758), and PR #827.
 
@@ -416,7 +416,7 @@ writes, libgit2 path fallback). Measured with the GNU toolchain (rustc 1.95 + Mi
 |---|---|---|---|
 | Cold full (`test --workspace --all-targets`, first compile) | **2408s (~40m)** | **3146s (~52m)** | 400 crates, all tests ok; cold is compile-bound, CoW makes no reliable difference (run variance) |
 | Warm full (nothing changed, test execution only) | **1600s (~27m)** | **1193s (~20m)** | 0 recompiled, pure *test-execution*; CoW-off is ~25% faster here |
-| Warm single crate (`test -p ai-memory-hooks`) | **73s** | — | the realistic focused-iteration cost |
+| Warm single crate (`test -p pitstop-hooks`) | **73s** | — | the realistic focused-iteration cost |
 | GitHub `windows-latest` full run (from the study) | **~1000s** | — | warm cache |
 
 The decisive and unwelcome result: **the warm full suite is slower than `windows-latest`
@@ -454,7 +454,7 @@ toolchain, 8 vCPU / 8 GB, Defender disabled).
    -DisableRealtimeMonitoring $true` + exclusions for `.cargo`/`.rustup`/the build dir fixed
    it. This is the same Defender-exclusion guidance AGENTS.md already gives for Windows dev,
    here promoted from "slow" to "correctness-breaking".
-5. **Isolation flakiness**: `test -p ai-memory-wiki` hung/crawled when run alone (file-watcher
+5. **Isolation flakiness**: `test -p pitstop-wiki` hung/crawled when run alone (file-watcher
    / libgit2 tests) although the same tests passed inside the `--all-targets` run. This is a
    reliability caveat to investigate before relying on per-crate runs for that crate.
 
@@ -476,11 +476,11 @@ has its own bound (invariant 10 in [ARCHITECTURE.md](ARCHITECTURE.md)):
 
 | Site | Operation | Windows error | Policy |
 |---|---|---|---|
-| `crates/ai-memory-wiki/src/atomic.rs` `persist_with_retry` | atomic rename of a page write | `ERROR_SHARING_VIOLATION` (32), `ERROR_LOCK_VIOLATION` (33) | up to 5 attempts, 10 ms base backoff |
-| `crates/ai-memory-wiki/src/confinement.rs` `is_transient_churn` | stat of an entry during a confinement walk | sharing violation (`PermissionDenied`), `ERROR_DELETE_PENDING` (303) | skip the entry, as for `NotFound`; an entry that does stat still faces the link checks |
-| `crates/ai-memory-cli/src/commands/hook_spool.rs` `is_drain_lock_busy_error` | spool drain lock | `ERROR_LOCK_VIOLATION` (33) | treated as "lock busy", like `WouldBlock`; the drain runs later |
-| `crates/ai-memory-cli/src/commands/hook_drain_process.rs` `should_retry_without_breakaway` | spawning the detached drain process | `ERROR_ACCESS_DENIED` (5) | retry once without `CREATE_BREAKAWAY_FROM_JOB` |
-| `companions/ai-memory-relay/src/fsguard.rs` `read_settled` | metadata read of a queue file (SQLite deletes its rollback journal at each commit) | access denied (delete pending) | up to 5 retries, 20 ms apart, then refused |
+| `crates/pitstop-wiki/src/atomic.rs` `persist_with_retry` | atomic rename of a page write | `ERROR_SHARING_VIOLATION` (32), `ERROR_LOCK_VIOLATION` (33) | up to 5 attempts, 10 ms base backoff |
+| `crates/pitstop-wiki/src/confinement.rs` `is_transient_churn` | stat of an entry during a confinement walk | sharing violation (`PermissionDenied`), `ERROR_DELETE_PENDING` (303) | skip the entry, as for `NotFound`; an entry that does stat still faces the link checks |
+| `crates/pitstop-cli/src/commands/hook_spool.rs` `is_drain_lock_busy_error` | spool drain lock | `ERROR_LOCK_VIOLATION` (33) | treated as "lock busy", like `WouldBlock`; the drain runs later |
+| `crates/pitstop-cli/src/commands/hook_drain_process.rs` `should_retry_without_breakaway` | spawning the detached drain process | `ERROR_ACCESS_DENIED` (5) | retry once without `CREATE_BREAKAWAY_FROM_JOB` |
+| `companions/pitstop-relay/src/fsguard.rs` `read_settled` | metadata read of a queue file (SQLite deletes its rollback journal at each commit) | access denied (delete pending) | up to 5 retries, 20 ms apart, then refused |
 
 The relay is a separate workspace, so the policy is not shared code. A new
 site follows the same rules: name the exact error, bound the retry, keep

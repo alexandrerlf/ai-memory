@@ -17,13 +17,13 @@ Open-source editor (Rust) with an Agent Panel supporting three agent paths
    `opencode` (`type: "registry"`), `codex-acp`, `claude-acp`.
 3. **Terminal Threads**: native CLIs run in Zed's terminal with their own
    config (so a `claude`/`codex` TUI inside Zed behaves exactly like the
-   CLI: ai-memory hooks fire as usual, keyed by cwd).
+   CLI: pitstop hooks fire as usual, keyed by cwd).
 
 ## MCP client support
 
 - Config: **`context_servers`** in the Zed `settings.json` (Linux
   `~/.config/zed/settings.json`, verified locally; macOS
-  `~/Library/Application Support/Zed/settings.json` per Zed docs/ai-memory
+  `~/Library/Application Support/Zed/settings.json` per Zed docs/pitstop
   `docs/mcp-install.md`). Entries:
   - local stdio: `{"command", "args", "env"}`
   - remote: `{"url", "headers"}`; OAuth flow prompts when no
@@ -41,15 +41,15 @@ Open-source editor (Rust) with an Agent Panel supporting three agent paths
 - Tool permissions: `agent.tool_permissions.default`
   (`confirm`/`allow`/`deny`), per-tool rules keyed `mcp:<server>:<tool>`.
 
-ai-memory status today: `install-mcp --client zed` exists (repo
-`docs/mcp-install.md`); remote HTTP ai-memory servers fit the `url` entry.
+pitstop status today: `install-mcp --client zed` exists (repo
+`docs/mcp-install.md`); remote HTTP pitstop servers fit the `url` entry.
 
 ## Lifecycle hooks / capture surface
 
 - Zed itself has no push hooks (no equivalent of Claude Code/Codex/Antigravity
   hook files). Auto-capture must come from the agent running inside Zed:
   - Terminal Threads and ACP external agents (claude-acp / codex-acp /
-    opencode) fire their own hooks, and ai-memory captures those sessions
+    opencode) fire their own hooks, and pitstop captures those sessions
     through the existing per-agent hook integrations (agent kind reported by
     the CLI; session lands in the project keyed by cwd, which Zed sets to
     the workspace dir).
@@ -62,7 +62,7 @@ ai-memory status today: `install-mcp --client zed` exists (repo
 
 Zed does not sit in the session path: session ids are whatever the
 underlying agent (Zed Agent / ACP server / terminal CLI) mints. For ACP
-agents, ai-memory sees the agent's own session id via its hooks; a Zed
+agents, pitstop sees the agent's own session id via its hooks; a Zed
 ACP-run claude-acp session and a terminal `claude` session in the same repo
 are two sessions in the same project, and cwd-keyed project scope already
 merges them correctly. No Zed-specific dedup work identified.

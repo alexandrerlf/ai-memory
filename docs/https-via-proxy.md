@@ -1,6 +1,6 @@
 # HTTPS via a reverse proxy
 
-> ai-memory does **not** terminate TLS itself, by design. This page is
+> pitstop does **not** terminate TLS itself, by design. This page is
 > the operator's guide to fronting it with a mature TLS terminator
 > (Caddy, Cloudflare Tunnel, nginx) so tokens and `/web` cookies
 > travel encrypted between clients and the server. Default install
@@ -12,34 +12,34 @@
 Skip TLS entirely if you're in one of these shapes; the security
 budget is better spent elsewhere:
 
-- **Single-user, stdio MCP transport.** `claude mcp add ai-memory -- ai-memory serve --transport stdio` never touches the network. No TLS to worry about.
+- **Single-user, stdio MCP transport.** `claude mcp add pitstop -- pitstop serve --transport stdio` never touches the network. No TLS to worry about.
 - **Loopback-only HTTP server**, single user, no `/web` access from another machine. `127.0.0.1:49374` is unreachable from outside the host; TLS protects nothing here that the kernel's loopback boundary doesn't already.
 - **Local dev / one-off experiments.** Bring TLS in when the deployment shape calls for it; not before.
 
 The single-user happy path documented in the README's Quick Start is
-this case. Most ai-memory installs never need a proxy.
+this case. Most pitstop installs never need a proxy.
 
 ## When you do need this
 
-Add a TLS-terminating proxy in front of ai-memory when any of these
+Add a TLS-terminating proxy in front of pitstop when any of these
 apply:
 
 - **Multi-user mode is on** (at least one user row exists; `[auth].token_pepper`
   is the credential prerequisite). Native `aim_` keys travel between clients and
   the server and are sniffable over plain HTTP on the LAN. See
   [`docs/users.md`](users.md).
-- **The server is bound beyond loopback** (`AI_MEMORY_BIND=0.0.0.0:49374` or a LAN-routable IP). Anyone on the network segment sees plaintext token traffic and `/web` cookies.
-- **You access `/web` from a different machine** than the one running ai-memory. The browser session cookie set after password login lives in the clear over HTTP.
-- **You're exposing ai-memory beyond the LAN.** Cloudflare Tunnel or a public-domain Caddy with Let's Encrypt are the two patterns most homelab operators land on.
+- **The server is bound beyond loopback** (`PITSTOP_BIND=0.0.0.0:49374` or a LAN-routable IP). Anyone on the network segment sees plaintext token traffic and `/web` cookies.
+- **You access `/web` from a different machine** than the one running pitstop. The browser session cookie set after password login lives in the clear over HTTP.
+- **You're exposing pitstop beyond the LAN.** Cloudflare Tunnel or a public-domain Caddy with Let's Encrypt are the two patterns most homelab operators land on.
 
-ai-memory refuses unauthenticated non-loopback HTTP by default. Machine-only
+pitstop refuses unauthenticated non-loopback HTTP by default. Machine-only
 Bearer deployments may still bind authenticated plain HTTP and receive a loud
 warning because those credentials remain sniffable. Human authentication is
 stricter: a non-loopback listener refuses startup unless
-`AI_MEMORY_AUTH__SECURE_COOKIE=true`, which is the operator's explicit signal
+`PITSTOP_AUTH__SECURE_COOKIE=true`, which is the operator's explicit signal
 that a trusted HTTPS proxy owns the browser-facing edge. The only exception is
 the explicit `serve --allow-insecure-human-auth` escape hatch (environment
-`AI_MEMORY_ALLOW_INSECURE_HUMAN_AUTH=true`) for an operator who knowingly
+`PITSTOP_ALLOW_INSECURE_HUMAN_AUTH=true`) for an operator who knowingly
 accepts plaintext passwords, credentials, session cookies, and memory data on
 a private LAN. The option is disabled by default, does not bypass the
 unauthenticated-exposure guard, and prints an unconditional warning.
@@ -76,20 +76,20 @@ relevant block is:
 
 ```yaml
 services:
-  ai-memory:
+  pitstop:
     image: akitaonrails/ai-memory:latest
-    container_name: ai-memory
+    container_name: pitstop
     restart: unless-stopped
     expose:
       - "49374"          # internal only — Caddy reaches it over the docker network
     volumes:
-      - ai-memory-data:/data
+      - pitstop-data:/data
     env_file:
-      - .env.production  # AI_MEMORY_AUTH_TOKEN + AI_MEMORY_ALLOWED_HOSTS + your LLM provider creds
+      - .env.production  # PITSTOP_AUTH_TOKEN + PITSTOP_ALLOWED_HOSTS + your LLM provider creds
 
   caddy:
     image: caddy:2-alpine
-    container_name: ai-memory-caddy
+    container_name: pitstop-caddy
     restart: unless-stopped
     ports:
       - "80:80"           # for Let's Encrypt HTTP-01 challenges
@@ -100,8 +100,8 @@ services:
       - caddy-config:/config
 
 volumes:
-  ai-memory-data:
-    name: ai-memory-data
+  pitstop-data:
+    name: pitstop-data
   caddy-data:           # cert + ACME account key live here. Back this up.
   caddy-config:
 ```
@@ -112,7 +112,7 @@ A complete Caddyfile is three lines:
 
 ```caddyfile
 memory.example.com {
-    reverse_proxy ai-memory:49374
+    reverse_proxy pitstop:49374
 }
 ```
 
@@ -124,60 +124,60 @@ Caddy will:
 4. Forward `Authorization: Bearer ...` headers (and your auth flow) untouched.
 5. Set `X-Forwarded-Proto: https` and `X-Forwarded-For: <client-ip>` automatically.
 
-### ai-memory `.env.production` adjustments
+### pitstop `.env.production` adjustments
 
 ```bash
-AI_MEMORY_AUTH_TOKEN=...long-random-token-from-generate-auth-token...
-AI_MEMORY_AUTH__SECURE_COOKIE=true
-AI_MEMORY_ALLOWED_HOSTS=memory.example.com,localhost,127.0.0.1
-AI_MEMORY_BIND=0.0.0.0:49374
+PITSTOP_AUTH_TOKEN=...long-random-token-from-generate-auth-token...
+PITSTOP_AUTH__SECURE_COOKIE=true
+PITSTOP_ALLOWED_HOSTS=memory.example.com,localhost,127.0.0.1
+PITSTOP_BIND=0.0.0.0:49374
 ```
 
-The `AI_MEMORY_ALLOWED_HOSTS` must include the public hostname or
-ai-memory's DNS-rebinding guard will refuse Caddy's forwarded
+The `PITSTOP_ALLOWED_HOSTS` must include the public hostname or
+pitstop's DNS-rebinding guard will refuse Caddy's forwarded
 requests.
 
 ### Hosting under a subpath
 
-If ai-memory shares a hostname with other apps, keep the prefix when proxying
-and tell ai-memory about it:
+If pitstop shares a hostname with other apps, keep the prefix when proxying
+and tell pitstop about it:
 
 ```bash
-AI_MEMORY_BASE_PATH=/wiki
+PITSTOP_BASE_PATH=/wiki
 ```
 
 Alternatively, set `base_path = "/wiki"` in `config.toml`; the server and
 thin-client commands both read it. For `serve`, `--base-path` overrides
-`AI_MEMORY_BASE_PATH`, which overrides the file. An explicitly empty value
+`PITSTOP_BASE_PATH`, which overrides the file. An explicitly empty value
 or `/` selects the host root even when the file names a prefix.
 
 ```caddyfile
 memory.example.com {
     handle /wiki/* {
-        reverse_proxy ai-memory:49374
+        reverse_proxy pitstop:49374
     }
 }
 ```
 
 Do **not** use `handle_path /wiki/*` for this deployment: it strips `/wiki`
-before forwarding, while ai-memory intentionally serves all routes under the
+before forwarding, while pitstop intentionally serves all routes under the
 configured prefix. With the example above, clients use:
 
 ```bash
-ai-memory install-mcp   --client claude-code --apply \
-    --server-url "https://memory.example.com/wiki/mcp" --auth-token "$AI_MEMORY_AUTH_TOKEN"
-ai-memory install-hooks --agent  claude-code --apply \
-    --server-url "https://memory.example.com/wiki" --auth-token "$AI_MEMORY_AUTH_TOKEN"
+pitstop install-mcp   --client claude-code --apply \
+    --server-url "https://memory.example.com/wiki/mcp" --auth-token "$PITSTOP_AUTH_TOKEN"
+pitstop install-hooks --agent  claude-code --apply \
+    --server-url "https://memory.example.com/wiki" --auth-token "$PITSTOP_AUTH_TOKEN"
 ```
 
 The web surface is then at `https://memory.example.com/wiki/web`; add
-`AI_MEMORY_WEB_SLUG=/` if you want the built-in browser or custom
+`PITSTOP_WEB_SLUG=/` if you want the built-in browser or custom
 `--web-ui-dir` SPA at `https://memory.example.com/wiki` itself. Human console
 login requires the custom SPA; the built-in server-rendered wiki remains
 protected data rather than an authentication page.
 
-**Safety rules on both flags.** `AI_MEMORY_BASE_PATH` and
-`AI_MEMORY_WEB_SLUG` go through the same normaliser. Segments must be
+**Safety rules on both flags.** `PITSTOP_BASE_PATH` and
+`PITSTOP_WEB_SLUG` go through the same normaliser. Segments must be
 RFC 3986 unreserved characters (`[A-Za-z0-9-._~]`). Dot-segments
 (`.` / `..`) are rejected: they mean "current" and "parent" at a
 segment boundary, so accepting them would let a typo turn the prefix
@@ -189,10 +189,10 @@ canonical form.
 ### MCP client config (Claude Code shown — others follow the same shape)
 
 ```bash
-ai-memory install-mcp   --client claude-code --apply \
-    --server-url "https://memory.example.com/mcp" --auth-token "$AI_MEMORY_AUTH_TOKEN"
-ai-memory install-hooks --agent  claude-code --apply \
-    --server-url "https://memory.example.com" --auth-token "$AI_MEMORY_AUTH_TOKEN"
+pitstop install-mcp   --client claude-code --apply \
+    --server-url "https://memory.example.com/mcp" --auth-token "$PITSTOP_AUTH_TOKEN"
+pitstop install-hooks --agent  claude-code --apply \
+    --server-url "https://memory.example.com" --auth-token "$PITSTOP_AUTH_TOKEN"
 ```
 
 `https://` flips on, the token rides in `Authorization: Bearer`, and
@@ -223,7 +223,7 @@ forward.
 }
 
 homelab.local, 192.168.1.50 {
-    reverse_proxy ai-memory:49374
+    reverse_proxy pitstop:49374
 }
 ```
 
@@ -276,10 +276,10 @@ install step.
 ### One-time Cloudflare setup
 
 1. Have a domain on Cloudflare (the registrar can be elsewhere; the DNS must be on Cloudflare).
-2. In the Cloudflare dashboard, go to **Zero Trust → Networks → Tunnels** → **Create a tunnel** → name it `ai-memory-homelab` (or whatever) → save.
+2. In the Cloudflare dashboard, go to **Zero Trust → Networks → Tunnels** → **Create a tunnel** → name it `pitstop-homelab` (or whatever) → save.
 3. Cloudflare gives you a long token string. Save it for the compose file.
-4. Add a public hostname to the tunnel: `memory.example.com` → service `http://ai-memory:49374`. Save.
-5. (Optional but recommended) Wrap the hostname in a **Cloudflare Access** application. Cloudflare's zero-trust SSO sits in front of the tunnel and you get human auth via Google/GitHub/etc. **on top of** ai-memory's bearer token.
+4. Add a public hostname to the tunnel: `memory.example.com` → service `http://pitstop:49374`. Save.
+5. (Optional but recommended) Wrap the hostname in a **Cloudflare Access** application. Cloudflare's zero-trust SSO sits in front of the tunnel and you get human auth via Google/GitHub/etc. **on top of** pitstop's bearer token.
 
 ### Compose template
 
@@ -287,41 +287,41 @@ Copy `docker/compose.tls.cloudflared.yml`. The relevant block:
 
 ```yaml
 services:
-  ai-memory:
+  pitstop:
     image: akitaonrails/ai-memory:latest
-    container_name: ai-memory
+    container_name: pitstop
     restart: unless-stopped
     expose:
       - "49374"          # tunnel reaches it over the docker network — no host port
     volumes:
-      - ai-memory-data:/data
+      - pitstop-data:/data
     env_file:
       - .env.production
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: ai-memory-tunnel
+    container_name: pitstop-tunnel
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
 
 volumes:
-  ai-memory-data:
-    name: ai-memory-data
+  pitstop-data:
+    name: pitstop-data
 ```
 
 `CLOUDFLARE_TUNNEL_TOKEN` goes in your `.env` (or compose env). No
 ports exposed on the host. No DNS configuration beyond the dashboard
 step above (Cloudflare manages the CNAME automatically).
 
-### ai-memory `.env.production` adjustments
+### pitstop `.env.production` adjustments
 
 ```bash
-AI_MEMORY_AUTH_TOKEN=...long-random-token...
-AI_MEMORY_AUTH__SECURE_COOKIE=true
-AI_MEMORY_ALLOWED_HOSTS=memory.example.com,localhost,127.0.0.1
-AI_MEMORY_BIND=0.0.0.0:49374
+PITSTOP_AUTH_TOKEN=...long-random-token...
+PITSTOP_AUTH__SECURE_COOKIE=true
+PITSTOP_ALLOWED_HOSTS=memory.example.com,localhost,127.0.0.1
+PITSTOP_BIND=0.0.0.0:49374
 CLOUDFLARE_TUNNEL_TOKEN=eyJ...long-base64-from-the-cf-dashboard...
 ```
 
@@ -330,15 +330,15 @@ CLOUDFLARE_TUNNEL_TOKEN=eyJ...long-base64-from-the-cf-dashboard...
 Same as Path 1:
 
 ```bash
-ai-memory install-mcp   --client claude-code --apply \
-    --server-url "https://memory.example.com/mcp" --auth-token "$AI_MEMORY_AUTH_TOKEN"
+pitstop install-mcp   --client claude-code --apply \
+    --server-url "https://memory.example.com/mcp" --auth-token "$PITSTOP_AUTH_TOKEN"
 ```
 
 ### What can go wrong
 
 - **Token leak**. Anyone with `CLOUDFLARE_TUNNEL_TOKEN` can run a tunnel for your hostname. Keep the env file `0600`, don't commit it.
 - **Tunnel down + cf cached old DNS** → Cloudflare returns 502 for a few minutes after restart. Usually self-heals.
-- **Access policies confused with bearer auth**. Cloudflare Access (the optional SSO layer) is a separate layer from ai-memory's bearer token. Both run; both must pass. If Access blocks a request, ai-memory never sees it.
+- **Access policies confused with bearer auth**. Cloudflare Access (the optional SSO layer) is a separate layer from pitstop's bearer token. Both run; both must pass. If Access blocks a request, pitstop never sees it.
 
 ---
 
@@ -352,7 +352,7 @@ homelab Vault, anything). You don't want Caddy issuing its own.
 ```caddyfile
 memory.example.com {
     tls /etc/caddy/certs/memory.crt /etc/caddy/certs/memory.key
-    reverse_proxy ai-memory:49374
+    reverse_proxy pitstop:49374
 }
 ```
 
@@ -381,7 +381,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/memory.key;
 
     location / {
-        proxy_pass http://ai-memory:49374;
+        proxy_pass http://pitstop:49374;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -406,7 +406,7 @@ browser-request notes in [`security.md`](security.md)).
 
 ## Native (non-Docker) Caddy
 
-For operators running ai-memory from source / AUR / `cargo run`
+For operators running pitstop from source / AUR / `cargo run`
 without Docker:
 
 ```caddyfile
@@ -431,20 +431,20 @@ LaunchDaemon on macOS. Same shape as the Docker variant.
 
 ## Long-running requests: `bootstrap` and proxy idle timeouts
 
-`ai-memory bootstrap` on a large repository holds a **single POST open for
+`pitstop bootstrap` on a large repository holds a **single POST open for
 the whole multi-chunk run** (often 20+ minutes) while the server makes
 LLM calls, with no bytes flowing over the wire in between. A reverse proxy
 with a default idle/read timeout in front of the server will cut that
 connection (`Connection reset by peer`), and the run is lost.
 
 If you run `bootstrap` through a proxy, raise or disable the upstream
-read/write timeout for ai-memory's route.
+read/write timeout for pitstop's route.
 
 **Caddy**: disable the backend read/write timeouts on the `reverse_proxy`:
 
 ```caddyfile
 memory.example.com {
-    reverse_proxy ai-memory:49374 {
+    reverse_proxy pitstop:49374 {
         transport http {
             read_timeout 0
             write_timeout 0
@@ -474,7 +474,7 @@ separately; see #614.)
 
 ## Outbound LLM calls fail behind a TLS-inspecting firewall
 
-The paths above are about clients trusting *ai-memory's* certificate. This section covers the reverse case: ai-memory trusting an upstream interceptor so
+The paths above are about clients trusting *pitstop's* certificate. This section covers the reverse case: pitstop trusting an upstream interceptor so
 its own outbound LLM/embedding calls succeed.
 
 **Symptom.** Consolidation, lint, or embeddings fail and the logs show
@@ -483,7 +483,7 @@ provider. Your network runs an HTTPS-inspecting proxy (a corporate MITM
 appliance, an inspecting antivirus, a Zscaler/Netskope-style gateway) that
 re-signs TLS with a private interception root the container doesn't trust.
 
-**Why it happens.** ai-memory's HTTP client (reqwest + rustls, built with
+**Why it happens.** pitstop's HTTP client (reqwest + rustls, built with
 `rustls-tls-native-roots`) trusts the **operating system** certificate store,
 not a bundled root list. It reads the container's `/etc/ssl/certs` and honors
 `SSL_CERT_FILE` / `SSL_CERT_DIR`. The stock image ships only the public Debian
@@ -504,7 +504,7 @@ because your host already trusts that root; the container does not.
    `SSL_CERT_FILE` *replaces* the default file, so it must contain both:
 
    ```bash
-   docker run --rm --entrypoint cat ai-memory:latest \
+   docker run --rm --entrypoint cat pitstop:latest \
      /etc/ssl/certs/ca-certificates.crt > ca-bundle.crt
    cat corp-root.crt >> ca-bundle.crt
    ```
@@ -514,11 +514,11 @@ because your host already trusts that root; the container does not.
    ```yaml
    # docker-compose.yml — option A: SSL_CERT_FILE
    services:
-     ai-memory:
+     pitstop:
        volumes:
-         - ./ca-bundle.crt:/etc/ai-memory/ca-bundle.crt:ro
+         - ./ca-bundle.crt:/etc/pitstop/ca-bundle.crt:ro
        environment:
-         SSL_CERT_FILE: /etc/ai-memory/ca-bundle.crt
+         SSL_CERT_FILE: /etc/pitstop/ca-bundle.crt
    ```
    ```yaml
    # option B: overwrite the default path, no env var needed
@@ -538,11 +538,11 @@ because your host already trusts that root; the container does not.
   `SSL_CERT_FILE` / `SSL_CERT_DIR`. The client honors both on every OS,
   Windows and macOS included, and they replace the OS store there too, so the
   combined-bundle rule above still applies.
-- `ai-memory mcp-bridge` is the exception: on Windows and macOS it ignores
+- `pitstop mcp-bridge` is the exception: on Windows and macOS it ignores
   `SSL_CERT_FILE` / `SSL_CERT_DIR`, so a root the bridge must trust has to be
   in the OS store. See the bridge section below.
 
-## What ai-memory does to support being behind a proxy
+## What pitstop does to support being behind a proxy
 
 Nothing special. The server intentionally generates no absolute URLs
 in responses, so it doesn't matter whether `https://` or `http://`
@@ -551,15 +551,15 @@ directly off the request, which proxies forward verbatim. The
 `/api/v1` ETag is computed from request-independent fields.
 
 For browser access to `/web` through HTTPS, set
-`AI_MEMORY_AUTH__SECURE_COOKIE=true` (or `[auth] secure_cookie = true`). This
-marks the `ai_memory_session` cookie `Secure`; it is always `HttpOnly`,
-`SameSite=Strict`, and `Path=/`. ai-memory intentionally does **not** infer
+`PITSTOP_AUTH__SECURE_COOKIE=true` (or `[auth] secure_cookie = true`). This
+marks the `pitstop_session` cookie `Secure`; it is always `HttpOnly`,
+`SameSite=Strict`, and `Path=/`. pitstop intentionally does **not** infer
 HTTPS from `X-Forwarded-Proto` or any other proxy header. Close direct HTTP
 access to the public hostname, or redirect it to HTTPS. Human auth on a
 non-loopback listener will not start without this setting. It remains false by
 default only so direct loopback smoke/development can use plain HTTP.
 
-The only thing to mind: **`AI_MEMORY_ALLOWED_HOSTS` must include the
+The only thing to mind: **`PITSTOP_ALLOWED_HOSTS` must include the
 public hostname**, not just `localhost`. The host-allowlist middleware
 runs before any header rewriting, so it sees the proxy's forwarded
 `Host: memory.example.com` and would reject it otherwise.
@@ -567,7 +567,7 @@ runs before any header rewriting, so it sees the proxy's forwarded
 ### Clients connect directly, never through a forward proxy
 
 The hooks (native, shell, PowerShell 7 and the TypeScript integrations) and
-`ai-memory mcp-bridge` ignore `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`, so a
+`pitstop mcp-bridge` ignore `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`, so a
 sandbox that exports a filtering proxy cannot swallow their requests. A
 server that a client machine can reach only through an outbound forward proxy
 is therefore out of reach for them. Give the server an address the client can
@@ -580,19 +580,19 @@ Three things to actively avoid:
 
 1. **Don't disable the allowed-hosts guard.** It's the DNS-rebinding defence; pruning it because the proxy "should be" filtering is exactly the kind of "the other layer handles it" assumption that ships bugs. Add the public hostname; don't widen to `*`.
 2. **Don't skip the trust-install step in Path 2.** The temptation is to add `-k` (curl) or `--insecure` (MCP clients that support it) "just to get it working." If you do, you have a security theatre cert: TLS without authentication, which is worse than HTTP with the bearer because it looks safe and isn't.
-3. **Don't run cloudflared with `--no-tls-verify`.** Cloudflare's tunnel daemon validates ai-memory's cert by default, which is fine because ai-memory is on plain HTTP inside the docker network. Don't override the flag; you'd be reaching for it because something else is misconfigured.
+3. **Don't run cloudflared with `--no-tls-verify`.** Cloudflare's tunnel daemon validates pitstop's cert by default, which is fine because pitstop is on plain HTTP inside the docker network. Don't override the flag; you'd be reaching for it because something else is misconfigured.
 
-If you can't take one of these paths cleanly, keep ai-memory loopback-only or
+If you can't take one of these paths cleanly, keep pitstop loopback-only or
 front it with the proxy you already trust. A configuration that gives operators
 the wrong mental model, looking secure without being secure, is worse than
 either.
 
 ## The session-aware MCP bridge and HTTPS
 
-`ai-memory mcp-bridge` reaches `https://` server URLs. Earlier releases could not:
+`pitstop mcp-bridge` reaches `https://` server URLs. Earlier releases could not:
 its transport pulled in a second `reqwest` with no TLS backend compiled, so any
 non-`http` scheme was refused before a connection was attempted. If you front
-ai-memory with a TLS-terminating proxy as described above, point the bridge at the
+pitstop with a TLS-terminating proxy as described above, point the bridge at the
 proxied `https://` URL directly; a second, local proxy on each client machine is
 not needed.
 
@@ -602,4 +602,4 @@ private CA that has not been installed into the system trust store) is rejected.
 On Windows and macOS the bridge asks the OS directly and ignores `SSL_CERT_FILE`
 / `SSL_CERT_DIR`; on Linux it honors them, as the main client does everywhere. A
 root supplied only through `SSL_CERT_FILE` therefore reaches provider calls and
-the `ai-memory` CLI on Windows and macOS, but not the bridge.
+the `pitstop` CLI on Windows and macOS, but not the bridge.

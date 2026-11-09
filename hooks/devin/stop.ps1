@@ -1,3 +1,3 @@
-. "$PSScriptRoot\..\lib\ai-memory-hook.ps1"
-Invoke-AiMemoryHook -Event "stop" -Agent "devin"
+. "$PSScriptRoot\..\lib\pitstop-hook.ps1"
+Invoke-PitstopHook -Event "stop" -Agent "devin"
 exit 0

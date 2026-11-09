@@ -32,19 +32,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-cli"
+name = "pitstop-cli"
 version = "3.4.3"
 dependencies = [
- "ai-memory-consolidate",
- "ai-memory-core",
- "ai-memory-hooks",
- "ai-memory-llm",
- "ai-memory-mcp",
- "ai-memory-store",
- "ai-memory-test-support",
- "ai-memory-web",
- "ai-memory-wiki",
- "ai-memory-workstream",
+ "pitstop-consolidate",
+ "pitstop-core",
+ "pitstop-hooks",
+ "pitstop-llm",
+ "pitstop-mcp",
+ "pitstop-store",
+ "pitstop-test-support",
+ "pitstop-web",
+ "pitstop-wiki",
+ "pitstop-workstream",
  "anyhow",
  "askama",
  "async-trait",
@@ -94,14 +94,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-consolidate"
+name = "pitstop-consolidate"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
- "ai-memory-llm",
- "ai-memory-store",
- "ai-memory-test-support",
- "ai-memory-wiki",
+ "pitstop-core",
+ "pitstop-llm",
+ "pitstop-store",
+ "pitstop-test-support",
+ "pitstop-wiki",
  "anyhow",
  "async-trait",
  "git2",
@@ -121,7 +121,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-core"
+name = "pitstop-core"
 version = "3.4.3"
 dependencies = [
  "fluent-bundle",
@@ -140,12 +140,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-eval"
+name = "pitstop-eval"
 version = "3.4.3"
 dependencies = [
- "ai-memory-consolidate",
- "ai-memory-core",
- "ai-memory-llm",
+ "pitstop-consolidate",
+ "pitstop-core",
+ "pitstop-llm",
  "anyhow",
  "clap",
  "jiff",
@@ -164,15 +164,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-hooks"
+name = "pitstop-hooks"
 version = "3.4.3"
 dependencies = [
- "ai-memory-consolidate",
- "ai-memory-core",
- "ai-memory-llm",
- "ai-memory-store",
- "ai-memory-test-support",
- "ai-memory-wiki",
+ "pitstop-consolidate",
+ "pitstop-core",
+ "pitstop-llm",
+ "pitstop-store",
+ "pitstop-test-support",
+ "pitstop-wiki",
  "anyhow",
  "async-trait",
  "axum",
@@ -194,10 +194,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-llm"
+name = "pitstop-llm"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
+ "pitstop-core",
  "anyhow",
  "async-trait",
  "base64 0.22.1",
@@ -224,16 +224,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-mcp"
+name = "pitstop-mcp"
 version = "3.4.3"
 dependencies = [
- "ai-memory-consolidate",
- "ai-memory-core",
- "ai-memory-hooks",
- "ai-memory-llm",
- "ai-memory-store",
- "ai-memory-web",
- "ai-memory-wiki",
+ "pitstop-consolidate",
+ "pitstop-core",
+ "pitstop-hooks",
+ "pitstop-llm",
+ "pitstop-store",
+ "pitstop-web",
+ "pitstop-wiki",
  "anyhow",
  "async-trait",
  "axum",
@@ -261,10 +261,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-store"
+name = "pitstop-store"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
+ "pitstop-core",
  "anyhow",
  "argon2",
  "base64 0.22.1",
@@ -289,20 +289,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-test-support"
+name = "pitstop-test-support"
 version = "3.4.3"
 dependencies = [
  "socket2",
 ]
 
 [[package]]
-name = "ai-memory-web"
+name = "pitstop-web"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
- "ai-memory-llm",
- "ai-memory-store",
- "ai-memory-wiki",
+ "pitstop-core",
+ "pitstop-llm",
+ "pitstop-store",
+ "pitstop-wiki",
  "anyhow",
  "askama",
  "async-trait",
@@ -323,12 +323,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-wiki"
+name = "pitstop-wiki"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
- "ai-memory-llm",
- "ai-memory-store",
+ "pitstop-core",
+ "pitstop-llm",
+ "pitstop-store",
  "anyhow",
  "async-trait",
  "axum",
@@ -355,10 +355,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-memory-workstream"
+name = "pitstop-workstream"
 version = "3.4.3"
 dependencies = [
- "ai-memory-core",
+ "pitstop-core",
  "anyhow",
  "jiff",
  "libc",

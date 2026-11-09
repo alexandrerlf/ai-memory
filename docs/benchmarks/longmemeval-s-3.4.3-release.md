@@ -16,21 +16,21 @@ with the observation stream on.
 - hardware: AMD Ryzen 9 7950X3D (32 threads), with nothing else running.
   The data dir was the harness default under `/tmp`, which on this host is a
   loop device (see the 3.3.3 report on how that slows ingest).
-- commands, after building `ai-memory` and `ai-memory-eval` in release mode:
+- commands, after building `pitstop` and `pitstop-eval` in release mode:
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local --no-embedding-cache \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
   ```
 
 - run dirs: `evals/runs/2026-11-06T18-07-14-919512464Z-retrieval` (FTS) and

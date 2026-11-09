@@ -3,13 +3,13 @@
   "cases": [
     {
       "id": "answerable-server-port",
-      "question": "Which port does the ai-memory server use?",
+      "question": "Which port does the pitstop server use?",
       "expected_verdict": "answerable",
       "slice": "baseline",
       "evidence": [
         {
           "path": "rules/server.md",
-          "snippet": "The ai-memory server listens on port 49374.",
+          "snippet": "The pitstop server listens on port 49374.",
           "score": 0.92,
           "belief_strength": 0.88
         }
@@ -25,7 +25,7 @@
       "evidence": [
         {
           "path": "rules/server.md",
-          "snippet": "The ai-memory server listens on port 49374.",
+          "snippet": "The pitstop server listens on port 49374.",
           "score": 0.04
         }
       ]

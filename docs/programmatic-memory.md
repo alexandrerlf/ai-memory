@@ -1,13 +1,13 @@
-# Use ai-memory from your tool
+# Use pitstop from your tool
 
-Any tool can use ai-memory over MCP to save knowledge, search it and pass context
+Any tool can use pitstop over MCP to save knowledge, search it and pass context
 between executions. Native lifecycle hooks are optional. A tool that also hosts
 an agent harness can send that harness's lifecycle events through HTTP.
 
 ## Use the TypeScript SDK
 
 Programs in TypeScript or JavaScript can use the optional client SDK in
-[`companions/ai-memory-ts`](../companions/ai-memory-ts/README.md) instead of
+[`companions/pitstop-ts`](../companions/pitstop-ts/README.md) instead of
 building JSON-RPC requests by hand. It wraps the calls on this page with typed
 results and typed errors, checks scope before sending, and keeps the
 conditional-write, handoff and lifecycle rules below. It is built from a
@@ -27,23 +27,23 @@ native session identity as the harness's remaining integration. See the
 [external lifecycle guide](external-lifecycle.md) when sending those events.
 
 Static MCP clients pass `workspace` and `project` together on every
-project-scoped call. Read their names from `.ai-memory.toml` or operator
+project-scoped call. Read their names from `.pitstop.toml` or operator
 configuration. Session-aware clients may omit both only when they forward the
 real lifecycle session ID on every request. See [auto-scope.md](auto-scope.md).
 
 ## Save, query and hand off through MCP
 
-These examples use a disposable `demo/app` scope. Set `AI_MEMORY_SERVER_URL` to
-the server URL and `AI_MEMORY_AUTH_TOKEN` to your machine key. On an intentional
+These examples use a disposable `demo/app` scope. Set `PITSTOP_SERVER_URL` to
+the server URL and `PITSTOP_AUTH_TOKEN` to your machine key. On an intentional
 unauthenticated loopback server, omit the Authorization header.
 
 ```bash
 mcp() {
   curl --silent --show-error --fail-with-body \
-    "${AI_MEMORY_SERVER_URL%/}/mcp" \
+    "${PITSTOP_SERVER_URL%/}/mcp" \
     -H 'Content-Type: application/json' \
     -H 'Accept: application/json, text/event-stream' \
-    -H "Authorization: Bearer ${AI_MEMORY_AUTH_TOKEN}" \
+    -H "Authorization: Bearer ${PITSTOP_AUTH_TOKEN}" \
     --data-binary @-
 }
 
@@ -76,7 +76,7 @@ Check JSON-RPC `error` and `result.isError` even on HTTP 200. Tool payloads are
 JSON encoded inside `result.content[].text`. A page write returns `page_id` and
 `path`; a query returns `hits`.
 
-ai-memory's own tools report a failure as a JSON-RPC `error` with a code and
+pitstop's own tools report a failure as a JSON-RPC `error` with a code and
 message, for example `-32602` for invalid parameters or `-32603` when an
 admission webhook rejects a write. `result.isError` is where MCP lets a tool
 report its own failure, so check it too. A caller using `jq` can branch on both:
@@ -186,7 +186,7 @@ is a required field, so a preview sends it as `false`. Once root-only applies,
 
 ```bash
 curl --silent --show-error --fail-with-body \
-  "${AI_MEMORY_SERVER_URL%/}/admin/purge-session" \
+  "${PITSTOP_SERVER_URL%/}/admin/purge-session" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${ROOT_TOKEN}" \
   -d '{"workspace":"demo","project":"app","session_id":"<session-uuid>","confirm":false,"dry_run":true}'

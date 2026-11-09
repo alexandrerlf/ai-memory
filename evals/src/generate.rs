@@ -405,8 +405,8 @@ const GREP_LINES: &[&str] = &[
 mod tests {
     use super::*;
     use crate::fidelity::Scorer;
-    use ai_memory_consolidate::{BATCH_SYSTEM_PROMPT, build_batch_request};
-    use ai_memory_core::SessionId;
+    use pitstop_consolidate::{BATCH_SYSTEM_PROMPT, build_batch_request};
+    use pitstop_core::SessionId;
 
     /// The seed of the published runs.
     const DEFAULT_SEED: u64 = 1215;

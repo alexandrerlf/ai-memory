@@ -25,11 +25,11 @@ else
     fi
 fi
 hook=$(git rev-parse --git-path hooks/pre-push)
-begin="# >>> ai-memory pre-push >>>"
-end="# <<< ai-memory pre-push <<<"
+begin="# >>> pitstop pre-push >>>"
+end="# <<< pitstop pre-push <<<"
 
 managed_block=$(cat <<'HOOK'
-# >>> ai-memory pre-push >>>
+# >>> pitstop pre-push >>>
 # Runs the full test tier before a push. See scripts/install-git-hooks.sh.
 
 # Git's hook environment would redirect fixture commands into this checkout.
@@ -68,12 +68,12 @@ managed_block=$(cat <<'HOOK'
 # Bash ignores `set -e` inside a subshell tested by `||`, `&&`, `!` or `if`, so
 # the subshell stays a plain command and its status is propagated here. A user
 # hook without `set -e` would otherwise run on and let the push through.
-ai_memory_pre_push_status=$?
-if [ "$ai_memory_pre_push_status" -ne 0 ]; then
-    exit "$ai_memory_pre_push_status"
+pitstop_pre_push_status=$?
+if [ "$pitstop_pre_push_status" -ne 0 ]; then
+    exit "$pitstop_pre_push_status"
 fi
-unset ai_memory_pre_push_status
-# <<< ai-memory pre-push <<<
+unset pitstop_pre_push_status
+# <<< pitstop pre-push <<<
 HOOK
 )
 
@@ -94,14 +94,14 @@ mkdir -p "${hook%/*}"
 tmp=$(mktemp "${hook}.XXXXXX")
 if [[ "$has_content" -eq 1 ]]; then
     # ENVIRON preserves backslashes; BINMODE prevents Windows CRLF translation.
-    if ! AI_MEMORY_PRE_PUSH_BLOCK="$managed_block" awk -v BINMODE=3 -v begin="$begin" -v end="$end" '
+    if ! PITSTOP_PRE_PUSH_BLOCK="$managed_block" awk -v BINMODE=3 -v begin="$begin" -v end="$end" '
         {
             marker = $0
             sub(/\r$/, "", marker)
             if (marker == begin) {
                 if (inside || seen) { invalid = 1; exit 1 }
                 inside = seen = 1
-                print ENVIRON["AI_MEMORY_PRE_PUSH_BLOCK"]
+                print ENVIRON["PITSTOP_PRE_PUSH_BLOCK"]
                 next
             }
             if (marker == end) {
@@ -115,7 +115,7 @@ if [[ "$has_content" -eq 1 ]]; then
             if (invalid || inside) exit 1
             if (!seen) {
                 print ""
-                print ENVIRON["AI_MEMORY_PRE_PUSH_BLOCK"]
+                print ENVIRON["PITSTOP_PRE_PUSH_BLOCK"]
             }
         }
     ' "$hook" > "$tmp"; then

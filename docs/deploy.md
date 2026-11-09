@@ -1,14 +1,14 @@
-# Deploying ai-memory to a homelab
+# Deploying pitstop to a homelab
 
 This guide follows the pattern documented in `bin/deploy`. You end up
-with a long-lived ai-memory container on your homelab host,
+with a long-lived pitstop container on your homelab host,
 reachable on your LAN at `http://<host>:49374/mcp`, configured with
 your LLM/embedding API keys, with backups handled by whatever you
 already use for `/var/opt/docker/...`.
 
 If you want a native Linux service instead of Docker, use the Arch/AUR
 systemd path in [`docs/install.md`](install.md#arch-linux-native-packages-aur).
-That install mode uses `/var/lib/ai-memory` plus `/etc/ai-memory/` for the
+That install mode uses `/var/lib/pitstop` plus `/etc/pitstop/` for the
 system service, or XDG user paths for the user service. The Docker deployment
 below remains `/data` inside the container and `/var/opt/docker/...` on the
 host.
@@ -67,7 +67,7 @@ curl http://<homelab>:49374/mcp
 # server is responding). "Connection refused" means the container
 # isn't up or the port mapping is wrong.
 
-ssh "$SERVER" "docker inspect --format='{{.State.Health.Status}}' ai-memory"
+ssh "$SERVER" "docker inspect --format='{{.State.Health.Status}}' pitstop"
 # Expect: healthy
 ```
 
@@ -80,7 +80,7 @@ install one from a Compose file. What the image expects:
 - the image `docker.io/akitaonrails/ai-memory:<version>` (pin a version rather
   than `latest`, so an update is a deliberate change of tag);
 - a persistent dataset mounted at `/data`, owned by uid and gid **1000**, the
-  image's `ai-memory` user. TrueNAS apps default to uid 568, so either give
+  image's `pitstop` user. TrueNAS apps default to uid 568, so either give
   the dataset to 1000 or run the container as the dataset's owner;
 - port `49374` published to the LAN;
 - a bearer token and an allowed-hosts list, because the server is reachable
@@ -88,23 +88,23 @@ install one from a Compose file. What the image expects:
 
 ```yaml
 services:
-  ai-memory:
+  pitstop:
     image: docker.io/akitaonrails/ai-memory:<version>
     restart: unless-stopped
     ports:
       - "49374:49374"
     volumes:
-      - /mnt/<pool>/apps/ai-memory:/data
+      - /mnt/<pool>/apps/pitstop:/data
     environment:
-      AI_MEMORY_AUTH_TOKEN: "<64 hex chars from `ai-memory generate-auth-token`>"
+      PITSTOP_AUTH_TOKEN: "<64 hex chars from `pitstop generate-auth-token`>"
       # Every name or address clients use to reach the NAS.
-      AI_MEMORY_ALLOWED_HOSTS: "truenas.local,192.0.2.10,localhost,127.0.0.1"
+      PITSTOP_ALLOWED_HOSTS: "truenas.local,192.0.2.10,localhost,127.0.0.1"
 ```
 
-The image's healthcheck runs `ai-memory status`, so the app shows as healthy
+The image's healthcheck runs `pitstop status`, so the app shows as healthy
 once the server answers. Point clients at `http://<nas>:49374` with the same
 token, as described below for any LAN server. Backups of the dataset follow
-[Backups](#backups): take `ai-memory backup` snapshots, not a copy of a live
+[Backups](#backups): take `pitstop backup` snapshots, not a copy of a live
 SQLite file.
 
 ## Security - bearer-token auth + encrypted transport
@@ -112,13 +112,13 @@ SQLite file.
 The default `docker-compose.prod.yml.example` binds to `0.0.0.0:49374`
 so the LAN can reach the MCP endpoint. **A LAN-bound server with no
 auth lets anyone on the network call destructive MCP tools** (delete
-all pages, inject fake observations, drain your LLM budget). ai-memory
+all pages, inject fake observations, drain your LLM budget). pitstop
 ships a built-in bearer-token check; turn it on before the first deploy.
 
 ```bash
 # 1. Generate a token (32 bytes / 64 hex chars).
-ai-memory generate-auth-token >> docker/.env.production
-$EDITOR docker/.env.production    # prefix the new line with AI_MEMORY_AUTH_TOKEN=
+pitstop generate-auth-token >> docker/.env.production
+$EDITOR docker/.env.production    # prefix the new line with PITSTOP_AUTH_TOKEN=
 
 # 2. Sync to the homelab + restart.
 scp docker/.env.production "$SERVER:$DEPLOY_DIR/.env.production"
@@ -133,13 +133,13 @@ curl -sI http://homelab:49374/handoff \
      -H "Authorization: Bearer $TOKEN"            # → HTTP/1.1 200 OK
 ```
 
-**Then update every MCP client** to send the same token. `ai-memory
+**Then update every MCP client** to send the same token. `pitstop
 install-mcp --client <name> --auth-token <token>` prints the exact
 snippet for every client in the [README Support Matrix](../README.md#support-matrix);
-run `ai-memory install-mcp --help` for the current accepted values. The agent
-CLI sends an `Authorization: Bearer <token>` header on every call; ai-memory's
+run `pitstop install-mcp --help` for the current accepted values. The agent
+CLI sends an `Authorization: Bearer <token>` header on every call; pitstop's
 middleware validates with a constant-time comparison. For Claude Code, prefer
-the session-aware bridge: `ai-memory install-mcp --client claude-code
+the session-aware bridge: `pitstop install-mcp --client claude-code
 --session-aware --apply --auth-token <token>` keeps the token in
 `<data_dir>/auth-token` instead of `~/.claude.json`, and after
 `install-hooks --apply --auth-token <token>` the same command works without
@@ -148,7 +148,7 @@ the session-aware bridge: `ai-memory install-mcp --client claude-code
 **Encrypted transport.** Plain HTTP on the LAN means anyone with a
 packet capture can read the bearer token (and native `aim_` keys once
 multi-user mode is on) in transit. Add a TLS-terminating reverse
-proxy in front of ai-memory (Caddy with Let's Encrypt, Caddy with
+proxy in front of pitstop (Caddy with Let's Encrypt, Caddy with
 its internal CA, Cloudflare Tunnel, nginx, or external cert files)
 when you bind beyond loopback or turn on multi-user.
 
@@ -158,7 +158,7 @@ deployment guide, including:
 - When to add TLS and when to skip it (the loopback + stdio cases don't need it).
 - Copy-paste docker compose templates in [`docker/compose.tls.caddy.yml`](../docker/compose.tls.caddy.yml) and [`docker/compose.tls.cloudflared.yml`](../docker/compose.tls.cloudflared.yml).
 - Per-OS trust-store install for the internal-CA path (the load-bearing manual step).
-- [Hosting under a subpath](https-via-proxy.md#hosting-under-a-subpath) via `--base-path` / `AI_MEMORY_BASE_PATH` when ai-memory shares a hostname with other apps.
+- [Hosting under a subpath](https-via-proxy.md#hosting-under-a-subpath) via `--base-path` / `PITSTOP_BASE_PATH` when pitstop shares a hostname with other apps.
 - The "what can go wrong" sections, so you don't ship security theatre by accident.
 
 For the single-user-on-loopback Quick Start, the bearer token alone
@@ -220,35 +220,35 @@ options:
 | anthropic | `claude-haiku-4-5` | ~$0.02 | **Recommended default.** Best balance of speed, restraint, and classification quality. Not a reasoning model. |
 | openai-compat (OpenRouter) | `moonshotai/kimi-k2.6` | ~$0.013 | Reasoning model; latency ~2-3 min per consolidation. Fine because consolidation is fire-and-forget. |
 | openai | `gpt-5.4-mini` | ~$0.002 | Cheaper, faster alternative. Decent quality. |
-| openai-oauth | `gpt-5.5` | ChatGPT subscription | ChatGPT/Codex backend. Run `docker exec -it ai-memory ai-memory auth login openai-oauth` on the server host so `<data_dir>/auth.json` lands in the mounted data volume. |
-| copilot | `gpt-5.5` | GitHub Copilot subscription | GitHub Copilot Chat backend. Run `docker exec -it ai-memory ai-memory auth login copilot` on the server host or set `COPILOT_GITHUB_TOKEN`. |
+| openai-oauth | `gpt-5.5` | ChatGPT subscription | ChatGPT/Codex backend. Run `docker exec -it pitstop pitstop auth login openai-oauth` on the server host so `<data_dir>/auth.json` lands in the mounted data volume. |
+| copilot | `gpt-5.5` | GitHub Copilot subscription | GitHub Copilot Chat backend. Run `docker exec -it pitstop pitstop auth login copilot` on the server host or set `COPILOT_GITHUB_TOKEN`. |
 | gemini | `gemini-3.5-flash` | free tier covers personal use | Google hosted, native `responseSchema` structured output. Set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). |
-| openai-compat (Ollama) | `qwen3:32b` | $0 | Self-hosted. Set `AI_MEMORY_LLM_BASE_URL=http://host.docker.internal:11434/v1`. Quality depends on the model. |
+| openai-compat (Ollama) | `qwen3:32b` | $0 | Self-hosted. Set `PITSTOP_LLM_BASE_URL=http://host.docker.internal:11434/v1`. Quality depends on the model. |
 
 > **What we don't recommend:** reasoning-mode models (Kimi-K2.6 in reasoning mode,
 > Claude with extended thinking, GPT-o3, Gemini "thinking" variants). They burn
 > token budget on internal reasoning before emitting output and hang or emit empty
 > responses with the strict-JSON consolidation prompt. If you must use one, turn
 > reasoning off. For a vLLM / SGLang-hosted Qwen3-class model the local equivalent
-> is `AI_MEMORY_LLM_COMPAT_DISABLE_THINKING=true` (it sends
+> is `PITSTOP_LLM_COMPAT_DISABLE_THINKING=true` (it sends
 > `chat_template_kwargs: {"enable_thinking": false}` on every openai-compat
 > request); if the engine still truncates the structured payload or returns empty
 > content, the job fails fast with a terminal `truncated-response` /
 > `empty-content` error instead of retrying.
 
-ai-memory's hosted OpenAI-family providers use `json_schema` strict mode for
+pitstop's hosted OpenAI-family providers use `json_schema` strict mode for
 structured output. The OpenAI provider normalizes schemars output into
 OpenAI's supported subset (`additionalProperties: false`, complete `required`,
 generated enum `anyOf`, and plain `$ref` nodes). `openai-compat` local and
 gateway endpoints use the same schema-constrained request by default, with a
 tolerant fallback for explicit capability rejection or malformed output. Set
-`AI_MEMORY_LLM_COMPAT_STRICT=false` for an incompatible endpoint. If you switch
-to a niche local model, run a quick `ai-memory llm-test` before trusting it.
+`PITSTOP_LLM_COMPAT_STRICT=false` for an incompatible endpoint. If you switch
+to a niche local model, run a quick `pitstop llm-test` before trusting it.
 
 Every chat provider bounds each HTTP request at 300 seconds. Slow hosted
 gateways (observed with free aggregator tiers) can stream a long completion
 past that ceiling and fail every request with `http: error sending request`;
-raise `AI_MEMORY_LLM_TIMEOUT_SECS` in the container environment to match the
+raise `PITSTOP_LLM_TIMEOUT_SECS` in the container environment to match the
 gateway's worst-case generation time.
 
 ## Backups
@@ -256,12 +256,12 @@ gateway's worst-case generation time.
 > **2.0 upgrade note:** the first start of a 2.0 image runs the OKF
 > format migration, which archives the entire data dir to
 > `/data/backups/` on the volume before touching anything (containers
-> are detected automatically; `AI_MEMORY_BACKUP_DIR` overrides). The
+> are detected automatically; `PITSTOP_BACKUP_DIR` overrides). The
 > wiki homepage shows the archive's location until you delete it. See
 > [`MIGRATION-2.0.md`](MIGRATION-2.0.md).
 
 The data dir is whatever you mounted in `docker-compose.prod.yml`
-(default: `/var/opt/docker/utils/ai-memory/data/`). It contains:
+(default: `/var/opt/docker/utils/pitstop/data/`). It contains:
 
 ```
 data/
@@ -275,11 +275,11 @@ data/
 For point-in-time consistency:
 
 ```bash
-ssh "$SERVER" "docker exec ai-memory /usr/local/bin/ai-memory backup --to /data/snapshot-$(date +%F).tar.gz"
+ssh "$SERVER" "docker exec pitstop /usr/local/bin/pitstop backup --to /data/snapshot-$(date +%F).tar.gz"
 scp "$SERVER:$DEPLOY_DIR/data/snapshot-$(date +%F).tar.gz" ./backups/
 ```
 
-The `ai-memory backup` command uses SQLite's online backup API so
+The `pitstop backup` command uses SQLite's online backup API so
 writes during the snapshot are coherent.
 
 For a remote-first backup pattern (rsync the data dir into a git mirror on a
@@ -293,7 +293,7 @@ A deployed server is the supported way to share a project, whether between
 teammates or between several harnesses you run yourself. Check two things
 before you hand out the URL.
 
-**One server per data directory.** Point two `ai-memory serve` processes at the
+**One server per data directory.** Point two `pitstop serve` processes at the
 same `data/` (a synced folder, an NFS mount, two containers on one volume) and
 they will each run their own writer and their own git handle on the wiki. SQLite
 survives it; the wiki and the in-process state do not. Run one server and let
@@ -317,7 +317,7 @@ then share it, and unscoped **writes** resolve through it too. See
 
 Every write goes through a single writer actor, which suits SQLite but sets a
 ceiling. These figures were measured, not estimated, with
-`cargo test -p ai-memory-store --test writer_throughput -- --ignored --nocapture`:
+`cargo test -p pitstop-store --test writer_throughput -- --ignored --nocapture`:
 
 | concurrent writers | throughput | mean latency |
 |---|---|---|
@@ -356,18 +356,18 @@ SQLite does not return deleted space to the filesystem. Deleted rows leave
 their pages on a **freelist**, which SQLite reuses as the database grows again.
 For a store in steady use that is the right behaviour and needs no attention.
 
-`ai-memory status` reports the figure that decides it:
+`pitstop status` reports the figure that decides it:
 
 ```
   storage:      2.4 GiB on disk, 610.0 MiB reclaimable (25.4%)
-    `ai-memory compact --confirm` would return it (blocks writes while it runs)
+    `pitstop compact --confirm` would return it (blocks writes while it runs)
 ```
 
 The advisory line only appears once the backlog is worth acting on. When it
 does:
 
 ```bash
-ssh "$SERVER" "docker exec ai-memory /usr/local/bin/ai-memory compact --confirm"
+ssh "$SERVER" "docker exec pitstop /usr/local/bin/pitstop compact --confirm"
 ```
 
 Compaction deletes nothing. It rebuilds the FTS indexes and `VACUUM`s.
@@ -395,14 +395,14 @@ put it in off hours:
 
 ```bash
 #!/usr/bin/env bash
-# /usr/local/bin/ai-memory-compact-if-worthwhile
+# /usr/local/bin/pitstop-compact-if-worthwhile
 set -euo pipefail
 
-RECLAIMABLE=$(ai-memory status --json | jq '.storage.reclaimable_bytes')
+RECLAIMABLE=$(pitstop status --json | jq '.storage.reclaimable_bytes')
 THRESHOLD=$((1024 * 1024 * 1024))   # 1 GiB — tune to your store
 
 if [ "$RECLAIMABLE" -ge "$THRESHOLD" ]; then
-    ai-memory compact --confirm
+    pitstop compact --confirm
 fi
 ```
 
@@ -426,7 +426,7 @@ ssh "$SERVER" "cd $DEPLOY_DIR && \
                docker tag $IMAGE $IMAGE-rollback && \
                docker pull $IMAGE@sha256:<old-digest> && \
                docker tag $IMAGE@sha256:<old-digest> $IMAGE && \
-               docker compose up -d --pull never --force-recreate ai-memory"
+               docker compose up -d --pull never --force-recreate pitstop"
 ```
 
 The simplest rollback is to bring back an older image by digest. We
@@ -437,14 +437,14 @@ push by digest for free).
 ## Watching logs
 
 ```bash
-ssh "$SERVER" "docker logs -f --tail 100 ai-memory"
+ssh "$SERVER" "docker logs -f --tail 100 pitstop"
 ```
 
 Or browse the daily rolling logs on the host:
 
 ```bash
 ssh "$SERVER" "ls -la $DEPLOY_DIR/data/logs/"
-ssh "$SERVER" "tail -100 $DEPLOY_DIR/data/logs/ai-memory.log.$(date +%F)"
+ssh "$SERVER" "tail -100 $DEPLOY_DIR/data/logs/pitstop.log.$(date +%F)"
 ```
 
 ## Troubleshooting
@@ -453,21 +453,21 @@ ssh "$SERVER" "tail -100 $DEPLOY_DIR/data/logs/ai-memory.log.$(date +%F)"
   container isn't up, or the port mapping is bound to `127.0.0.1`
   instead of `0.0.0.0`. Check `docker ps` on the homelab.
 - **`unhealthy`** status: the container is running but its embedded
-  `ai-memory status` healthcheck is failing. Most likely the data
+  `pitstop status` healthcheck is failing. Most likely the data
   dir's permissions don't match the container's user (uid 1000). Fix
   with `sudo chown -R 1000:1000 $DEPLOY_DIR/data` on the host. A slower-onset
   cause (days, not minutes) is fd exhaustion from dead-peer connections
   (laptop sleep, a VPN flap) accumulating without TCP keepalive; `serve`
-  enables it by default (`tcp_keepalive_secs = 60`, `AI_MEMORY_TCP_KEEPALIVE_SECS`
+  enables it by default (`tcp_keepalive_secs = 60`, `PITSTOP_TCP_KEEPALIVE_SECS`
   to tune or `=0` to disable) (#792).
 - **Embedding mismatch after a model change**: startup logs a warning
   when stored `(provider, model, dim)` triples differ from config.
   Hybrid search ignores stale rows until they are re-embedded. Start
-  the server normally, then run `ai-memory embed --force` to rebuild
+  the server normally, then run `pitstop embed --force` to rebuild
   every project in the workspace, or add `--project <name>` to scope
   the rebuild. Scheduled embedding backfill can also fill missing
   rows when enabled.
-- **Capture looks delayed, or observations are missing**: `ai-memory
+- **Capture looks delayed, or observations are missing**: `pitstop
   status` reports local hook-spool health: how many events are queued
   client-side, the age of the oldest one, and the total failed-delivery
   attempts:
@@ -485,12 +485,12 @@ ssh "$SERVER" "tail -100 $DEPLOY_DIR/data/logs/ai-memory.log.$(date +%F)"
 
   The spool is **client-side**, so this section reflects the machine you
   run the command on, not the server. It is the local data dir even when
-  `AI_MEMORY_SERVER_URL` points at a homelab. It is also printed when the
+  `PITSTOP_SERVER_URL` points at a homelab. It is also printed when the
   server cannot be reached at all (to stderr, so `--json` consumers still
   get a single object on stdout), which is when a backlog matters most. `--json` carries the same numbers under a `spool` object
   (`pending`, `oldest_age_ms`, `retries_total`).
 
-- **Provider failures**: `ai-memory status` reports passive LLM and
+- **Provider failures**: `pitstop status` reports passive LLM and
   embedding health from the last real provider call. A fresh process
   reports `unknown` until the server actually uses that role; it does
   not probe providers or spend tokens for health reporting. If provider
@@ -498,7 +498,7 @@ ssh "$SERVER" "tail -100 $DEPLOY_DIR/data/logs/ai-memory.log.$(date +%F)"
   TLS-inspecting firewall or antivirus, see
   [https-via-proxy.md](https-via-proxy.md#outbound-llm-calls-fail-behind-a-tls-inspecting-firewall).
 - **Container restart loop**: check
-  `docker logs ai-memory`. The `ai-memory starting` line at the top
+  `docker logs pitstop`. The `pitstop starting` line at the top
   reports the resolved config; a missing required env var (e.g.
   `LLM_API_KEY` with `openai-compat` selected but no model) will fail
   here with a clear error.

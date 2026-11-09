@@ -2,12 +2,12 @@
 
 > Provider configuration for consolidation and embeddings. Moved verbatim from the README front page.
 
-ai-memory runs without an LLM: hooks still capture sessions, search uses
+pitstop runs without an LLM: hooks still capture sessions, search uses
 FTS5 + declared entities + graph neighbors, and summaries fall back to
 rule-based output. Add an LLM provider
 when you want LLM consolidation (on PreCompact / PostCompaction, on demand via
 `memory_consolidate`, or opt-in at session end with
-`AI_MEMORY_CONSOLIDATE_ON_SESSION_END`), richer linting, and bootstrap.
+`PITSTOP_CONSOLIDATE_ON_SESSION_END`), richer linting, and bootstrap.
 Substantive session ends always write a rule-based summary page + handoff either
 way. A session containing only `SessionStart` / `SessionEnd` boundaries is
 closed without a page, handoff, or provider job. When that empty session had
@@ -38,7 +38,7 @@ To keep consolidation style project-specific, write
 `_prompts/consolidation.md` in that project's wiki. Its body can express
 preferences such as "prefer Portuguese titles" or "omit routine CI noise".
 Automatic, single-page, and multi-page consolidation use the page; a manual
-`memory_consolidate` call can pass `instructions` to override it once. ai-memory
+`memory_consolidate` call can pass `instructions` to override it once. pitstop
 sanitizes and caps the value at 2,000 characters, JSON-encodes it in the user
 message, and treats it as untrusted advisory data. It cannot supply facts,
 request tool use or disclosure, or override the consolidation schema and
@@ -52,41 +52,41 @@ Recommended defaults:
 | `anthropic` | `claude-haiku-4-5` | Best default for consolidation quality and rule classification. |
 | `anthropic-oauth` | `claude-sonnet-4-6` | Use a Claude Pro/Max subscription via `claude setup-token`, no API key. Currently refused by Anthropic for third-party apps (usually `429`); see below. |
 | `openai` | `gpt-5.4-mini` | Cheaper and faster hosted option. |
-| `openai-oauth` | `gpt-5.5` | ChatGPT Pro/Plus/Codex backend via `ai-memory auth login openai-oauth`; no Platform API key. |
+| `openai-oauth` | `gpt-5.5` | ChatGPT Pro/Plus/Codex backend via `pitstop auth login openai-oauth`; no Platform API key. |
 | `codex` | `gpt-5.6-luna` | Reuse the Codex CLI-owned `auth.json`; access-token refresh remains owned by `codex app-server`. |
 | `cursor` | `cursor-grok-4.6-high` | Cursor subscription via the logged-in `agent` CLI. Runs `agent --print --mode ask` (read-only). Does not pass `--yolo`. The default id is the one `agent --list-models` labels "Grok 4.6". |
-| `copilot` | `gpt-5.5` | GitHub Copilot Chat backend via `ai-memory auth login copilot` or `COPILOT_GITHUB_TOKEN`; requires a Copilot subscription. |
+| `copilot` | `gpt-5.5` | GitHub Copilot Chat backend via `pitstop auth login copilot` or `COPILOT_GITHUB_TOKEN`; requires a Copilot subscription. |
 | `gemini` | `gemini-3.5-flash` | Google-hosted option with a generous free tier. |
-| `opencode` | `mimo-v2.6-flash` | OpenCode Go or Zen via `OPENCODE_API_KEY`. Go is the default endpoint; `AI_MEMORY_LLM_BASE_URL` selects Zen. Set `AI_MEMORY_LLM_MODEL` to an id the chosen endpoint serves. |
+| `opencode` | `mimo-v2.6-flash` | OpenCode Go or Zen via `OPENCODE_API_KEY`. Go is the default endpoint; `PITSTOP_LLM_BASE_URL` selects Zen. Set `PITSTOP_LLM_MODEL` to an id the chosen endpoint serves. |
 | `openai-compat` | no default | OpenRouter, Atlas Cloud, OrcaRouter, Cheaper Inference, API Route, FutureInfra, Ollama, vLLM, LM Studio, and other compatible endpoints. |
-| `openai-compat` + `AI_MEMORY_LLM_BASE_URL=https://openrouter.ai/api/v1` | no default (recommended: `anthropic/claude-haiku-4.5`) | Hosted access to a large model catalogue through one key. See [OpenRouter](#openrouter) below and the empirical comparison in [`llm-provider-comparison.md`](llm-provider-comparison.md). |
+| `openai-compat` + `PITSTOP_LLM_BASE_URL=https://openrouter.ai/api/v1` | no default (recommended: `anthropic/claude-haiku-4.5`) | Hosted access to a large model catalogue through one key. See [OpenRouter](#openrouter) below and the empirical comparison in [`llm-provider-comparison.md`](llm-provider-comparison.md). |
 
 `openai-oauth` stores a refresh token in `<data_dir>/auth.json` and talks to
 the ChatGPT/Codex Responses backend, not `api.openai.com`. For Docker quick
-starts, run `ai-memory auth login openai-oauth` with the wrapper so the token
-lands in the same `ai-memory-data` volume as the server.
+starts, run `pitstop auth login openai-oauth` with the wrapper so the token
+lands in the same `pitstop-data` volume as the server.
 
 `codex` is independent from `openai-oauth`: it never copies credentials into
-ai-memory's data directory and never reads a refresh token or ID token. It
+pitstop's data directory and never reads a refresh token or ID token. It
 reads only `tokens.access_token` and `tokens.account_id` from
 `$CODEX_HOME/auth.json`, or from the platform home's `.codex/auth.json` when
 `CODEX_HOME` is unset or empty. Each request reloads the file. A first 401 may
 trigger one serialized `codex app-server --stdio` recovery followed by one
 retry; further 401 responses fail with a reauthentication hint. Override the
-binary with `AI_MEMORY_CODEX_EXECUTABLE` when `codex` is not on `PATH`.
+binary with `PITSTOP_CODEX_EXECUTABLE` when `codex` is not on `PATH`.
 
 ```bash
-export AI_MEMORY_LLM_PROVIDER=codex
-export AI_MEMORY_LLM_MODEL=gpt-5.6-luna
-export AI_MEMORY_LLM_REASONING_EFFORT=medium
-ai-memory llm-test --provider codex --model gpt-5.6-luna --prompt "Reply with OK"
-ai-memory llm-test --provider codex --model gpt-5.6-luna --structured --prompt "Return a short answer"
+export PITSTOP_LLM_PROVIDER=codex
+export PITSTOP_LLM_MODEL=gpt-5.6-luna
+export PITSTOP_LLM_REASONING_EFFORT=medium
+pitstop llm-test --provider codex --model gpt-5.6-luna --prompt "Reply with OK"
+pitstop llm-test --provider codex --model gpt-5.6-luna --structured --prompt "Return a short answer"
 ```
 
 `cursor` uses the Cursor Agent already logged in on this machine. Set
-`AI_MEMORY_LLM_PROVIDER=cursor`. The default model is `cursor-grok-4.6-high`
+`PITSTOP_LLM_PROVIDER=cursor`. The default model is `cursor-grok-4.6-high`
 ("Grok 4.6" in `agent --list-models`); any other id from that list works.
-`AI_MEMORY_CURSOR_AGENT` overrides the binary. The provider writes the prompt
+`PITSTOP_CURSOR_AGENT` overrides the binary. The provider writes the prompt
 into a temporary workspace and calls `agent --print --mode ask --trust`. It
 does not pass `--yolo` or `--force`: consolidation text is untrusted captured
 content, and those flags would allow tool execution. The Cursor CLI has no
@@ -98,13 +98,13 @@ serde does not enforce. The `agent` process does not inherit the server's
 environment. It gets `PATH`, `HOME`, user and locale variables (`LANG`,
 `LC_*`), temp and XDG directories, `DBUS_SESSION_BUS_ADDRESS`, proxy and CA
 settings, the Windows process basics, and every `CURSOR_*` variable, so
-`AI_MEMORY_AUTH_TOKEN` and other providers' keys never reach it. The per-call
+`PITSTOP_AUTH_TOKEN` and other providers' keys never reach it. The per-call
 workspace is created under the system temp directory captured at startup.
 
 ```bash
-export AI_MEMORY_LLM_PROVIDER=cursor
-export AI_MEMORY_LLM_MODEL=cursor-grok-4.6-high
-ai-memory llm-test --provider cursor --model cursor-grok-4.6-high --prompt "Reply with OK"
+export PITSTOP_LLM_PROVIDER=cursor
+export PITSTOP_LLM_MODEL=cursor-grok-4.6-high
+pitstop llm-test --provider cursor --model cursor-grok-4.6-high --prompt "Reply with OK"
 ```
 
 Codex credential storage mode `file` is supported. `auto` works only when its
@@ -112,19 +112,19 @@ effective credential is present in `auth.json`; keyring-only and ephemeral
 credentials are not read and produce an actionable missing-auth-file error.
 Docker is not configured automatically: the Codex executable, `CODEX_HOME`,
 and its credential file must all exist in the same container/environment as
-ai-memory.
+pitstop.
 
 `opencode` talks to OpenCode's gateway with the `sk-...` key from
 `opencode.ai/auth`, read from `OPENCODE_API_KEY` only; it does not fall back
 to `LLM_API_KEY`. It defaults to the **Go** endpoint,
 `https://opencode.ai/zen/go/v1`: a subscription with a per-model monthly
 allowance rather than per-token billing. Set
-`AI_MEMORY_LLM_BASE_URL=https://opencode.ai/zen/v1` (or `llm_base_url` in
+`PITSTOP_LLM_BASE_URL=https://opencode.ai/zen/v1` (or `llm_base_url` in
 `config.toml`) for **Zen**'s pay-per-token catalogue. Model ids are per
 catalogue and written plainly (`mimo-v2.5`, `glm-5.3-flash`), not in the
 `opencode-go/<model>` form OpenCode's own client config uses. The built-in
 default is `mimo-v2.6-flash`, served by Go. When selecting Zen, set
-`AI_MEMORY_LLM_MODEL` to a model from its catalogue, such as `claude-sonnet-5-5`.
+`PITSTOP_LLM_MODEL` to a model from its catalogue, such as `claude-sonnet-5-5`.
 The provider preserves the chosen catalogue and does not switch billing products
 automatically. Published Responses models, including `gpt-5.6-luna` and
 `gpt-6-luna`, use `/responses`. The wire API follows the selected catalogue:
@@ -142,68 +142,68 @@ are [go.mdx](https://github.com/anomalyco/opencode/blob/dev/packages/web/src/con
 and [zen.mdx](https://github.com/anomalyco/opencode/blob/dev/packages/web/src/content/docs/zen.mdx).
 The provider sends the
 `x-opencode-session` correlation header OpenCode asks for, one id per logical
-operation, and its own `User-Agent`; `AI_MEMORY_LLM_HEADERS` overrides
-either. `AI_MEMORY_LLM_REASONING_EFFORT` and `AI_MEMORY_LLM_TIMEOUT_SECS`
-apply as for every other provider. `AI_MEMORY_LLM_PROVIDER` / `llm_provider`
+operation, and its own `User-Agent`; `PITSTOP_LLM_HEADERS` overrides
+either. `PITSTOP_LLM_REASONING_EFFORT` and `PITSTOP_LLM_TIMEOUT_SECS`
+apply as for every other provider. `PITSTOP_LLM_PROVIDER` / `llm_provider`
 also accept the historical aliases `opencode-zen` and `opencode_zen` for the
 same provider (`llm-test --provider` takes only `opencode`); the endpoint is
 chosen by the base URL, not the alias.
 
 ```bash
-export AI_MEMORY_LLM_PROVIDER=opencode
-export AI_MEMORY_LLM_MODEL=mimo-v2.6-flash
-ai-memory llm-test --provider opencode --model mimo-v2.6-flash --prompt "Reply with OK"
+export PITSTOP_LLM_PROVIDER=opencode
+export PITSTOP_LLM_MODEL=mimo-v2.6-flash
+pitstop llm-test --provider opencode --model mimo-v2.6-flash --prompt "Reply with OK"
 ```
 
 For Claude through Zen:
 
 ```bash
-export AI_MEMORY_LLM_PROVIDER=opencode
-export AI_MEMORY_LLM_BASE_URL=https://opencode.ai/zen/v1
-export AI_MEMORY_LLM_MODEL=claude-sonnet-5-5
-ai-memory llm-test --provider opencode --model claude-sonnet-5-5 --prompt "Reply with OK"
+export PITSTOP_LLM_PROVIDER=opencode
+export PITSTOP_LLM_BASE_URL=https://opencode.ai/zen/v1
+export PITSTOP_LLM_MODEL=claude-sonnet-5-5
+pitstop llm-test --provider opencode --model claude-sonnet-5-5 --prompt "Reply with OK"
 ```
 
 <a id="openrouter"></a>
 [OpenRouter](https://openrouter.ai) is used through the generic `openai-compat`
 provider, the same wiring as Atlas Cloud, OrcaRouter, Ollama, vLLM, and LM
 Studio. There is no dedicated `openrouter` provider name, and setting
-`AI_MEMORY_LLM_PROVIDER=openrouter` fails at startup with
-`AI_MEMORY_LLM_PROVIDER=openrouter is not one of anthropic|openai|gemini|openai-compat|...`.
+`PITSTOP_LLM_PROVIDER=openrouter` fails at startup with
+`PITSTOP_LLM_PROVIDER=openrouter is not one of anthropic|openai|gemini|openai-compat|...`.
 Select it by pointing the compat base URL at OpenRouter and supplying its
 `sk-or-v1-...` key through `LLM_API_KEY`:
 
-A minimal working env-file (drop into `~/.config/ai-memory/openrouter.env`
+A minimal working env-file (drop into `~/.config/pitstop/openrouter.env`
 or the Docker `--env-file` argument):
 
 ```env
 LLM_API_KEY=sk-or-v1-...
 
-AI_MEMORY_LLM_PROVIDER=openai-compat
-AI_MEMORY_LLM_BASE_URL=https://openrouter.ai/api/v1
-AI_MEMORY_LLM_MODEL=deepseek/deepseek-v4-flash
-AI_MEMORY_LLM_COMPAT_STRICT=true
+PITSTOP_LLM_PROVIDER=openai-compat
+PITSTOP_LLM_BASE_URL=https://openrouter.ai/api/v1
+PITSTOP_LLM_MODEL=deepseek/deepseek-v4-flash
+PITSTOP_LLM_COMPAT_STRICT=true
 # Set only when the endpoint defaults an omitted field to SSE:
-AI_MEMORY_LLM_COMPAT_STREAM=false
+PITSTOP_LLM_COMPAT_STREAM=false
 ```
 
 Then verify:
 
 ```bash
-ai-memory llm-test --provider openai-compat \
+pitstop llm-test --provider openai-compat \
     --model deepseek/deepseek-v4-flash --prompt "Reply with OK"
 ```
 
-`AI_MEMORY_LLM_COMPAT_STRICT=true` sends OpenAI-style
+`PITSTOP_LLM_COMPAT_STRICT=true` sends OpenAI-style
 `response_format=json_schema` for every structured call. Modern hosted
 gateways honour it; some model backends (DeepSeek among them) otherwise wrap
-their JSON output in markdown fences that ai-memory's tolerant parser has to
+their JSON output in markdown fences that pitstop's tolerant parser has to
 strip, which occasionally drops a field. Setting it to `true` at the
 env-file level is safer for consolidation reliability. Turn it off
-(`AI_MEMORY_LLM_COMPAT_STRICT=false`) only for a specific model backend that
+(`PITSTOP_LLM_COMPAT_STRICT=false`) only for a specific model backend that
 explicitly rejects the schema-constrained shape.
 
-`AI_MEMORY_LLM_COMPAT_STREAM` controls the `stream` field on
+`PITSTOP_LLM_COMPAT_STREAM` controls the `stream` field on
 `openai-compat` Chat Completions requests. Leave it unset to omit the field,
 preserving the existing request shape. Set it to `false` when an endpoint
 defaults an omitted field to Server-Sent Events. Setting it to `true` is
@@ -214,7 +214,7 @@ The `docker/.env.production.example` file in the repo ships with an OpenRouter
 setup pre-filled, with `moonshotai/kimi-k2.6` as the sample model (see the
 gotchas below for why reasoning models are ineligible). Model ids follow
 OpenRouter's `provider/model` convention. There is no built-in default:
-`AI_MEMORY_LLM_MODEL` is required, as it is for every `openai-compat` endpoint.
+`PITSTOP_LLM_MODEL` is required, as it is for every `openai-compat` endpoint.
 
 ### Choosing a model
 
@@ -231,14 +231,14 @@ the `openai-compat` embedder) noticeably improves retrieval quality
 relative to the built-in English-only local embedder. Configuration is in
 the embedding paragraph below.
 
-ai-memory automatically layers OpenRouter's app-attribution headers
+pitstop automatically layers OpenRouter's app-attribution headers
 (`HTTP-Referer` and `X-Title`) whenever the base URL points at
-`openrouter.ai`, so ai-memory traffic is credited on OpenRouter's app
-leaderboard. `AI_MEMORY_LLM_HEADERS=HTTP-Referer=https://example.com,X-Title=my-app`
-overrides them per operator. `AI_MEMORY_LLM_REASONING_EFFORT` is honoured on
+`openrouter.ai`, so pitstop traffic is credited on OpenRouter's app
+leaderboard. `PITSTOP_LLM_HEADERS=HTTP-Referer=https://example.com,X-Title=my-app`
+overrides them per operator. `PITSTOP_LLM_REASONING_EFFORT` is honoured on
 this path: OpenRouter hosts receive `reasoning: { effort, exclude: true }`.
 
-OpenRouter's LLM/completions API is what ai-memory uses above. It does **not**
+OpenRouter's LLM/completions API is what pitstop uses above. It does **not**
 reliably expose an OpenAI-compatible `/v1/embeddings` endpoint (historically it
 has not), so do not assume an OpenRouter base URL works for the embedder. If a
 given deployment of OpenRouter does offer an embeddings endpoint, verify it
@@ -248,23 +248,23 @@ openai-compat path rather than the openai path, which has an OpenAI-specific
 key precedence chain:
 
 ```bash
-export AI_MEMORY_EMBEDDING_PROVIDER=openai-compat
-export AI_MEMORY_EMBEDDING_BASE_URL=https://openrouter.ai/api/v1
-export AI_MEMORY_EMBEDDING_MODEL=baai/bge-m3
-export AI_MEMORY_EMBEDDING_DIM=1024
+export PITSTOP_EMBEDDING_PROVIDER=openai-compat
+export PITSTOP_EMBEDDING_BASE_URL=https://openrouter.ai/api/v1
+export PITSTOP_EMBEDDING_MODEL=baai/bge-m3
+export PITSTOP_EMBEDDING_DIM=1024
 # LLM_API_KEY is reused automatically when EMBEDDING_API_KEY is unset on
 # the openai-compat embedder path; no second key is required.
 ```
 
-`AI_MEMORY_EMBEDDING_DIM` is mandatory for openai-compat embeddings and must
+`PITSTOP_EMBEDDING_DIM` is mandatory for openai-compat embeddings and must
 match the model. For English-only content the built-in local
-sentence-transformer (`AI_MEMORY_EMBEDDING_PROVIDER=local`, see
+sentence-transformer (`PITSTOP_EMBEDDING_PROVIDER=local`, see
 [`local-embeddings.md`](local-embeddings.md)) is a valid alternative that
 avoids hosted egress; for non-English content, a multilingual hosted model
 (`baai/bge-m3`, `intfloat/multilingual-e5-large`, or similar) served by any
 provider that exposes a real `/v1/embeddings` endpoint is the practical choice.
-The two endpoints are still independent, so setting `AI_MEMORY_LLM_BASE_URL`
-alone does not redirect embeddings; set `AI_MEMORY_EMBEDDING_BASE_URL` too.
+The two endpoints are still independent, so setting `PITSTOP_LLM_BASE_URL`
+alone does not redirect embeddings; set `PITSTOP_EMBEDDING_BASE_URL` too.
 
 > [!TIP]
 > **`openai-compat` sends `X-Request-Id` on every chat attempt.** Each HTTP
@@ -279,26 +279,26 @@ alone does not redirect embeddings; set `AI_MEMORY_EMBEDDING_BASE_URL` too.
 > one new operation: a process restart or a queue re-claim mints a new id
 > for the calls it makes. The official `openai` provider and `opencode` do
 > not send this header; `opencode` keeps its own `x-opencode-session`
-> contract. Because ai-memory owns the header on the `openai-compat` path, a
-> static `x-request-id` entry in `AI_MEMORY_LLM_HEADERS` is refused at
+> contract. Because pitstop owns the header on the `openai-compat` path, a
+> static `x-request-id` entry in `PITSTOP_LLM_HEADERS` is refused at
 > startup for that provider; the dynamic value must not be shadowed or
 > duplicated.
 
 ### Probing the server's own provider
 
-`ai-memory llm-test` builds a provider from the shell it runs in. That is the
+`pitstop llm-test` builds a provider from the shell it runs in. That is the
 right check before a key goes into the config, and it works with the server
 down — but it is the wrong check when the server runs in a container or on
 another host, because the keys exist there and not in your shell. A failure
 like `building LLM provider` (no key) or a provider `400 Please pass a valid
 API key` says nothing about the server in that case.
 
-`ai-memory llm-test --server` asks the server to run the probe itself, with its
+`pitstop llm-test --server` asks the server to run the probe itself, with its
 own configured provider, fallback chain and keys, and prints the provider,
 model, latency and the error class:
 
 ```bash
-ai-memory llm-test --server
+pitstop llm-test --server
 ```
 
 It is the same probe `status` and the health panel name when a provider call
@@ -317,31 +317,31 @@ server answers `503` and says so.
   `-p 49374:49374` publishes on every host interface. If the port is
   ever reachable beyond loopback, generate a bearer token first:
   ```bash
-  ai-memory generate-auth-token
-  export AI_MEMORY_AUTH_TOKEN=<token>
-  export AI_MEMORY_ALLOWED_HOSTS=<host,host,...>
+  pitstop generate-auth-token
+  export PITSTOP_AUTH_TOKEN=<token>
+  export PITSTOP_ALLOWED_HOSTS=<host,host,...>
   ```
   The server logs a loud startup warning about non-loopback exposure
-  without a token; treat it as blocking. `AI_MEMORY_ALLOWED_HOSTS`
+  without a token; treat it as blocking. `PITSTOP_ALLOWED_HOSTS`
   guards against DNS-rebinding. TLS termination is expected to sit in
   front of the process; see [`docs/https-via-proxy.md`](https-via-proxy.md).
 - **Secret hygiene.** The env file that holds `LLM_API_KEY` (and any
   provider-specific key you set) should be `chmod 600` and outside any
   directory a version-control tool sees. If you back up
-  `~/.config/ai-memory/` (see [`docs/backup.md`](backup.md)), exclude
+  `~/.config/pitstop/` (see [`docs/backup.md`](backup.md)), exclude
   the env file. The sample script and mirror `.gitignore` shipped
   there already exclude `*.env` by default.
 - **Cheap models can drift.** LLM consolidation writes durable wiki
   pages, so a model that occasionally fabricates a `kind: decision`
   page for a session that made no decision leaves a page in the wiki
-  that ai-memory will treat as first-class evidence on subsequent
+  that pitstop will treat as first-class evidence on subsequent
   reads. This is a known cost of running a smaller / cheaper model on
   the consolidation prompt. Spot-check
   `<data_dir>/wiki/<workspace>/<project>/decisions/` during the first
   week on a new model for pages you do not recognize; if any appear,
   either raise the provider tier for consolidation only (keep the
   cheaper model for retrieval reranking) or unset
-  `AI_MEMORY_LLM_PROVIDER` to fall back to the deterministic
+  `PITSTOP_LLM_PROVIDER` to fall back to the deterministic
   rule-based path.
 - **`:free`-suffix models draw from a shared quota.** Any model id
   ending in `:free` on OpenRouter is served from a pool shared across
@@ -357,19 +357,19 @@ server answers `503` and says so.
   strings. `docs/install.md#llm-provider-tiers` has the standing "what
   we don't recommend" note listing the pattern; the same applies to
   any OpenRouter model flagged as a reasoning/thinking variant. Prefer
-  a non-reasoning peer for `AI_MEMORY_LLM_MODEL`.
+  a non-reasoning peer for `PITSTOP_LLM_MODEL`.
 
 `anthropic-oauth` hits the same `/v1/messages` endpoint as `anthropic` but
 authenticates with an OAuth bearer token instead of an API key. Run
 `claude setup-token` once; it prints the token and does not save it anywhere, so
 export it yourself as `ANTHROPIC_OAUTH_TOKEN=<token>` (or
-`CLAUDE_CODE_OAUTH_TOKEN`) and set `AI_MEMORY_LLM_PROVIDER=anthropic-oauth`. No
+`CLAUDE_CODE_OAUTH_TOKEN`) and set `PITSTOP_LLM_PROVIDER=anthropic-oauth`. No
 `ANTHROPIC_API_KEY` is needed. The Docker
 wrappers forward either token by name to short-lived helper commands such as
 `llm-test`; configure the long-lived server container separately as shown in the
 installation guide.
 
-For both Anthropic providers, ai-memory omits `temperature` for Claude
+For both Anthropic providers, pitstop omits `temperature` for Claude
 4.7 and later models and Claude Mythos Preview because those models reject
 non-default sampling parameters. `llm-test` sends the same representative 0.2
 value as the normal pipeline before the provider applies that compatibility
@@ -394,7 +394,7 @@ also set `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` on the server.
 
 > [!TIP]
 > **For the OAuth/subscription backends, prefer a small, fast model** via
-> `AI_MEMORY_LLM_MODEL` where the backend lets you choose one. ai-memory's LLM
+> `PITSTOP_LLM_MODEL` where the backend lets you choose one. pitstop's LLM
 > work (consolidation, lint, explore) is summarisation, not hard reasoning, so a
 > Haiku/mini-class model is plenty and is much easier on subscription rate
 > limits. Save the high-effort thinking models for your coding agent. Per backend:
@@ -409,11 +409,11 @@ also set `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` on the server.
 
 > [!TIP]
 > **OpenAI-compatible structured output is schema-constrained by default.**
-> ai-memory sends each operation's JSON Schema through
+> pitstop sends each operation's JSON Schema through
 > `response_format=json_schema`, which recent Ollama, vLLM, LM Studio, and
 > llama.cpp releases honour. It falls back to the tolerant parser when an
 > endpoint explicitly rejects that field or returns a malformed shape. Set
-> `AI_MEMORY_LLM_COMPAT_STRICT=false` only for an incompatible endpoint.
+> `PITSTOP_LLM_COMPAT_STRICT=false` only for an incompatible endpoint.
 
 The tolerant parser removes `<think>`, `<thinking>`, `<analysis>` and
 `<reasoning>` wrappers outside the JSON answer and unwraps Markdown fences.
@@ -426,7 +426,7 @@ same parsing rules when the provider uses automatic tool choice.
 > models).** Such engines spend the output budget on a reasoning pass before
 > the structured payload and can truncate the JSON mid-object
 > (`finish_reason = "length"`). Set
-> `AI_MEMORY_LLM_COMPAT_DISABLE_THINKING=true` to send
+> `PITSTOP_LLM_COMPAT_DISABLE_THINKING=true` to send
 > `chat_template_kwargs: {"enable_thinking": false}` on every openai-compat
 > request so the engine spends the budget on the payload instead. The knob is
 > opt-in, openai-compat only, and off by default: existing vLLM / Ollama /
@@ -450,8 +450,8 @@ max_output_tokens = 1000
 ```
 
 The equivalent environment variables are
-`AI_MEMORY_CONSOLIDATION__MAX_INPUT_TOKENS` and
-`AI_MEMORY_CONSOLIDATION__MAX_OUTPUT_TOKENS`. Provider failures during an
+`PITSTOP_CONSOLIDATION__MAX_INPUT_TOKENS` and
+`PITSTOP_CONSOLIDATION__MAX_OUTPUT_TOKENS`. Provider failures during an
 automatic PreCompact/PostCompaction checkpoint fall back to the deterministic
 rule-based page; admission, storage, and scope errors still fail closed. The
 validated minimums are 8,350 input and 1,000 output tokens at the default
@@ -459,7 +459,7 @@ validated minimums are 8,350 input and 1,000 output tokens at the default
 and needs a proportionally larger input target.
 
 Every chat provider bounds each completion request at 300 seconds
-(`AI_MEMORY_LLM_TIMEOUT_SECS` to override, or `llm_timeout_secs = 900` in
+(`PITSTOP_LLM_TIMEOUT_SECS` to override, or `llm_timeout_secs = 900` in
 config.toml; the quick openai-oauth token refresh keeps the default ceiling).
 The default tolerates a local engine cold-loading a large model; slow hosted
 gateways whose long completions exceed the ceiling fail every request with
@@ -467,7 +467,7 @@ gateways whose long completions exceed the ceiling fail every request with
 consolidation exhaust its retries.
 
 Reranking is optional and off by default. With an LLM provider configured,
-`AI_MEMORY_RERANKER=llm` makes project and explicit-scope `memory_query`
+`PITSTOP_RERANKER=llm` makes project and explicit-scope `memory_query`
 calls over-fetch from the hybrid stage, fuse scopes, and make at most one LLM
 call to reorder the best candidates. This can promote a relevant page that
 RRF ranked below the requested cut, at the cost of LLM latency and usage. The
@@ -475,14 +475,14 @@ request sends the query plus at most 30 bounded page titles and search snippets
 to the configured provider; all values are JSON-encoded and treated as
 untrusted data. A timeout, provider error, or incomplete/invalid score set
 preserves the normal order. The timeout is 20 seconds per query; raise it with
-`AI_MEMORY_RERANK_TIMEOUT_SECS` (or `rerank_timeout_secs` in `config.toml`)
+`PITSTOP_RERANK_TIMEOUT_SECS` (or `rerank_timeout_secs` in `config.toml`)
 when a slow provider or a fallback chain needs longer to answer. `global=true` and supplemental global-preference
 hits keep their existing non-RRF ranking. Concurrent provider calls are capped
 at four; saturated queries keep their local ranking without waiting.
 
 ## Workload telemetry
 
-`ai-memory status --json` (the root-protected `GET /admin/status` response)
+`pitstop status --json` (the root-protected `GET /admin/status` response)
 includes `providers.llm_workloads` whenever an LLM provider is configured. Its
 closed labels are `unspecified`, `consolidation`, `rerank`, `auto-improve`,
 `bootstrap`, `query-answer`, `lint`, `profile`, `dream`, and `experience`.
@@ -513,16 +513,16 @@ task uses its own provider and fallback chain only when the config declares an
 uses the global provider and its fallback chain.
 
 Embeddings are optional and separate from the LLM provider. Set
-`AI_MEMORY_EMBEDDING_PROVIDER=openai`, `voyage`, `google`/`gemini`,
+`PITSTOP_EMBEDDING_PROVIDER=openai`, `voyage`, `google`/`gemini`,
 `openai-compat`, or `copilot` when you want vector retrieval in addition to
 FTS5 + entity + graph-neighbor retrieval. `openai-compat` targets self-hosted
 engines (Ollama, LM Studio, vLLM): it needs no API key and requires explicit
-`AI_MEMORY_EMBEDDING_BASE_URL`, `AI_MEMORY_EMBEDDING_MODEL`, and
-`AI_MEMORY_EMBEDDING_DIM`. The optional `EMBEDDING_API_KEY` credentials the
+`PITSTOP_EMBEDDING_BASE_URL`, `PITSTOP_EMBEDDING_MODEL`, and
+`PITSTOP_EMBEDDING_DIM`. The optional `EMBEDDING_API_KEY` credentials the
 embedder alone and is checked before `OPENAI_API_KEY` and `LLM_API_KEY`, so
 embeddings can run on a different provider than the LLM. Because the two
-endpoints are independent, `AI_MEMORY_LLM_BASE_URL` redirects only the LLM;
-set `AI_MEMORY_EMBEDDING_BASE_URL` as well or embedding traffic still goes to
+endpoints are independent, `PITSTOP_LLM_BASE_URL` redirects only the LLM;
+set `PITSTOP_EMBEDDING_BASE_URL` as well or embedding traffic still goes to
 the embedding provider's default endpoint. Both the FTS-only and
 hybrid paths apply the same bounded page-authority adjustment after candidate
 generation; embeddings improve relevance recall but do not decide which source
@@ -531,8 +531,8 @@ is canonical.
 Asymmetric embedding models, trained with a different instruction for
 queries than for the text being indexed, need that instruction added to the
 text itself; the OpenAI-compatible `/v1/embeddings` wire format has no field
-for it. `AI_MEMORY_EMBEDDING_QUERY_PREFIX` and
-`AI_MEMORY_EMBEDDING_DOCUMENT_PREFIX` (only applied by the `openai` and
+for it. `PITSTOP_EMBEDDING_QUERY_PREFIX` and
+`PITSTOP_EMBEDDING_DOCUMENT_PREFIX` (only applied by the `openai` and
 `openai-compat` embedders) are prepended to query and document text
 respectively, before the existing truncation, so a long body is still
 truncated to the same overall input cap with the prefix included. Both are
@@ -572,17 +572,17 @@ publisher-specified, not a typo.
 
 Changing `embedding_query_prefix` alone never requires re-embedding: only
 `embedding_document_prefix` is folded into the stored embedding identity
-(a non-empty value changes what `ai-memory` treats as the current
+(a non-empty value changes what `pitstop` treats as the current
 `{provider, model, dim}` triple for that page's vectors), so a document
 prefix change makes `memory_query` stop matching the old vectors and the
-next `ai-memory embed` (scheduled or manual) pass re-embed them
+next `pitstop embed` (scheduled or manual) pass re-embed them
 automatically, without `--force`. `--force` remains useful to
 re-embed everything immediately rather than waiting for scheduled
 backfill, or to force a re-embed for a reason the triple alone doesn't
 capture (e.g. touching up the vLLM server's tokenizer or quantization).
 
-`AI_MEMORY_EMBEDDING_PROVIDER=copilot` reuses the same Copilot OAuth login as
-the `copilot` LLM provider (`ai-memory auth login copilot` or
+`PITSTOP_EMBEDDING_PROVIDER=copilot` reuses the same Copilot OAuth login as
+the `copilot` LLM provider (`pitstop auth login copilot` or
 `COPILOT_GITHUB_TOKEN`/`GITHUB_COPILOT_API_TOKEN`), with no separate API key.
 It defaults to model `text-embedding-3-small`, dim 1536, and calls Copilot's
 `/embeddings` endpoint following the same OpenAI-compatible contract Copilot
@@ -590,7 +590,7 @@ documents for chat. That endpoint's exact shape is not covered by a live
 test against Copilot here; treat it as needing a real-Copilot smoke test
 before relying on it in production.
 
-`AI_MEMORY_EMBEDDING_PROVIDER=local` needs no key and no server at all:
+`PITSTOP_EMBEDDING_PROVIDER=local` needs no key and no server at all:
 sentence embeddings run in-process (pure-Rust `all-MiniLM-L6-v2`,
 384-dim), with the model fetched once into `<data_dir>/models/` under
 pinned checksums; see [`docs/local-embeddings.md`](local-embeddings.md).

@@ -67,7 +67,7 @@ targets gain `.md`.
 ## Who writes them
 
 - **You**, in any page's frontmatter (the wiki files are plain
-  markdown: edit them and let the watcher reindex the page; `ai-memory
+  markdown: edit them and let the watcher reindex the page; `pitstop
   reindex` only rebuilds a clean store from the markdown).
 - **The consolidator**, sparingly: both single-page consolidation and
   `memory_consolidate` with `multi_page=true` can preserve a relation

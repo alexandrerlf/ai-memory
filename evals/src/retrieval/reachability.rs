@@ -58,7 +58,7 @@ pub const DF_MAX: usize = 3;
 /// Share of a turn's distinctive tokens a surface must contain.
 pub const REACH_THRESHOLD: f64 = 0.5;
 
-/// Local embedder input bounds, mirrored from `ai-memory-llm`:
+/// Local embedder input bounds, mirrored from `pitstop-llm`:
 /// `truncate_for_embedding(text, MAX_TOKENS * 4)` keeps
 /// `min(MAX_TOKENS * 4 * 3, 8000)` bytes, then the tokenizer truncates to
 /// `MAX_TOKENS`.

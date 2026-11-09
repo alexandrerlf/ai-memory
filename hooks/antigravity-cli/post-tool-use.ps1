@@ -1,4 +1,4 @@
-. "$PSScriptRoot\..\lib\ai-memory-hook.ps1"
-Invoke-AiMemoryHook -Event "post-tool-use" -Agent "antigravity-cli"
+. "$PSScriptRoot\..\lib\pitstop-hook.ps1"
+Invoke-PitstopHook -Event "post-tool-use" -Agent "antigravity-cli"
 [Console]::Out.WriteLine("{}")
 exit 0

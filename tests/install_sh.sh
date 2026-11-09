@@ -8,11 +8,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/ai-memory-install-sh.XXXXXX")"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/pitstop-install-sh.XXXXXX")"
 trap 'rm -rf "${TMP_ROOT}"' EXIT
 
 TARGET=linux-x86_64
-ASSET="ai-memory-${TARGET}.tar.gz"
+ASSET="pitstop-${TARGET}.tar.gz"
 
 fail() {
   printf 'error: %s\n' "$*" >&2
@@ -40,8 +40,8 @@ publish() {
 plain_tree() {
   local tree="$1"
   mkdir -p "${tree}/hooks"
-  printf '#!/bin/sh\necho "ai-memory 0.0.0-test"\n' >"${tree}/ai-memory"
-  chmod 0755 "${tree}/ai-memory"
+  printf '#!/bin/sh\necho "pitstop 0.0.0-test"\n' >"${tree}/pitstop"
+  chmod 0755 "${tree}/pitstop"
   printf 'echo hook\n' >"${tree}/hooks/_lib.sh"
 }
 
@@ -51,8 +51,8 @@ run_install() {
   local name="$1" base="$2"
   shift 2
   mkdir -p "${TMP_ROOT}/${name}/home"
-  env HOME="${TMP_ROOT}/${name}/home" AI_MEMORY_INSTALL_TARGET="${TARGET}" \
-    AI_MEMORY_RELEASE_BASE_URL="${base}" "$@" \
+  env HOME="${TMP_ROOT}/${name}/home" PITSTOP_INSTALL_TARGET="${TARGET}" \
+    PITSTOP_RELEASE_BASE_URL="${base}" "$@" \
     sh "${ROOT}/install.sh" >"${TMP_ROOT}/${name}/out.log" 2>&1
 }
 
@@ -60,15 +60,15 @@ run_install() {
 plain_tree "${TMP_ROOT}/plain-tree"
 base="$(publish plain "${TMP_ROOT}/plain-tree")"
 run_install plain "file://${base}" || fail "plain release refused: $(cat "${TMP_ROOT}/plain/out.log")"
-[ -x "${TMP_ROOT}/plain/home/.local/lib/ai-memory/ai-memory" ] || fail "plain release not unpacked"
+[ -x "${TMP_ROOT}/plain/home/.local/lib/pitstop/pitstop" ] || fail "plain release not unpacked"
 # The test PATH lacks ~/.local/bin, so the next step names the link by its full
 # path; with the bin dir on PATH it is the bare command.
-grep -Fq "next: ${TMP_ROOT}/plain/home/.local/bin/ai-memory setup" "${TMP_ROOT}/plain/out.log" \
+grep -Fq "next: ${TMP_ROOT}/plain/home/.local/bin/pitstop setup" "${TMP_ROOT}/plain/out.log" \
   || fail "off-PATH next step not absolute: $(cat "${TMP_ROOT}/plain/out.log")"
 base_on_path="$(publish on-path "${TMP_ROOT}/plain-tree")"
 run_install on-path "file://${base_on_path}" PATH="${TMP_ROOT}/on-path/home/.local/bin:${PATH}" \
   || fail "on-PATH install refused: $(cat "${TMP_ROOT}/on-path/out.log")"
-grep -Fxq "next: ai-memory setup" <(sed 's/^[^:]*: //' "${TMP_ROOT}/on-path/out.log") \
+grep -Fxq "next: pitstop setup" <(sed 's/^[^:]*: //' "${TMP_ROOT}/on-path/out.log") \
   || fail "on-PATH next step not the bare command: $(cat "${TMP_ROOT}/on-path/out.log")"
 
 # A symlink member pointing outside the tree is refused, and nothing lands.
@@ -80,7 +80,7 @@ if run_install symlink "file://${base}"; then
 fi
 grep -Fq "not a plain file or directory" "${TMP_ROOT}/symlink/out.log" \
   || fail "symlink refusal not explained: $(cat "${TMP_ROOT}/symlink/out.log")"
-[ ! -e "${TMP_ROOT}/symlink/home/.local/lib/ai-memory" ] || fail "a refused release was unpacked"
+[ ! -e "${TMP_ROOT}/symlink/home/.local/lib/pitstop" ] || fail "a refused release was unpacked"
 
 # A hard-link member is refused the same way.
 plain_tree "${TMP_ROOT}/hardlink-tree"
@@ -155,7 +155,7 @@ noexec_dir() {
   local candidate probe
   for candidate in /run/lock /dev/shm "${XDG_RUNTIME_DIR:-}"; do
     [ -n "${candidate}" ] && [ -d "${candidate}" ] && [ -w "${candidate}" ] || continue
-    probe="$(mktemp "${candidate}/ai-memory-noexec.XXXXXX" 2>/dev/null)" || continue
+    probe="$(mktemp "${candidate}/pitstop-noexec.XXXXXX" 2>/dev/null)" || continue
     printf '#!/bin/sh\nexit 0\n' >"${probe}"
     chmod 0755 "${probe}"
     if "${probe}" 2>/dev/null; then
@@ -173,7 +173,7 @@ if noexec="$(noexec_dir)"; then
   base="$(publish noexec "${TMP_ROOT}/noexec-tree")"
   run_install noexec "file://${base}" TMPDIR="${noexec}" \
     || fail "install from a noexec TMPDIR (${noexec}) refused: $(cat "${TMP_ROOT}/noexec/out.log")"
-  [ -x "${TMP_ROOT}/noexec/home/.local/lib/ai-memory/ai-memory" ] \
+  [ -x "${TMP_ROOT}/noexec/home/.local/lib/pitstop/pitstop" ] \
     || fail "install from a noexec TMPDIR unpacked nothing: $(cat "${TMP_ROOT}/noexec/out.log")"
   printf 'noexec TMPDIR case ran in %s\n' "${noexec}"
 else
@@ -183,7 +183,7 @@ fi
 # Control: a release whose binary does not run is still refused, by the smoke
 # test run from beside the install directory, and its staged copy is removed.
 plain_tree "${TMP_ROOT}/broken-tree"
-printf '#!/bin/sh\nexit 1\n' >"${TMP_ROOT}/broken-tree/ai-memory"
+printf '#!/bin/sh\nexit 1\n' >"${TMP_ROOT}/broken-tree/pitstop"
 base="$(publish broken "${TMP_ROOT}/broken-tree")"
 if run_install broken "file://${base}"; then
   fail "a release whose binary does not run was installed"
@@ -191,8 +191,8 @@ fi
 grep -Fq "does not run from ${TMP_ROOT}/broken/home/.local/lib on this machine" \
   "${TMP_ROOT}/broken/out.log" \
   || fail "broken binary refusal not explained: $(cat "${TMP_ROOT}/broken/out.log")"
-[ ! -e "${TMP_ROOT}/broken/home/.local/lib/ai-memory" ] || fail "a refused release was installed"
-if ls -d "${TMP_ROOT}/broken/home/.local/lib/ai-memory.new."* >/dev/null 2>&1; then
+[ ! -e "${TMP_ROOT}/broken/home/.local/lib/pitstop" ] || fail "a refused release was installed"
+if ls -d "${TMP_ROOT}/broken/home/.local/lib/pitstop.new."* >/dev/null 2>&1; then
   fail "a refused release left its staged copy behind"
 fi
 

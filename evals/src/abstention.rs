@@ -393,7 +393,7 @@ fn load_longmemeval_abstentions() -> Result<Vec<Case>> {
     let variant: &'static DatasetVariant = &dataset::VARIANT_S;
     let path = Path::new(variant.default_path);
     let questions = dataset::load(path, variant).with_context(|| {
-        "loading pinned LongMemEval abstentions; run `ai-memory-eval retrieval --fetch` first"
+        "loading pinned LongMemEval abstentions; run `pitstop-eval retrieval --fetch` first"
             .to_string()
     })?;
     let cases = questions

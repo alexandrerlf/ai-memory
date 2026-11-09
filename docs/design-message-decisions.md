@@ -28,7 +28,7 @@ pick a design option, confirm a merge. Messaging lacks four parts:
 Non-goals: a UI or an operator mailbox in core (§3.7), a blocking wait (§3.6),
 an expiry for a question. The answer does not record the credential id:
 `auth.rs` gives it only to `touch_api_credential`
-(`crates/ai-memory-mcp/src/auth.rs:373-381`). A follow-up can add it.
+(`crates/pitstop-mcp/src/auth.rs:373-381`). A follow-up can add it.
 
 ## 2. Current state
 
@@ -37,15 +37,15 @@ Checked against `main` at `b70679af`. The messaging code on `release/3.1`
 
 | Part | Where | Fact |
 |---|---|---|
-| Table | `crates/ai-memory-store/migrations/V64__agent_messages.sql` | `agent_messages`: sender and recipient coordinates (both `ON DELETE CASCADE`), `subject`, `body`, `state` (`pending`, `claimed`, `cancelled`), `claimed_*`. Partial indexes on `state = 'pending'`. Only a project cascade deletes a row. |
-| Migrations | `crates/ai-memory-store/src/migrations.rs:33-34` | The highest is V80. `set_abort_missing(true)`: an older binary refuses a newer store (`DataSchemaAhead`). V69 adds a column with `REFERENCES ... ON DELETE SET NULL`. No migration uses `json_valid`. |
-| Store | `crates/ai-memory-store/src/ops.rs`, `reader.rs` | `insert_message`: counts every pending row of the recipient and refuses at `MAX_PENDING_INBOX_MESSAGES` (256, `ops.rs:4960`, `:5029-5032`); bounds text to 16 KiB; audits `send_message`. `pop_message_in_transaction`: two `state = 'pending'` guards; with no id it takes the oldest pending message (`:5108-5118`). `cancel_messages` (`:5193`): keyed by the sender; with no id it cancels every pending message that the project sent. `list_messages`: pending rows only (`reader.rs:6916`), 1 to 200. `pending_message_count` (`:7034`) feeds the notice and `memory_briefing`. `pending_inbox_counts` (`:6943`) feeds the web cards. |
-| MCP | `crates/ai-memory-mcp/src/server.rs` | Send resolves its sender at `ProjectAccess::Read` (`server.rs:5632-5639`). It resolves its recipient at `Write`, so that the mailbox is no way around a restricted project's grants (#708, `:5648-5653`). A writer error becomes `internal_error` (`:5697-5699`). No `deny_unknown_fields`. Pop and cancel need `Write` and run their admission op; list needs `Read`. Pop returns `security_notice`. |
-| HTTP | `crates/ai-memory-mcp/src/admin.rs` | `/admin/messages*`, root-only in multi-user mode. Send runs `MessageSend` admission; pop and cancel run none. |
-| Auth | `crates/ai-memory-core/src/actor.rs`, `auth.rs`, `docs/security.md:5-12` | `Capability::Admin` passes for all when operators are not distinguished, else root only (`actor.rs:218-222`). Root bearer and the proxy root OIDC pair: `Root`. `aim_` key: `User`, also for `role=root` (`docs/users.md:62`). stdio: allowed, because "the caller already has the data directory" (`server.rs:3512`, `:3516-3517`). `ai-memory init` writes the root bearer to the data dir for the hooks, the CLI and `ai-memory mcp-bridge`. Grants: `crates/ai-memory-store/src/project_authz.rs` `authorize_project`; `restricted` admits root, the creator and grant holders (`docs/users.md:745-748`). |
-| Admission | `crates/ai-memory-wiki/src/wiki.rs:1457-1459` | Decide, act, notify, on every path that raises an op. Observers drop past 256 in flight (`docs/admission-webhooks.md:364`). No body or id in the payload. |
-| Notice | `crates/ai-memory-hooks/src/router.rs:1801`, `:1914-1918` | Count only. It tells each new session to pop the next message. |
-| Errors, SDK | `server.rs` `precondition_failed` (`:6937`); `companions/ai-memory-ts/src/transport.ts:536-538`, `capabilities.ts`, `decode.ts` | `invalid_request` with `data.reason` is the precedent. The SDK maps only `precondition_failed` by reason, gates features on schema properties, and keeps unknown fields in `raw`. |
+| Table | `crates/pitstop-store/migrations/V64__agent_messages.sql` | `agent_messages`: sender and recipient coordinates (both `ON DELETE CASCADE`), `subject`, `body`, `state` (`pending`, `claimed`, `cancelled`), `claimed_*`. Partial indexes on `state = 'pending'`. Only a project cascade deletes a row. |
+| Migrations | `crates/pitstop-store/src/migrations.rs:33-34` | The highest is V80. `set_abort_missing(true)`: an older binary refuses a newer store (`DataSchemaAhead`). V69 adds a column with `REFERENCES ... ON DELETE SET NULL`. No migration uses `json_valid`. |
+| Store | `crates/pitstop-store/src/ops.rs`, `reader.rs` | `insert_message`: counts every pending row of the recipient and refuses at `MAX_PENDING_INBOX_MESSAGES` (256, `ops.rs:4960`, `:5029-5032`); bounds text to 16 KiB; audits `send_message`. `pop_message_in_transaction`: two `state = 'pending'` guards; with no id it takes the oldest pending message (`:5108-5118`). `cancel_messages` (`:5193`): keyed by the sender; with no id it cancels every pending message that the project sent. `list_messages`: pending rows only (`reader.rs:6916`), 1 to 200. `pending_message_count` (`:7034`) feeds the notice and `memory_briefing`. `pending_inbox_counts` (`:6943`) feeds the web cards. |
+| MCP | `crates/pitstop-mcp/src/server.rs` | Send resolves its sender at `ProjectAccess::Read` (`server.rs:5632-5639`). It resolves its recipient at `Write`, so that the mailbox is no way around a restricted project's grants (#708, `:5648-5653`). A writer error becomes `internal_error` (`:5697-5699`). No `deny_unknown_fields`. Pop and cancel need `Write` and run their admission op; list needs `Read`. Pop returns `security_notice`. |
+| HTTP | `crates/pitstop-mcp/src/admin.rs` | `/admin/messages*`, root-only in multi-user mode. Send runs `MessageSend` admission; pop and cancel run none. |
+| Auth | `crates/pitstop-core/src/actor.rs`, `auth.rs`, `docs/security.md:5-12` | `Capability::Admin` passes for all when operators are not distinguished, else root only (`actor.rs:218-222`). Root bearer and the proxy root OIDC pair: `Root`. `aim_` key: `User`, also for `role=root` (`docs/users.md:62`). stdio: allowed, because "the caller already has the data directory" (`server.rs:3512`, `:3516-3517`). `pitstop init` writes the root bearer to the data dir for the hooks, the CLI and `pitstop mcp-bridge`. Grants: `crates/pitstop-store/src/project_authz.rs` `authorize_project`; `restricted` admits root, the creator and grant holders (`docs/users.md:745-748`). |
+| Admission | `crates/pitstop-wiki/src/wiki.rs:1457-1459` | Decide, act, notify, on every path that raises an op. Observers drop past 256 in flight (`docs/admission-webhooks.md:364`). No body or id in the payload. |
+| Notice | `crates/pitstop-hooks/src/router.rs:1801`, `:1914-1918` | Count only. It tells each new session to pop the next message. |
+| Errors, SDK | `server.rs` `precondition_failed` (`:6937`); `companions/pitstop-ts/src/transport.ts:536-538`, `capabilities.ts`, `decode.ts` | `invalid_request` with `data.reason` is the precedent. The SDK maps only `precondition_failed` by reason, gates features on schema properties, and keeps unknown fields in `raw`. |
 
 ## 3. Proposal
 
@@ -158,15 +158,15 @@ answer. Ids that exist today:
 
 | Id | Where | Use for a reply |
 |---|---|---|
-| `workstreams.id` | `crates/ai-memory-store/migrations/V31__managed_workstreams.sql`, [managed-workstreams.md](managed-workstreams.md) | A UUID, stable across runs, stored with its `workspace_id` and `project_id`. Only `ai-memory run` has one; it exports `AI_MEMORY_WORKSTREAM_ID` (`crates/ai-memory-cli/src/commands/run.rs:1099-1103`). A direct harness launch has none. |
-| `managed_runs.id` | `AI_MEMORY_RUN_ID`, same migration | New at each launch, so a restart loses the answer. |
+| `workstreams.id` | `crates/pitstop-store/migrations/V31__managed_workstreams.sql`, [managed-workstreams.md](managed-workstreams.md) | A UUID, stable across runs, stored with its `workspace_id` and `project_id`. Only `pitstop run` has one; it exports `PITSTOP_WORKSTREAM_ID` (`crates/pitstop-cli/src/commands/run.rs:1099-1103`). A direct harness launch has none. |
+| `managed_runs.id` | `PITSTOP_RUN_ID`, same migration | New at each launch, so a restart loses the answer. |
 | Hook session id | `x-memory-actor-session-id` (`server.rs:2002`) | Static MCP clients do not send it. It changes when the harness restarts. |
 | Handoff target | `OwnerFilter`; `to_agent` is always `None` on MCP (`server.rs:5225`) | Binds to an operator. One operator runs every session in #1281. |
 
 Proposal (Q1, option c):
 
-- `decision.work_id` is an optional UUID. Inside `ai-memory run` the asker
-  passes `AI_MEMORY_WORKSTREAM_ID`. Elsewhere it mints a UUID v7 and keeps it,
+- `decision.work_id` is an optional UUID. Inside `pitstop run` the asker
+  passes `PITSTOP_WORKSTREAM_ID`. Elsewhere it mints a UUID v7 and keeps it,
   with its open question ids, in one file per work, because a compaction loses
   the context. Sessions that share one file share one `work_id`, which fails
   safe. The reply inherits the id; the replier cannot set it.
@@ -211,7 +211,7 @@ Caps: `question` 300 characters; 2 to 6 options; `key` matches
 `^[a-z0-9_-]{1,32}$` and is unique; `label` 100; `description` 300; at most one
 `recommended`; `details` 2,000; 0 to 3 `http` or `https` links of 300; the
 serialized `decision` at most 8 KiB after the scrub; `work_id` a UUID; a reply
-`body` 1,000 (Q3). One validator in `ai-memory-core::message` serves MCP and
+`body` 1,000 (Q3). One validator in `pitstop-core::message` serves MCP and
 HTTP. It refuses a field over its cap and never truncates it, because a
 truncated label changes what a person approves. The store also refuses an
 oversize `decision`; it never truncates it as `bound_message_field` truncates a
@@ -245,8 +245,8 @@ creates `acme/decisions` with one explicit write (`memory_write_page` with
 `workspace` and `project`), then restricts it and grants `write`:
 
 ```sh
-ai-memory project access --workspace acme --project decisions --mode restricted
-ai-memory user grant --user alice --workspace acme --project decisions --level write
+pitstop project access --workspace acme --project decisions --mode restricted
+pitstop user grant --user alice --workspace acme --project decisions --level write
 ```
 
 Each person who answers and each identity that asks needs `write`, which also
@@ -288,7 +288,7 @@ decision text. The asker acts on a key that it wrote, never on free text. The
 validator scrubs and caps every field. The server never fetches a link. The
 companion renders text escaped.
 
-**Companion.** It calls ai-memory as the person who answers (a personal `aim_`
+**Companion.** It calls pitstop as the person who answers (a personal `aim_`
 key or the trusted-proxy rung). A shared root bearer makes every answer a root
 answer. CSRF and confirmation stay in it ([companion-crates.md](companion-crates.md)).
 
@@ -320,10 +320,10 @@ answer. CSRF and confirmation stay in it ([companion-crates.md](companion-crates
 Each security test tries the violation, checks the refusal, runs a legal
 control, and fails with its guard removed.
 
-1. **Read-grant bypass** (`crates/ai-memory-mcp/tests/suite/agent_messages_tools.rs`):
+1. **Read-grant bypass** (`crates/pitstop-mcp/tests/suite/agent_messages_tools.rs`):
    with `read` on restricted X and `write` on D, a decision "from X" fails. A
    reply to a plain message from X fails. Control: `write` on X.
-2. **Foreign target** (`crates/ai-memory-store/tests/suite/agent_messages.rs`):
+2. **Foreign target** (`crates/pitstop-store/tests/suite/agent_messages.rs`):
    a reply from P1 to a question for P2 is `not_found`. A `reply_to` read or a
    `work_id` list of another inbox returns nothing. Control: P2's own reads.
 3. **First reply wins** (same, and two operators in `multi_session.rs`):
@@ -339,11 +339,11 @@ control, and fails with its guard removed.
 7. **Full inbox** (same): 256 unread bound replies make the next send fail with
    `inbox_full`, and the notice counts them. One pop with the `work_id` frees a
    slot.
-8. **Pop admission** (`crates/ai-memory-mcp/src/admin.rs` tests and MCP): a
+8. **Pop admission** (`crates/pitstop-mcp/src/admin.rs` tests and MCP): a
    rejecting `message_pop` webhook refuses a reply to a pending question.
 9. **Answer rule** (`agent_messages_tools.rs`, `actor.rs`): root, proxy root,
    `aim_` key, anonymous and stdio, with and without operator distinction.
-10. **Inferred scope** (`crates/ai-memory-mcp/tests/suite/agent_messages_scope.rs`):
+10. **Inferred scope** (`crates/pitstop-mcp/tests/suite/agent_messages_scope.rs`):
     a reply from the shared slot of another project fails and claims nothing.
     Control: an explicit scope.
 11. **Other**: each refusal has its `data.reason`. A purge removes both rows;
@@ -383,8 +383,8 @@ control, and fails with its guard removed.
   not risk. (a) to (c) cost one column, one
   index and a `work_id` argument on list and pop. They also add the pop-by-id
   rule, a second notice number, the client file and the recovery step. For (a)
-  and (c) the agent reads `AI_MEMORY_WORKSTREAM_ID` with a shell tool, or a
-  future `ai-memory mcp-bridge` stamps it. **Recommended: (c).** It binds both
+  and (c) the agent reads `PITSTOP_WORKSTREAM_ID` with a shell tool, or a
+  future `pitstop mcp-bridge` stamps it. **Recommended: (c).** It binds both
   launch types at the cost of (b), and it keeps answers out of other sessions.
 - **Q2. Does a decision send need `write` on its sender, with replies only to
   decisions?** (a) Yes. (b) Every send needs `write` on its sender. (c) Keep

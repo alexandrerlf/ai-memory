@@ -1,9 +1,9 @@
 # Managed cross-harness workstreams
 
-`ai-memory run` is an opt-in launcher that lets one logical coding session move
+`pitstop run` is an opt-in launcher that lets one logical coding session move
 between Claude Code, Codex, OpenCode, Pi, Crush, Kimi Code, Command Code, Kiro
 CLI v2/v3, OMP, Grok Build CLI, Antigravity CLI, and GitHub Copilot CLI. Direct agent launches
-keep their existing ai-memory behavior. There is no global mode toggle and no
+keep their existing pitstop behavior. There is no global mode toggle and no
 `switch` command: using `run` selects the current workstream and transparently
 creates or resumes the correct native session for the requested harness.
 
@@ -20,23 +20,23 @@ latest harness/run, current harness links, event counts, and activity times. It
 does not infer "waiting for input" from captured prose, and it never displays
 checkout paths, fingerprints, lease-owner strings, native session ids, source
 record ids, or transcript content. This cross-project operator view is not a
-discovery API: `ai-memory resume` and normal run selection remain restricted to
+discovery API: `pitstop resume` and normal run selection remain restricted to
 the exact repository/worktree fingerprints described below.
 
-`ai-memory run` is the preferred way to start a harness: if in doubt, run
-with ai-memory. Besides session continuity, the first time it launches a given
-harness it auto-installs that harness's ai-memory hooks and MCP if they are
+`pitstop run` is the preferred way to start a harness: if in doubt, run
+with pitstop. Besides session continuity, the first time it launches a given
+harness it auto-installs that harness's pitstop hooks and MCP if they are
 not already wired, so capture and recall work without a separate `install-hooks`
-/ `install-mcp` step (a common footgun: `ai-memory run kimi` used to capture
+/ `install-mcp` step (a common footgun: `pitstop run kimi` used to capture
 nothing if the Kimi hooks were never installed). Auto-wire is idempotent and
 one-time per harness, binary version and install location (a second config home,
-such as another `CLAUDE_CONFIG_DIR`, gets its own first launch; `ai-memory
+such as another `CLAUDE_CONFIG_DIR`, gets its own first launch; `pitstop
 uninstall` of hooks or MCP clears that record, so the next launch wires again).
 It preserves unrelated user config, runs before the harness starts so it picks
 up the fresh hooks, and is best-effort: if an install fails it warns and still
 launches. Harnesses without installer
 support (Crush) are skipped; Pi wires hooks but has no MCP client to write. Turn
-it off with `ai-memory run --no-autowire`, `AI_MEMORY_RUN_AUTOWIRE=false`, or
+it off with `pitstop run --no-autowire`, `PITSTOP_RUN_AUTOWIRE=false`, or
 `run_autowire = false` in config; manual `install-hooks` / `install-mcp` remain
 available for harnesses you never launch through `run`.
 
@@ -57,7 +57,7 @@ ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 ```
 
 ```bash
-ai-memory run --profile work claude --model opus
+pitstop run --profile work claude --model opus
 ```
 
 Profiles are env-only by design; executable paths, native arguments, `--yolo`,
@@ -66,7 +66,7 @@ the normal process environment, then profile values override it,
 `--env-file` overrides the profile, and repeated `--env` entries win last.
 The resolved values also drive native-session discovery and auto-wire, so all
 three use the same account/config home. An unknown or invalid profile fails
-before ai-memory takes a workstream lease or starts a harness. Profile names
+before pitstop takes a workstream lease or starts a harness. Profile names
 use up to 64 ASCII letters, digits, `.`, `_`, or `-`; each profile may contain
 up to 128 environment entries. Because values are literal and may include
 credentials, protect `config.toml` like any other local secret-bearing config.
@@ -75,7 +75,7 @@ credentials, protect `config.toml` like any other local secret-bearing config.
 native argv, which keeps OMP's own profile selector unambiguous:
 
 ```bash
-ai-memory run --profile work omp --profile omp-work
+pitstop run --profile work omp --profile omp-work
 ```
 
 **Multiple Claude accounts (e.g. Corporate and Personal).** Any harness name
@@ -92,8 +92,8 @@ yourself:
 # ~/bin/claude-corp and ~/bin/claude-personal are wrapper scripts (earlier on
 # PATH than the bare `claude`) that each exec the real claude binary with
 # that account's config/credentials directory.
-ai-memory run claude-corp --model opus
-ai-memory run claude-personal
+pitstop run claude-corp --model opus
+pitstop run claude-personal
 ```
 
 If no executable with that name exists, `run` prints a warning on stderr and
@@ -106,22 +106,22 @@ here); to use a binary elsewhere, pass `--executable <path>`.
 ```bash
 cd /path/to/project
 
-ai-memory run claude
+pitstop run claude
 # quit Claude Code, then continue the same logical workstream in Codex
-ai-memory run codex --yolo
-# return to Claude Code later; ai-memory supplies Claude's native --resume
-ai-memory run claude --model opus
+pitstop run codex --yolo
+# return to Claude Code later; pitstop supplies Claude's native --resume
+pitstop run claude --model opus
 # any `claude*` name is accepted (see "Multiple Claude accounts" above)
-ai-memory run claude-corp
+pitstop run claude-corp
 # Kimi Code installs `kimi`; `kimi-cli` is accepted as a launcher alias
-ai-memory run kimi-cli
+pitstop run kimi-cli
 # Command Code uses `command-code` on Unix and `cmdc` on native Windows
-ai-memory run command-code
+pitstop run command-code
 # Kiro defaults to v2; select its incompatible v3 engine explicitly once
-ai-memory run kiro
-ai-memory run kiro --v3
+pitstop run kiro
+pitstop run kiro --v3
 # or omit the harness and continue the newest usable session automatically
-ai-memory run
+pitstop run
 ```
 
 When that second command is a real harness switch, the server returns only the
@@ -131,16 +131,16 @@ adapter, and writes its visible normalized history to a private temporary
 Markdown file. The child receives only this local variable:
 
 ```text
-AI_MEMORY_PREVIOUS_SESSION_HISTORY=/private/temp/.../history.md
+PITSTOP_PREVIOUS_SESSION_HISTORY=/private/temp/.../history.md
 ```
 
 The startup packet tells the receiving agent to read the file when the user
 asks to continue or an exact detail is absent from the bounded portable packet.
 That server-authored directive is outside the packet's untrusted-history fence;
 only the imported transcript evidence is inside the fence. The canonical
-ai-memory routing block provides the same fallback: when all three
-wrapper-owned variables `AI_MEMORY_RUN_ID`, `AI_MEMORY_WORKSTREAM_ID`, and
-`AI_MEMORY_PREVIOUS_SESSION_HISTORY` are present, "continue", "resume", or
+pitstop routing block provides the same fallback: when all three
+wrapper-owned variables `PITSTOP_RUN_ID`, `PITSTOP_WORKSTREAM_ID`, and
+`PITSTOP_PREVIOUS_SESSION_HISTORY` are present, "continue", "resume", or
 "pick up where we left off" means to read the named file before inferring the
 unfinished task. This covers quota exhaustion and other abrupt exits where the
 outgoing harness cannot prepare a handoff.
@@ -159,19 +159,19 @@ entries (clamped to 1–50) when checking active harnesses in a busy project.
 
 The dossier is evidence, not instructions: it is fenced as untrusted history,
 contains no hidden reasoning or unsupported/private records, and disappears
-when the child exits. The remote ai-memory server never receives its path or
+when the child exits. The remote pitstop server never receives its path or
 body. A same-harness resume needs no dossier because that harness resumes its
 own native session. If the prior store is missing, unreadable, on another
 machine, or above the adapter's safety bounds, launch continues with the
 portable ledger and handoff and prints one warning.
 
 If a same-machine harness switch has no
-`AI_MEMORY_PREVIOUS_SESSION_HISTORY`, check the executable used by the exact
+`PITSTOP_PREVIOUS_SESSION_HISTORY`, check the executable used by the exact
 shell that launched it:
 
 ```bash
-type -a ai-memory
-ai-memory --version
+type -a pitstop
+pitstop --version
 ```
 
 Native-history continuation requires the 3.1.0 or newer host client. A stale
@@ -180,7 +180,7 @@ wrapper and its checksum-verified native runner. Upgrade or remove the
 shadowing executable, then restart the managed run; an already-running child
 keeps the environment inherited from its old launcher.
 
-After an interactive managed session exits successfully, `ai-memory run` offers
+After an interactive managed session exits successfully, `pitstop run` offers
 the installed harnesses, a way to run the current harness again, and quit.
 Choosing another harness keeps the same workstream selected, so its saved
 context remains available to the next run. The prompt defaults to quit. It
@@ -197,11 +197,11 @@ To return to the shell without the menu, pass `--no-exit-prompt` before or
 after the harness name:
 
 ```bash
-ai-memory run --no-exit-prompt codex
-ai-memory run claude --no-exit-prompt
+pitstop run --no-exit-prompt codex
+pitstop run claude --no-exit-prompt
 ```
 
-To disable it for all launches, set `AI_MEMORY_RUN_EXIT_PROMPT=false` or add
+To disable it for all launches, set `PITSTOP_RUN_EXIT_PROMPT=false` or add
 this to `config.toml`:
 
 ```toml
@@ -216,7 +216,7 @@ session still launches, captures history, and finishes as usual.
 
 Everything after the harness name is native argv except the wrapper-owned exact
 flags `--yolo`, `--fresh`, `--force-unlock`, and `--no-exit-prompt`. No `--`
-separator is needed, and ai-memory does not maintain a second copy of each
+separator is needed, and pitstop does not maintain a second copy of each
 harness's option schema.
 Other wrapper options come first:
 
@@ -232,10 +232,10 @@ summaries, and import annotations inline. Completed tool calls and results use
 small stubs with the tool name and original character count, so generated file
 contents or command output cannot crowd the conversation out of the bounded
 resume context. Their full sanitized payloads remain in the ledger and are
-available through `ai-memory workstream-search`.
+available through `pitstop workstream-search`.
 
 ```text
-ai-memory run [--workspace NAME] [--project NAME]
+pitstop run [--workspace NAME] [--project NAME]
               [--workstream NAME | --new NAME] [--executable PATH]
               [--yolo] [--fresh] [--force-unlock] [--no-exit-prompt] [--profile NAME]
               [--env KEY=VALUE]... [--env-file PATH] [--require-server]
@@ -251,8 +251,8 @@ branching controls; they do not switch harnesses.
 List the workstreams available to those selectors without launching a harness:
 
 ```bash
-ai-memory workstreams [--workspace NAME] [--project NAME]
-ai-memory workstreams --limit 50 --json
+pitstop workstreams [--workspace NAME] [--project NAME]
+pitstop workstreams --limit 50 --json
 ```
 
 The list is scoped to the same `(workspace, project, repository, worktree)`
@@ -264,8 +264,8 @@ session ids.
 Names are chosen at `--new` time and can be corrected later:
 
 ```bash
-ai-memory rename-workstream --from typo-nmae --to refactor-db
-ai-memory rename-workstream --workstream-id 01a04092-… --to refactor-db
+pitstop rename-workstream --from typo-nmae --to refactor-db
+pitstop rename-workstream --workstream-id 01a04092-… --to refactor-db
 ```
 
 The two selectors are mutually exclusive; the id is the one `workstreams`
@@ -274,7 +274,7 @@ destination another workstream already holds is refused rather than merged,
 and the destination is validated exactly like a `--new` name. Because the
 ledger, linked harnesses, and managed runs all key on the workstream id rather
 than its name, nothing else moves. That includes which workstream a bare
-`ai-memory run` resumes and the listing order, both of which stay put because
+`pitstop run` resumes and the listing order, both of which stay put because
 a rename deliberately does not touch `selected_at` or `updated_at`. A run that
 is already live keeps displaying the name it launched with until it exits.
 
@@ -285,12 +285,12 @@ Probably not at first. Hooks alone already carry most continuity.
 - Skip it when a handoff is all you want: you quit Claude Code
   mid-task, open Codex in the same directory, and the next session
   starts with "where you left off, what failed, what's open". That
-  works with nothing but `install-hooks`; no `ai-memory run` involved.
+  works with nothing but `install-hooks`; no `pitstop run` involved.
 - Use it when you want the harness's own native resume (`claude
   --resume` / the picker) to survive a switch to another harness. The
   managed ledger records the visible event stream portably, while a
   same-machine harness switch exposes the previous native session's larger
-  local visible-history dossier on demand. `ai-memory continue` can therefore
+  local visible-history dossier on demand. `pitstop continue` can therefore
   reopen the same workstream in a different agent with more than a summary,
   without uploading the native transcript to the server.
 
@@ -307,9 +307,9 @@ does not make the server's name selector unambiguous.
 `run` can select an existing project by its stable ID inside a workspace:
 
 ```sh
-ai-memory run --workspace default --project-id <project-uuid> claude
-ai-memory run --workspace default --project-id <project-uuid> codex
-ai-memory workstreams --workspace default --project-id <project-uuid> --json
+pitstop run --workspace default --project-id <project-uuid> claude
+pitstop run --workspace default --project-id <project-uuid> codex
+pitstop workstreams --workspace default --project-id <project-uuid> --json
 ```
 
 With a terminal, an ambiguous `run` offers a numbered choice of matching
@@ -359,16 +359,16 @@ IDs and names without server filesystem paths.
 
 ## Project-first launcher
 
-`ai-memory show` reverses the usual `cd` then `run` flow: choose a local
+`pitstop show` reverses the usual `cd` then `run` flow: choose a local
 checkout, choose an installed managed harness, and launch from that checkout.
 
 ```bash
 cd ~/Projects
-ai-memory show
+pitstop show
 
 # Structured discovery only; never launches a harness.
-ai-memory show --json
-ai-memory show --json --no-scan
+pitstop show --json
+pitstop show --json --no-scan
 ```
 
 A successful managed prepare refreshes `<data_dir>/client-projects.json`, a
@@ -398,14 +398,14 @@ combined with launch arguments.
 
 ## Continuing from anywhere
 
-Bare `ai-memory run` continues the current checkout, but its workstream lookup
+Bare `pitstop run` continues the current checkout, but its workstream lookup
 is keyed by `(workspace, project, repo fingerprint, worktree fingerprint)`, so
-the caller must already be in the project. `ai-memory continue` supplies the
+the caller must already be in the project. `pitstop continue` supplies the
 missing step and needs no `cd`:
 
 ```bash
-ai-memory continue
-ai-memory continue --workspace work
+pitstop continue
+pitstop continue --workspace work
 ```
 
 The checkout is chosen entirely on the client, from the `linked_at` stamp that
@@ -422,25 +422,25 @@ next-newest link is tried. A corrupt `linked_at` timestamp is also reported and
 never considered launchable. Falling through is never silent: the selected
 project and path are always printed before the harness starts.
 
-Once a checkout is selected, the launch is exactly bare `ai-memory run` in that
+Once a checkout is selected, the launch is exactly bare `pitstop run` in that
 directory, including automatic harness selection. `continue` therefore accepts
 `--workspace`, `--yolo`, and `--fresh`, but not native harness arguments or
 `--executable`, whose meaning depends on a harness the user did not name.
 
 ## Picking a workstream
 
-`ai-memory resume` presents all managed workstreams belonging to the **current
+`pitstop resume` presents all managed workstreams belonging to the **current
 checkout**, then launches the selected named workstream there. Other repositories
 and sibling Git worktrees are not included, even when they share a workspace,
 project name, or remote URL. Running from a subdirectory of a checkout uses that
 checkout's Git fingerprints and the nearest scope marker. To resume the newest
-linked checkout from any directory, use `ai-memory continue` instead.
+linked checkout from any directory, use `pitstop continue` instead.
 
 ```bash
-ai-memory resume
-ai-memory resume --search auth
-ai-memory resume --workspace work --limit 50
-ai-memory resume --all        # every linked checkout, current one first
+pitstop resume
+pitstop resume --search auth
+pitstop resume --workspace work --limit 50
+pitstop resume --all        # every linked checkout, current one first
 ```
 
 `--all` restores the cross-checkout view: it walks every checkout linked to
@@ -454,7 +454,7 @@ the picker. The selected launch still captures its normal Git checkpoint.
 
 Use Up/Down to move between workstreams and Left/Right to cycle the
 launch harness for the highlighted row. Each row remembers its choice while you
-navigate. `auto` is the initial choice and preserves bare `ai-memory run`'s
+navigate. `auto` is the initial choice and preserves bare `pitstop run`'s
 discovery of the newest usable session; the remaining choices are supported
 harness executables detected in the host `PATH`. Enter launches the displayed
 workstream/harness combination. Escape clears a non-empty search, then cancels
@@ -486,14 +486,14 @@ to another checkout when this one has no workstreams. It revalidates the canonic
 path and resolved scope before launching the selection. The server
 receives only the repository/worktree fingerprints required for the existing
 checkout-local listing, never a host path. It needs an interactive terminal;
-scripts can continue to use `ai-memory workstreams --json` after selecting a
+scripts can continue to use `pitstop workstreams --json` after selecting a
 checkout themselves. Pagination requires an updated server; if an older server
 ignores the page offset, the CLI reports that an upgrade is needed instead of
 looping forever or silently presenting a truncated list.
 
 ## Automatic harness selection
 
-With no harness name, `ai-memory run` inspects checkout-local sessions for
+With no harness name, `pitstop run` inspects checkout-local sessions for
 Claude Code, Codex, OpenCode, Pi, Crush, Kimi Code, Command Code, and both Kiro
 CLI engines. Before scanning OpenCode sessions, it probes the exact `opencode`
 executable once and uses that resolved major for discovery, launch, auto-wire,
@@ -504,7 +504,7 @@ timed-out, or unsupported OpenCode
 probe skips only OpenCode; discovery continues with every other available
 harness. For an empty workstream it resumes
 the newest session automatically. For an established workstream, server state
-takes precedence: ai-memory resumes the most recently linked harness that still
+takes precedence: pitstop resumes the most recently linked harness that still
 has a usable local session. It never chooses a newer but obsolete session from
 another harness merely because that file has a later timestamp. Kiro's v2 and
 v3 candidates share one server agent identity, but the selected native engine
@@ -526,12 +526,12 @@ than the ledger delta.
 Bare mode accepts wrapper options but not harness-native arguments or
 `--executable`, because their meaning depends on the selected harness. In a new
 directory with no session in the automatic pool, it exits without creating a
-workstream and suggests the explicit `ai-memory run <harness>` commands.
+workstream and suggests the explicit `pitstop run <harness>` commands.
 
 ## First managed launch
 
 An otherwise-empty workstream may adopt one of the requested harness's existing
-native sessions. On an interactive launch, ai-memory inspects that harness's
+native sessions. On an interactive launch, pitstop inspects that harness's
 store without modifying it and lists up to eight recent sessions whose recorded
 working directory matches the current checkout. Choose one to resume it, press
 Enter to accept the newest candidate, or choose `0` to start a new session.
@@ -540,7 +540,7 @@ Sessions from another checkout are never offered.
 Adoption is only a bootstrap operation. Once any harness has linked a native
 session or contributed portable message/tool/compaction history, the workstream
 is established. If Claude established it and Codex has not joined it yet, for
-example, `ai-memory run codex` creates a fresh Codex session and injects the
+example, `pitstop run codex` creates a fresh Codex session and injects the
 Claude workstream history. It does not inspect or select an older unrelated
 Codex session. Returning to Codex later resumes the Codex session already linked
 to that workstream.
@@ -551,25 +551,25 @@ launches without terminal input skip the chooser and start fresh. A launch that
 exits before producing either a native session or portable history does not
 consume the later adoption opportunity.
 
-Before adding an ai-memory-owned resume selector, the launcher checks the exact
+Before adding an pitstop-owned resume selector, the launcher checks the exact
 linked id in the harness's native store without modifying it. If the transcript
-was deleted, cleared, or lost with a sandbox overlay, ai-memory starts a fresh
+was deleted, cleared, or lost with a sandbox overlay, pitstop starts a fresh
 native session and repoints the same workstream when that session is observed.
 An unreadable or malformed store is reported but is not mistaken for a missing
 session. Codex compresses a rollout it has not written for a week to
 `rollout-*.jsonl.zst` and restores the plain file when `codex resume` reopens
 it. The compressed copy counts as the linked session, so the launch resumes it
 and the transcript import reads it like the plain file. Use
-`ai-memory run --fresh <harness>` to deliberately skip the linked
+`pitstop run --fresh <harness>` to deliberately skip the linked
 session and the adoption chooser. `--fresh` cannot be combined with a native
 resume, continue, session, or fork selector. A fresh interactive launch still
-exports the linked session as `AI_MEMORY_PREVIOUS_SESSION_HISTORY` when it is
+exports the linked session as `PITSTOP_PREVIOUS_SESSION_HISTORY` when it is
 available locally. This matters when Claude's new session uses a different
 configuration home: the harness can read the bounded, checkout-validated old
-session without ai-memory copying it into the server.
+session without pitstop copying it into the server.
 
 Codex's in-session `/new` command does not expose a trustworthy parent-thread
-relationship. ai-memory therefore never guesses that the new thread owns the
+relationship. pitstop therefore never guesses that the new thread owns the
 managed workstream. If the linked thread exits without acknowledging its
 context after `/new`, the wrapper explains that the intended thread must be
 selected explicitly on the next managed run.
@@ -608,12 +608,12 @@ another workstream; adoption stays a bootstrap operation.
    an explicit interactive adapter can offer matching local sessions for
    one-time adoption. Otherwise the adapter passes native arguments through in
    order and adds a create/resume selector only when the user did not supply one.
-3. `AI_MEMORY_RUN_ID` marks lifecycle hooks as managed. When preparation
+3. `PITSTOP_RUN_ID` marks lifecycle hooks as managed. When preparation
    selects a different harness from the newest linked one, the run pins that
    prior harness/session identity before the destination link can change
    recency. The host revalidates it against the checkout and, when available,
    exposes a private local visible-history dossier through
-   `AI_MEMORY_PREVIOUS_SESSION_HISTORY`; no path or dossier body is sent to the
+   `PITSTOP_PREVIOUS_SESSION_HISTORY`; no path or dossier body is sent to the
    server. SessionStart then links the
    actual native session and injects only the portable events that session has
    not seen. Crush, which has no SessionStart hook, receives the same bounded
@@ -628,10 +628,10 @@ another workstream; adoption stays a bootstrap operation.
    together only after the full handoff/packet/brief response is assembled.
    Direct launches continue to use the same handoff path without a managed
    packet.
-4. When the child exits, ai-memory reads the native transcript store without
+4. When the child exits, pitstop reads the native transcript store without
    modifying it. A session named on the command line (or chosen before the
    spawn) is the one it reads. Otherwise a session linked during the run under
-   its `AI_MEMORY_RUN_ID`, even the workstream's current one, is read when the
+   its `PITSTOP_RUN_ID`, even the workstream's current one, is read when the
    native store holds it for this checkout; only without such a link does it
    look for the newest session in the checkout, which a concurrent launch
    there could own. Visible user/assistant messages, completed tool calls/results,
@@ -679,7 +679,7 @@ another workstream; adoption stays a bootstrap operation.
    history. The native process's exit code is preserved.
 6. Command Code, Kiro CLI and Antigravity CLI have no native session-end hook,
    so for them the run then finalizes the session itself (again after a
-   resume), as `ai-memory finalize-session --reopen` would: summary, handoff
+   resume), as `pitstop finalize-session --reopen` would: summary, handoff
    and opt-in SessionEnd consolidation. It does this only for a session named
    on the command line, chosen before the spawn, or linked during the run,
    never for one it had to look for. If finalizing fails, it prints the exact
@@ -690,11 +690,11 @@ can safely absorb an unbounded transcript. The complete visible ledger remains
 searchable from inside a managed agent process:
 
 ```bash
-ai-memory workstream-search "scope resolver decision"
-ai-memory workstream-search --limit 50 --json "failed migration"
+pitstop workstream-search "scope resolver decision"
+pitstop workstream-search --limit 50 --json "failed migration"
 ```
 
-`AI_MEMORY_WORKSTREAM_ID` supplies the id automatically inside the child. From
+`PITSTOP_WORKSTREAM_ID` supplies the id automatically inside the child. From
 another shell, pass `--workstream-id <uuid>` explicitly. Search results preserve
 the source harness, role, event sequence, and content. Historical tool activity
 is labelled completed evidence and must never be replayed as a pending call.
@@ -758,8 +758,8 @@ active run.
 
 ## Degraded offline launches
 
-When the ai-memory server is unreachable (a remote homelab down for
-maintenance, a VPN that is not up), `ai-memory run` does not abort. It probes
+When the pitstop server is unreachable (a remote homelab down for
+maintenance, a VPN that is not up), `pitstop run` does not abort. It probes
 the server first (any HTTP answer counts as reachable, so an older build
 without `/healthz` still passes), prints one loud warning naming the server
 URL and what the degraded run means, and launches the harness anyway:
@@ -768,13 +768,13 @@ URL and what the degraded run means, and launches the harness anyway:
   packet, immediate transcript import, or handoff delivery. Nothing that needs
   the server runs: no prepare, lease, link, heartbeat, context fetch, status
   check, finish, or import.
-- **Recovered afterward**: recovery requires both the `ai-memory run` client
-  and server to be upgraded to the release that provides `ai-memory recover`
-  and modern per-item hook acknowledgements. The harness's ai-memory lifecycle
+- **Recovered afterward**: recovery requires both the `pitstop run` client
+  and server to be upgraded to the release that provides `pitstop recover`
+  and modern per-item hook acknowledgements. The harness's pitstop lifecycle
   hooks (if installed) spool events locally. After the child exits, the launcher
   discovers its native session and appends only bounded metadata (never
   transcript content or secrets) to an owner-only local recovery journal. Run
-  `ai-memory recover` when the server returns: under the spool's exclusive
+  `pitstop recover` when the server returns: under the spool's exclusive
   drain lock it first quarantines entries correlated to each journaled session,
   drains unrelated entries, then re-exports the exact native transcript and
   replays session start, content, and session end through the existing
@@ -806,15 +806,15 @@ URL and what the degraded run means, and launches the harness anyway:
   for the now-unreachable server and no completion sentinel is written, so the
   next online launch finishes the wiring. Existing registrations are never
   touched.
-- **Attribution**: the child is launched without `AI_MEMORY_RUN_ID` /
-  `AI_MEMORY_WORKSTREAM_ID`, so its SessionEnd hook cannot attribute the
+- **Attribution**: the child is launched without `PITSTOP_RUN_ID` /
+  `PITSTOP_WORKSTREAM_ID`, so its SessionEnd hook cannot attribute the
   session to a server run that never happened.
 - **Exit code**: the child's own exit code is returned; the launch itself is
   not an error.
 
 When the child exits, the launcher prints that the run was not recorded on the
 server, how many hook events remain spooled locally, and that the run was
-journaled for `ai-memory recover`. The journal is capped at 256 entries;
+journaled for `pitstop recover`. The journal is capped at 256 entries;
 once full it refuses new entries with an actionable warning instead of evicting
 unrecovered work. It is written atomically as owner-only local state; Unix lock opens use
 `O_NOFOLLOW` and the atomic replacement rechecks the destination immediately
@@ -823,7 +823,7 @@ but reparse-point race hardening still requires the PR `windows` CI lane before
 merge. Spooled events remain separately
 bounded: they are dropped after the configured number of failed drain passes
 (8 by default), 7 days of age, or the 10,000-file spool cap. For a planned
-outage set `AI_MEMORY_HOOK_SPOOL_MAX_ATTEMPTS=0` to disable only the
+outage set `PITSTOP_HOOK_SPOOL_MAX_ATTEMPTS=0` to disable only the
 attempt-count drops (see `docs/install.md`).
 
 If the server dies *during* a run, after the lease was acquired, the exit
@@ -833,7 +833,7 @@ state are not persisted. Recovery retries validate the exact ordered semantic
 transcript interval and native identity, and omit a regenerated checkpoint, so
 repository changes during downtime are not claimed as the failed run's state and
 a successful finish cannot create a second checkpoint event.
-`ai-memory recover` uses the owner-authorized `/recover/finish` route to resume
+`pitstop recover` uses the owner-authorized `/recover/finish` route to resume
 an expired original run only when no newer run superseded it; ordering is the
 explicit `(started_at, SQLite insertion order)` tuple, so timestamp ties cannot
 revive an older run. Another operator, a superseded run, and any finished-run
@@ -850,7 +850,7 @@ and prints the remaining spool/journal counts and startup guidance.
 To restore the strict behavior (fail with the usual "could not reach …"
 diagnosis and never start the agent), pass `--require-server`, set
 `run.require_server = true` in `config.toml`, or export
-`AI_MEMORY_RUN_REQUIRE_SERVER=true`.
+`PITSTOP_RUN_REQUIRE_SERVER=true`.
 
 ## Native identity privacy
 
@@ -925,7 +925,7 @@ The experimental unsandboxed Mod API is not used.
 An explicit native selector such as Claude's `--resume`, OpenCode's `--session`,
 Codex's `resume`, Antigravity's `--conversation` / `--continue`, or Copilot's
 `--resume` / `--continue` / `--session-id` / `--connect` wins.
-ai-memory links the selected native session and resets an unrelated adapter
+pitstop links the selected native session and resets an unrelated adapter
 cursor rather than assuming it belongs to the old session.
 
 When the linked Claude session is a Claude Code background session that is
@@ -934,7 +934,7 @@ comes with it (seen with `--model`, `--effort` and
 `--dangerously-skip-permissions` on Claude Code 2.1.287; a bare `--resume`
 attaches) and points at `claude attach <id>`. Only when the
 transcript shows the session ran in the background (`sessionKind: "bg"`)
-does ai-memory ask `claude agents --json --cwd <checkout>`. When that lists the
+does pitstop ask `claude agents --json --cwd <checkout>`. When that lists the
 session as a live background one in this checkout, it launches
 `claude attach <id>` with the listing's short id instead. Native arguments are
 not passed to the attach client. In the Claude Code 2.1.288 lifecycle validation,
@@ -961,12 +961,12 @@ tested. These observations are recorded in the
 
 Claude Code background sessions run inside the Claude Code daemon, separately
 from the attach client. Their hooks use the daemon worker's inherited
-environment: the 2.1.288 validation observed an `AI_MEMORY_RUN_ID` from an
+environment: the 2.1.288 validation observed an `PITSTOP_RUN_ID` from an
 earlier launch, different from the current attach runs. A daemon hook therefore
 does not by itself identify the current attaching run. When a managed Claude
 session attaches to one (`/resume` on a session shown as
 "running in the background"), the conversation goes on in the background
-session's transcript. At the end of the run, ai-memory looks for a transcript
+session's transcript. At the end of the run, pitstop looks for a transcript
 written during the run whose `sessionKind: "bg"` records name the run's own
 session as the attached client and this checkout as `cwd`, and finishes the run
 on that background session, so the next launch resumes it instead of the empty
@@ -987,7 +987,7 @@ shared directory is shared. Another project's session that edited a file here
 still counts as this project's.
 Pi and OMP `--session-dir` values and Crush `--data-dir` values are passed
 through unchanged and used as the read-only import root. Without `--data-dir`,
-ai-memory finds Crush's data directory as Crush does, except that it does not
+pitstop finds Crush's data directory as Crush does, except that it does not
 run a `crushrc` to read one set only there; pass `--data-dir` in that case. Native store
 environment overrides are also honored:
 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME`,
@@ -996,29 +996,29 @@ environment overrides are also honored:
 OMP profile selection follows a leading `--profile`, then `OMP_PROFILE`, then
 `PI_PROFILE`. A named profile ignores `PI_CODING_AGENT_DIR`. A `--profile`
 later in the command line is left to OMP; use `OMP_PROFILE` or
-`--env OMP_PROFILE=<name>` so ai-memory can resolve the same profile.
+`--env OMP_PROFILE=<name>` so pitstop can resolve the same profile.
 
 Blank directory overrides (empty or whitespace-only values) count as unset.
-Session import, hooks and MCP use their fallback paths, and `ai-memory run`
+Session import, hooks and MCP use their fallback paths, and `pitstop run`
 removes those values from the child environment. Profile variables follow a
 different rule: an empty `OMP_PROFILE` selects the default profile and still
 takes precedence over `PI_PROFILE`.
-Export these in the environment `ai-memory run` itself sees, or pass them with
-`--env` (below), not only inside a harness wrapper script. `ai-memory run`
+Export these in the environment `pitstop run` itself sees, or pass them with
+`--env` (below), not only inside a harness wrapper script. `pitstop run`
 resolves the native session directory, and auto-wires hooks and MCP, from that
 environment; if the harness writes its transcript under a custom
-`CLAUDE_CONFIG_DIR` that `ai-memory run` cannot see, the two disagree and the
+`CLAUDE_CONFIG_DIR` that `pitstop run` cannot see, the two disagree and the
 native transcript import fails. When you use per-account
-config directories, set the variable before invoking `ai-memory run` (or in the
+config directories, set the variable before invoking `pitstop run` (or in the
 same wrapper that also runs it), so hook installation and native-session
 resolution agree.
 
-A repeatable `ai-memory run --env KEY=VALUE <harness>` (and `--env-file
+A repeatable `pitstop run --env KEY=VALUE <harness>` (and `--env-file
 <path>`, one `KEY=VALUE` per line, blank lines and `#` comments skipped) is
 the first-class alternative to the `env KEY=VAL harness` wrapper-alias
 pattern above: it is a wrapper-owned flag, so it must precede the harness
 name, and the resolved environment reaches the spawned harness process,
-`ai-memory run`'s own native-session resolution, *and* first-launch auto-wire.
+`pitstop run`'s own native-session resolution, *and* first-launch auto-wire.
 Hooks, MCP and transcript import then follow the same config home, which is the
 `CLAUDE_CONFIG_DIR`-agreement requirement described above, without exporting the
 variable into the invoking shell first. A later `--env` overrides a same-key
@@ -1048,7 +1048,7 @@ session flags. Claude/Pi/OMP print mode, Codex `exec`, OpenCode/Crush `run`,
 redirected input, and other noninteractive launches never open the adoption
 chooser.
 
-`ai-memory run --yolo <harness>` and `ai-memory run <harness> --yolo` both use
+`pitstop run --yolo <harness>` and `pitstop run <harness> --yolo` both use
 the harness's native dangerous mode. The translation is Claude Code
 `--dangerously-skip-permissions`, Codex
 `--dangerously-bypass-approvals-and-sandbox`, OpenCode `--auto`, Pi `--approve`,
@@ -1057,8 +1057,8 @@ Crush `--yolo`, Kimi Code `--yolo`, Command Code `--yolo`, Kiro CLI v2
 `--always-approve` option), Antigravity CLI
 `--dangerously-skip-permissions`, and GitHub Copilot CLI `--yolo` (equivalent
 to its `--allow-all` option). Kiro v3 replaced the trust-all flag with
-`permissions.yaml`, so ai-memory prints a notice and adds no unverified flag.
-OMP currently needs no added flag. ai-memory does not add a duplicate when the
+`permissions.yaml`, so pitstop prints a notice and adds no unverified flag.
+OMP currently needs no added flag. pitstop does not add a duplicate when the
 translated native flag is already present.
 
 Managed support is intentionally narrower than the general integration matrix.
@@ -1074,8 +1074,8 @@ opt-in real-harness acceptance pass.
 Recent Codex releases run sessions through a shared background app-server
 daemon (`codex agents` lists it). The daemon keeps the environment it started
 with, and the lifecycle hooks it launches inherit that environment, including
-the `AI_MEMORY_RUN_ID` of whichever managed run auto-started it. When a later
-managed Codex SessionStart reports that finished id, ai-memory ignores it as
+the `PITSTOP_RUN_ID` of whichever managed run auto-started it. When a later
+managed Codex SessionStart reports that finished id, pitstop ignores it as
 authority and searches only the request's already-resolved repository, exact
 checkout cwd, and operator bucket. The server adopts a replacement only when
 exactly one live, undelivered Codex run is waiting there, and it selects plus
@@ -1088,7 +1088,7 @@ diagnosis, or when an intentionally concurrent pair of named workstreams makes
 recovery ambiguous, native arguments after the harness are still forwarded:
 
 ```bash
-ai-memory run codex --no-daemon
+pitstop run codex --no-daemon
 ```
 
 `--no-daemon` makes that one session run without the shared background server
@@ -1098,20 +1098,20 @@ but normal workstream continuity does not require it.
 
 ## Installation and recovery
 
-Managed runs need current ai-memory lifecycle hooks so SessionStart can receive
+Managed runs need current pitstop lifecycle hooks so SessionStart can receive
 the portable delta. Refresh them after upgrading:
 
 ```bash
-ai-memory install-hooks --agent claude-code --apply
-ai-memory install-hooks --agent codex --apply
-ai-memory install-hooks --agent opencode --apply
-ai-memory install-hooks --agent pi --apply
-ai-memory install-hooks --agent omp --apply
-ai-memory install-hooks --agent kimi-code --apply
-ai-memory install-hooks --agent kiro-cli --apply
+pitstop install-hooks --agent claude-code --apply
+pitstop install-hooks --agent codex --apply
+pitstop install-hooks --agent opencode --apply
+pitstop install-hooks --agent pi --apply
+pitstop install-hooks --agent omp --apply
+pitstop install-hooks --agent kimi-code --apply
+pitstop install-hooks --agent kiro-cli --apply
 ```
 
-Kimi Code hooks installed as native `ai-memory hook` commands automatically
+Kimi Code hooks installed as native `pitstop hook` commands automatically
 pick up the current delivery behavior when the binary is upgraded. A
 script-fallback installation must rerun the Kimi Code `install-hooks` command
 after upgrading so its staged scripts are refreshed. Current hooks deliver
@@ -1130,7 +1130,7 @@ content in the same millisecond, because Kimi Code stamps each record with
 `time`.
 The incremental cursor stores both the complete-record byte offset and a
 SHA-256 of that imported prefix. Normal appends resume at the saved offset;
-if Kimi rewrites `wire.jsonl` in place, ai-memory resets to the beginning and
+if Kimi rewrites `wire.jsonl` in place, pitstop resets to the beginning and
 replays the file, with stable event ids deduplicating records already in the
 workstream.
 Legacy sessions that keep `wire.jsonl` directly in the session directory
@@ -1158,11 +1158,11 @@ linked `--resume-id` is injected, and the incompatible engine flavor is also
 stored in the opaque incremental cursor. Explicit `--v3`, v3-only `--mode`,
 or `--agent-engine v3` selects v3; explicit `--agent-engine v2` selects v2; an
 unknown engine value remains passthrough instead of being guessed. Once a v3
-session is linked, a later plain `ai-memory run kiro` recovers that engine
+session is linked, a later plain `pitstop run kiro` recovers that engine
 transparently. Kiro CLI 2.16.2 wrote v3 sessions below the default
-`~/.kiro/sessions` even when `KIRO_HOME` redirected other state, so ai-memory
+`~/.kiro/sessions` even when `KIRO_HOME` redirected other state, so pitstop
 checks the configured v3 root first and that default root as a compatibility
-fallback. If a linked session exists only in the fallback, ai-memory removes
+fallback. If a linked session exists only in the fallback, pitstop removes
 `KIRO_HOME` for that one resume so Kiro can find the session; Kiro consequently
 uses its default-home v3 settings/hooks for that process, and first-launch
 auto-wire wires that default home rather than `KIRO_HOME`. Fresh launches and
@@ -1174,7 +1174,7 @@ See Kiro's current
 [session management](https://kiro.dev/docs/cli/chat/session-management/) and
 [v3 compatibility](https://kiro.dev/docs/cli/v3/) references.
 
-Grok needs no ai-memory hook installation for managed delivery either. Grok
+Grok needs no pitstop hook installation for managed delivery either. Grok
 ignores `SessionStart` stdout and its `UserPromptSubmit` hook is passive, so
 the launcher fetches the bounded context packet from the server and passes it
 through Grok's native `--rules` flag, which appends the text to that session's
@@ -1206,7 +1206,7 @@ injects no selector and the id is linked by the hooks or discovered after exit; 
 linked resume passes `--conversation <id>`. `--continue` / `-c` is treated as an
 explicit user choice and is never overridden. `--yolo` maps to
 `--dangerously-skip-permissions`. Step payloads are undocumented, unversioned
-protobuf blobs, so ai-memory does not decode conversation text: the visible-event
+protobuf blobs, so pitstop does not decode conversation text: the visible-event
 ledger for this harness comes from lifecycle-hook capture, and transcript export
 fails with a message saying so. The managed launcher accepts `antigravity`,
 `antigravity-cli`, and `agy`. The native contract was verified against
@@ -1230,7 +1230,7 @@ the model-visible output of each `tool.execution_complete` (or the error
 message of a failed call), and successful `session.compaction_complete`
 summaries. System prompts, hidden reasoning (`reasoningText`,
 `reasoningOpaque`, `reasoningBlocks`), model message snapshots, hook output
-(where ai-memory's own startup packet is recorded), permission prompts, and
+(where pitstop's own startup packet is recorded), permission prompts, and
 session telemetry are excluded. The journal stayed append-only across resume
 and compaction in testing, but that is not documented, so the cursor stores a
 prefix hash and replays with content-hash event ids if the file is ever
@@ -1243,7 +1243,7 @@ copilot` keeps meaning VS Code Copilot. The native contract was verified
 against GitHub Copilot CLI 1.0.92. Copilot is not part of the no-argument
 auto-detection set; name it explicitly.
 
-Crush needs no ai-memory hook installation for managed mode. The launcher reads
+Crush needs no pitstop hook installation for managed mode. The launcher reads
 its one-time context from the server, copies the global Crush JSON the launch
 would read (`$CRUSH_GLOBAL_CONFIG/crush.json`, else
 `$XDG_CONFIG_HOME/crush/crush.json`, else `~/.config/crush/crush.json`, with
@@ -1256,36 +1256,36 @@ global `crushrc` next to that JSON is carried over by a generated `crushrc` in
 the temporary directory that sources it from its own directory, where Crush
 runs it. Delivery is acknowledged
 only after the child starts, so a spawn failure cannot lose the packet. The
-original config is not modified. ai-memory opens the project database read-only;
+original config is not modified. pitstop opens the project database read-only;
 the launched Crush process continues its normal native session writes.
 
 The Linux/macOS Docker shell wrapper cannot inspect host projects or execute a
 host agent from inside its helper container. For `run`, `show`, `continue`,
 `resume`, and `workstreams`, it downloads the matching native release into
-`${XDG_DATA_HOME:-~/.local/share}/ai-memory/native-runner`, verifies the
+`${XDG_DATA_HOME:-~/.local/share}/pitstop/native-runner`, verifies the
 published SHA-256 checksum, and executes that host client. The release's
 `hooks/` bundle is kept beside it so auto-wire can stage hook scripts on a host
-where `install-hooks` never ran. The client lives with the host's ai-memory data
+where `install-hooks` never ran. The client lives with the host's pitstop data
 rather than under `~/.cache` because auto-wired hook configuration runs it
 directly: a cache flush must not break capture. A client downloaded by an older
-wrapper stays in `~/.cache/ai-memory/native-runner`, and hooks auto-wired from it
+wrapper stays in `~/.cache/pitstop/native-runner`, and hooks auto-wired from it
 keep that path until a newer client version auto-wires again. To move them now,
-re-run `ai-memory install-hooks --agent <agent> --apply`, then delete the old
-directory. Set `AI_MEMORY_NATIVE_BIN=/path/to/ai-memory` to use a
+re-run `pitstop install-hooks --agent <agent> --apply`, then delete the old
+directory. Set `PITSTOP_NATIVE_BIN=/path/to/pitstop` to use a
 specific native build. Native package, release, and source installs need no
-shim. On native Windows, use the published `ai-memory.exe` or a source build.
+shim. On native Windows, use the published `pitstop.exe` or a source build.
 
 The wrapper intercepts all five commands before Docker and preserves the host
-`PATH`, `AI_MEMORY_SERVER_URL`, and authentication environment. The native client's
+`PATH`, `PITSTOP_SERVER_URL`, and authentication environment. The native client's
 startup log shows `server_url` as well as its local config paths; `data_dir` and
 `bind` describe local defaults and do not override a configured remote server.
 If logs show
 `data_dir=/data` followed by `starting managed ... No such file or directory`,
 the installed wrapper is stale and sent the command into the helper container.
-Run `ai-memory upgrade` on the client machine. A remote/homelab server must be
+Run `pitstop upgrade` on the client machine. A remote/homelab server must be
 upgraded separately.
 
-On a normal exit, ai-memory imports the transcript and closes the lease before
+On a normal exit, pitstop imports the transcript and closes the lease before
 returning. Handled setup, launch, or import failures cancel the lease
 immediately. A new launch retries an active-workstream conflict briefly so a
 previous launcher can finish; if another harness is genuinely still running,
@@ -1297,7 +1297,7 @@ A launcher that dies without releasing its lease (killed, its terminal
 closed, or a sandbox such as ai-jail torn down) leaves the workstream held
 until that lease lapses. An interactive relaunch (stdin and stderr are
 terminals) no longer fails on that: the conflict reports the lease's expiry, so
-ai-memory says who holds it and waits for it to lapse (at most one lease,
+pitstop says who holds it and waits for it to lapse (at most one lease,
 ~90 seconds; `Ctrl+C` aborts), then starts normally. If the holder renews the
 lease while you wait, it is a launcher that is still running, and you get an
 error instead. Stop it, or pass `--new <name>` for a separate workstream. The
@@ -1311,9 +1311,9 @@ When you know the prior launcher is gone and do not want to wait for the lease,
 force-expire it explicitly:
 
 ```bash
-ai-memory run --force-unlock codex
+pitstop run --force-unlock codex
 # The exact wrapper flag is also accepted after the harness name.
-ai-memory run codex --force-unlock
+pitstop run codex --force-unlock
 ```
 
 The replacement is atomic and limited to the same durable authenticated
@@ -1360,7 +1360,7 @@ If the client is terminated without cleanup, such as with `kill -9`, its lease
 expires within 90 seconds. A later managed run starts from the last committed
 adapter cursor, so already linked native sessions can import the missing tail
 without duplicating earlier events. A server or authentication failure before
-process launch is fatal; ai-memory does not silently start an unmanaged agent.
+process launch is fatal; pitstop does not silently start an unmanaged agent.
 
 ## Privacy and storage boundaries
 
@@ -1396,7 +1396,7 @@ writer refusal leaves SQL unchanged; raw-file persistence and SQL are not an
 atomic operation.
 
 
-ai-memory's managed adapters do not write to Claude, Codex, OpenCode, Pi, Crush,
+pitstop's managed adapters do not write to Claude, Codex, OpenCode, Pi, Crush,
 Kimi Code, Command Code, Kiro, OMP, Grok, Antigravity, or Copilot private stores. The
 launched harness retains normal ownership of its own session writes. Adapters read only
 documented or observed local session formats. Provider credentials, encrypted
@@ -1410,7 +1410,7 @@ belong in wiki pages through consolidation or explicit durable writes.
 
 ## Project and directory renames
 
-`ai-memory rename-project --from OLD --to NEW` changes only the server-side
+`pitstop rename-project --from OLD --to NEW` changes only the server-side
 project name. Wiki paths are UUID-keyed, so it moves no server directory, source
 checkout, or native harness session. If the source checkout path itself is
 renamed, absolute-path session locators used by Claude Code, Codex, OpenCode,
@@ -1422,7 +1422,7 @@ the old path; Crush's project-local `.crush`
 database moves with the checkout.
 
 There is no portable, supported API that rewrites every harness's private
-project locator. ai-memory therefore does not mutate those stores or silently
+project locator. pitstop therefore does not mutate those stores or silently
 equate a renamed checkout with another clone of the same remote. Explicit
 native selectors still win and can recover a session when that harness supports
 cross-directory resume; OpenCode also provides its own export/import flow. For
@@ -1435,7 +1435,7 @@ checkout to match exactly.
 
 A project's name comes from the git remote, or from the folder name when the
 checkout has no remote. Sessions captured before the remote was added stay in
-the folder-named project, while `ai-memory run` resolves the remote-derived
+the folder-named project, while `pitstop run` resolves the remote-derived
 one, so resuming one of those sessions cannot link it to the run. The server
 refuses the link with the `native_session_in_other_project` conflict, which
 names both projects (only for the operator and harness that recorded the
@@ -1450,13 +1450,13 @@ observations and pages follow, and identity-based capture and later launches
 reach them. This client's checkout links and saved project binding are
 re-pointed too.
 
-On a terminal, `ai-memory run` explains this and offers the repair (default
+On a terminal, `pitstop run` explains this and offers the repair (default
 yes), then starts the session again. Closing the prompt's input without an
 answer cancels it; pressing Enter accepts the default. Off a terminal it stops
 before the agent starts and prints the command:
 
 ```
-ai-memory repair-split --workspace <ws> --project-id <folder project id> \
+pitstop repair-split --workspace <ws> --project-id <folder project id> \
   --from-project-id <remote project id>
 ```
 
@@ -1477,7 +1477,7 @@ scripts/managed-workstream-acceptance.sh
 ```
 
 It is deliberately separate from CI because it uses local harness credentials
-and model calls. Hook configs, native session stores, the ai-memory server, and
+and model calls. Hook configs, native session stores, the pitstop server, and
 the Git fixture are isolated under a temporary directory. Claude, Codex, and
 OpenCode receive only copied authentication material; OMP receives a temporary
 agent directory with read-consistent credential/model database backups and
@@ -1500,14 +1500,14 @@ trip also deletes the linked native session and verifies automatic
 fresh-session recovery and repointing.
 Native session creation, read-only extraction, cross-harness injection, and
 returning resume paths are all exercised. Docker wrapper host execution and
-remote URL preservation are covered separately by the `ai-memory-cli`
+remote URL preservation are covered separately by the `pitstop-cli`
 packaging tests.
 
 Kiro is intentionally skipped in the scripted real-model loop. Its
 `--no-interactive` mode writes a different v1 SQLite store, while both managed
 adapters read the interactive v2/v3 journals. Logged-in Kiro acceptance
-therefore remains interactive. For v2, run `ai-memory run --new kiro-v2-accept
-kiro`, enter a unique prompt, quit normally, then run `ai-memory run
+therefore remains interactive. For v2, run `pitstop run --new kiro-v2-accept
+kiro`, enter a unique prompt, quit normally, then run `pitstop run
 --workstream kiro-v2-accept kiro-cli` and verify the same UUID resumes. For v3,
 repeat with a fresh workstream and `kiro --v3`; the second plain `kiro` launch
 must transparently add `--v3 --resume-id <sess_uuid>`. Search both workstream
@@ -1530,13 +1530,13 @@ Grok, Antigravity, and Copilot cross-harness fixtures exercise the same assertio
 without credentials or model calls.
 
 Set
-`AI_MEMORY_ACCEPTANCE_HARNESSES="command-code codex"` to select a
+`PITSTOP_ACCEPTANCE_HARNESSES="command-code codex"` to select a
 Command-Code-to-Codex-to-Command-Code round trip, or
-`AI_MEMORY_ACCEPTANCE_HARNESSES="antigravity codex"` to select an
+`PITSTOP_ACCEPTANCE_HARNESSES="antigravity codex"` to select an
 Antigravity-to-Codex-to-Antigravity round trip (`agy` and `antigravity-cli` are
-accepted aliases), `AI_MEMORY_ACCEPTANCE_DETERMINISTIC_ONLY=1` to skip model
+accepted aliases), `PITSTOP_ACCEPTANCE_DETERMINISTIC_ONLY=1` to skip model
 calls, or
-`AI_MEMORY_ACCEPTANCE_KEEP=1` to retain all temporary logs and data.
+`PITSTOP_ACCEPTANCE_KEEP=1` to retain all temporary logs and data.
 
 ## Running inside Herdr
 
@@ -1545,14 +1545,14 @@ agent runs in each pane. It identifies the agent from the pane's foreground
 process, falling back to matching the agent's own screen output against
 per-agent manifests.
 
-`ai-memory run` sits awkwardly between the two. The foreground process is the
+`pitstop run` sits awkwardly between the two. The foreground process is the
 wrapper and the agent is its child (one process group whose leader is
-`ai-memory`), so process detection does not find the agent. The pane resolves
+`pitstop`), so process detection does not find the agent. The pane resolves
 only once the harness paints a title Herdr recognizes, which can be well after
 launch and may never happen for a harness whose output matches no manifest.
 Until then Herdr's agents pane shows nothing for that pane.
 
-ai-memory deliberately does not try to fix this from the inside. Herdr's hint
+pitstop deliberately does not try to fix this from the inside. Herdr's hint
 for wrapper commands, `HERDR_AGENT`, is scoped to the pane's foreground
 process, and a process cannot amend its own environment after exec, so the
 wrapper has no way to describe itself to Herdr once it is already running.
@@ -1564,7 +1564,7 @@ Two things work today.
 Name the agent on the command, where Herdr does look:
 
 ```bash
-HERDR_AGENT=codex ai-memory run codex
+HERDR_AGENT=codex pitstop run codex
 ```
 
 Or install Herdr's own agent integration, which is the better option:
@@ -1582,8 +1582,8 @@ which cannot reliably see `blocked` at all.
 
 These are separate mechanisms writing to separate files: Herdr's integration
 installs its own hook script (`~/.claude/hooks/herdr-agent-state.sh` for Claude
-Code, `~/.codex/herdr-agent-state.sh` for Codex), while ai-memory's lifecycle
-hooks live in the agent's own config. ai-memory's installer preserves foreign
-entries rather than replacing them, so re-running `ai-memory install-hooks`
+Code, `~/.codex/herdr-agent-state.sh` for Codex), while pitstop's lifecycle
+hooks live in the agent's own config. pitstop's installer preserves foreign
+entries rather than replacing them, so re-running `pitstop install-hooks`
 will not remove Herdr's. Back up the agent's config and diff it after
 installing either one if you want to be sure the other survived.

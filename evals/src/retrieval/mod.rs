@@ -69,9 +69,9 @@ pub struct RetrievalArgs {
     #[arg(long)]
     fetch: bool,
 
-    /// `ai-memory` server binary to benchmark. Build it first:
-    /// `cargo build --release -p ai-memory-cli`.
-    #[arg(long, default_value = "target/release/ai-memory")]
+    /// `pitstop` server binary to benchmark. Build it first:
+    /// `cargo build --release -p pitstop-cli`.
+    #[arg(long, default_value = "target/release/pitstop")]
     server_bin: PathBuf,
 
     /// Score only the first N questions (deterministic prefix) — smoke
@@ -91,7 +91,7 @@ pub struct RetrievalArgs {
     #[arg(long = "question-id", value_delimiter = ',')]
     question_ids: Vec<String>,
 
-    /// `server` (the default) drives a real `ai-memory serve`; `grep`
+    /// `server` (the default) drives a real `pitstop serve`; `grep`
     /// scores the whole-session term-overlap baseline with no server.
     #[arg(long, value_enum, default_value_t = Engine::Server)]
     engine: Engine,
@@ -138,7 +138,7 @@ pub struct RetrievalArgs {
     embeddings: String,
 
     /// Turn the post-RRF reranker on for the baseline
-    /// (`AI_MEMORY_RERANKER=llm`). Requires an LLM provider, which you
+    /// (`PITSTOP_RERANKER=llm`). Requires an LLM provider, which you
     /// must supply via `--server-env` — otherwise the server ignores it.
     #[arg(long)]
     reranker: bool,
@@ -454,7 +454,7 @@ pub async fn run(args: RetrievalArgs) -> Result<()> {
 
     if !args.server_bin.exists() {
         bail!(
-            "server binary {} not found — run `cargo build --release -p ai-memory-cli` first",
+            "server binary {} not found — run `cargo build --release -p pitstop-cli` first",
             args.server_bin.display()
         );
     }
@@ -501,9 +501,9 @@ pub async fn run(args: RetrievalArgs) -> Result<()> {
             .is_some_and(|c| c.embeddings == EvalEmbeddings::Local);
     if needs_local || args.reachability {
         let root = PathBuf::from("evals/models");
-        if !ai_memory_llm::model_present(&root) {
+        if !pitstop_llm::model_present(&root) {
             tracing::info!("fetching the local embedding model into evals/models (~87 MB)");
-            ai_memory_llm::fetch_model(&root).await?;
+            pitstop_llm::fetch_model(&root).await?;
         }
     }
 
@@ -876,10 +876,10 @@ mod tests {
     fn server_env_parses_key_value_pairs() {
         let e = parse_env(
             "baseline",
-            &["AI_MEMORY_RERANKER=llm".into(), "A=b=c".into()],
+            &["PITSTOP_RERANKER=llm".into(), "A=b=c".into()],
         )
         .unwrap();
-        assert_eq!(e[0], ("AI_MEMORY_RERANKER".into(), "llm".into()));
+        assert_eq!(e[0], ("PITSTOP_RERANKER".into(), "llm".into()));
         // split_once keeps everything after the first `=` in the value.
         assert_eq!(e[1], ("A".into(), "b=c".into()));
         assert!(parse_env("baseline", &["nope".into()]).is_err());
@@ -891,7 +891,7 @@ mod tests {
             "candidate",
             "local",
             true,
-            &["AI_MEMORY_LLM_PROVIDER=openai".into()],
+            &["PITSTOP_LLM_PROVIDER=openai".into()],
             &["include_expired=true".into()],
             IngestMode::Hooks,
             DatePrefix::Turn,
@@ -899,7 +899,7 @@ mod tests {
         .unwrap();
         assert!(k.summary.contains("embeddings=local"));
         assert!(k.summary.contains("reranker=on"));
-        assert!(k.summary.contains("env:AI_MEMORY_LLM_PROVIDER=openai"));
+        assert!(k.summary.contains("env:PITSTOP_LLM_PROVIDER=openai"));
         assert!(k.summary.contains("arg:include_expired=true"));
         assert_eq!(k.mode, "local-embeddings");
         // Default ablations stay out of the summary (baseline reports

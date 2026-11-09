@@ -1,6 +1,6 @@
 # LongMemEval-S retrieval decomposition (2026-10-12)
 
-This report splits ai-memory's LongMemEval-S `hit@5` into its parts:
+This report splits pitstop's LongMemEval-S `hit@5` into its parts:
 evidence the index never sees, ranking on evidence it does see, and
 artifacts of the harness itself. It then records what the observation
 stream, shipped in 3.0, recovered.
@@ -10,7 +10,7 @@ It publishes two kinds of number, and they answer different questions:
 - **Pipeline** numbers run the shipped system end to end. Each haystack
   replays through `POST /hook/batch` at production cadence, the server builds
   its zero-LLM session pages, and `memory_query` ranks them. This is what a
-  user of ai-memory gets.
+  user of pitstop gets.
 - **Component** numbers skip capture. Each raw session is written as one page
   through `POST /admin/write-page`, so ranking sees the full text. This
   measures the ranker alone.
@@ -41,7 +41,7 @@ Decomposition runs (2026-10-10 to 2026-10-11):
 Pipeline re-runs (2026-10-13, corrected harness): the FTS full-set pipeline
 with reachability, both date-prefix ablations and the strat-230 local
 pipeline-vs-whole-session A/B, on `release/3.0` at `7e08baa7` with
-`AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false` on every arm (see "Harness
+`PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false` on every arm (see "Harness
 correction").
 
 Observation-stream runs (2026-10-13, corrected harness):
@@ -49,7 +49,7 @@ Observation-stream runs (2026-10-13, corrected harness):
 - build: the shipped ranking, `41793120` on top of `25594224`, for the
   full-set FTS and local A/Bs; `release/3.0` at `7e08baa7` for the first
   version. The stream is on by default in both, so the baseline side sets
-  `AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false` and the candidate side
+  `PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false` and the candidate side
   `=true`
 - harness: `7e08baa7`, which replays each question's sessions under their own
   session ids (see "Harness correction")
@@ -127,9 +127,9 @@ Pipeline, FTS, all 470 questions:
 
 The cause is the shape of the zero-LLM session page `sessions/<id>.md`. Its
 indexed body lists only each observation's title
-(`crates/ai-memory-hooks/src/synth.rs`, `render_body` and
+(`crates/pitstop-hooks/src/synth.rs`, `render_body` and
 `render_raw_observation`), and titles are cut to 80 characters
-(`truncate_for_title` in `crates/ai-memory-core/src/sanitize.rs`). Assistant
+(`truncate_for_title` in `crates/pitstop-core/src/sanitize.rs`). Assistant
 turns (`stop` observations) are titled just `stop`, so no assistant text
 reaches the page at all. The full observation bodies were indexed in
 `observations_fts` the whole time, but `memory_query` read them only when page
@@ -304,7 +304,7 @@ Reachability is unchanged too (0.056 / 0.102 on the session page).
   `recall_any@5`, committed in April 2026. Their benchmark indexes each whole
   raw session as one document directly in in-memory components, with BM25
   plus vectors and the reranker disabled (`rerankEnabled=false`). That is a
-  component measurement. ai-memory's pipeline numbers include capture, and
+  component measurement. pitstop's pipeline numbers include capture, and
   even its component numbers use a different index, document construction and
   dataset file. **The two are not like-for-like, and no ranking between the
   tools is claimed here.**
@@ -316,7 +316,7 @@ Reachability is unchanged too (0.056 / 0.102 on the session page).
 
 - `belief_authority_weight` could not be measured here. Zero-LLM session pages
   have no `page_evidence` rows, so every page's confidence is 0.0: with
-  `AI_MEMORY_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3` the FTS delta was exactly
+  `PITSTOP_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3` the FTS delta was exactly
   0.000 and the local delta −0.008 (one flip, within local run-to-run noise).
   It needs an LLM-consolidated corpus.
 - With full text in the index, local embeddings scored below FTS alone on the
@@ -331,13 +331,13 @@ Reachability is unchanged too (0.056 / 0.102 on the session page).
 Build once, from a `release/3.0` checkout:
 
 ```bash
-cargo build --release -p ai-memory-cli -p ai-memory-eval
-E=target/release/ai-memory-eval
+cargo build --release -p pitstop-cli -p pitstop-eval
+E=target/release/pitstop-eval
 ```
 
 Decomposition (server at `7dd6b2c2`, before the observation stream). On a
 build where the stream is on by default, add
-`--server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false` to reproduce
+`--server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false` to reproduce
 these:
 
 ```bash
@@ -353,7 +353,7 @@ $E retrieval --http-timeout-secs 900 --dataset-variant s-cleaned --ingest whole-
 # date prefix and belief-weight ablations, confirmations (strat-120)
 $E retrieval --stratify 20 --reachability --date-prefix turn --candidate-date-prefix session-start
 $E retrieval --stratify 20 --date-prefix turn --candidate-date-prefix none
-$E retrieval --stratify 20 --candidate-server-env AI_MEMORY_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3
+$E retrieval --stratify 20 --candidate-server-env PITSTOP_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3
 $E retrieval --stratify 20 --ingest hooks --candidate-ingest whole-session
 $E retrieval --stratify 20 --ingest hooks --candidate-ingest captured-session
 # local embeddings (strat-230 and strat-120)
@@ -361,7 +361,7 @@ $E retrieval --stratify 40 --embeddings local --ingest hooks --candidate-ingest 
 $E retrieval --stratify 40 --embeddings local --ingest hooks --candidate-ingest captured-session
 $E retrieval --stratify 20 --embeddings local --ingest hooks --candidate-ingest whole-session
 $E retrieval --stratify 20 --embeddings local --date-prefix turn --candidate-date-prefix session-start
-$E retrieval --stratify 20 --embeddings local --candidate-server-env AI_MEMORY_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3
+$E retrieval --stratify 20 --embeddings local --candidate-server-env PITSTOP_RETRIEVAL__BELIEF_AUTHORITY_WEIGHT=0.3
 ```
 
 Observation stream, shipped ranking (corrected harness, stream on by
@@ -371,9 +371,9 @@ local --stratify 15`:
 
 ```bash
 B=target/release
-AB="--server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false
-    --candidate-server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true"
-$B/ai-memory-eval retrieval --server-bin $B/ai-memory --concurrency 6 --http-timeout-secs 900 $AB
-$B/ai-memory-eval retrieval --server-bin $B/ai-memory --concurrency 6 --http-timeout-secs 900 \
+AB="--server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false
+    --candidate-server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true"
+$B/pitstop-eval retrieval --server-bin $B/pitstop --concurrency 6 --http-timeout-secs 900 $AB
+$B/pitstop-eval retrieval --server-bin $B/pitstop --concurrency 6 --http-timeout-secs 900 \
     --embeddings local $AB
 ```

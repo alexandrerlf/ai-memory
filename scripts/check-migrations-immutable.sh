@@ -17,7 +17,7 @@ while IFS= read -r path; do
   fi
 done < <(
   git diff --name-only "$merge_base"...HEAD -- \
-    'crates/ai-memory-store/migrations/V*.sql'
+    'crates/pitstop-store/migrations/V*.sql'
 )
 
 if (( status != 0 )); then

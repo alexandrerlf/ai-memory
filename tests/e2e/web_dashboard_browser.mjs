@@ -9,8 +9,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const binary = path.resolve(process.env.AI_MEMORY_BIN || path.join(root, 'target/debug/ai-memory'));
-const artifacts = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'ai-memory-web-e2e-'));
+const binary = path.resolve(process.env.PITSTOP_BIN || path.join(root, 'target/debug/pitstop'));
+const artifacts = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'pitstop-web-e2e-'));
 fs.chmodSync(artifacts, 0o700);
 const token = 'FAKEfake0123456789WebDashboardRoot';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -51,7 +51,7 @@ const children = [];
 let cdp;
 
 function chromePath() {
-  if (process.env.AI_MEMORY_BROWSER) return process.env.AI_MEMORY_BROWSER;
+  if (process.env.PITSTOP_BROWSER) return process.env.PITSTOP_BROWSER;
   const cache = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(os.homedir(), '.cache/ms-playwright');
   if (fs.existsSync(cache)) {
     const versions = fs.readdirSync(cache).filter(name => /^chromium_headless_shell-\d+$/.test(name))
@@ -61,7 +61,7 @@ function chromePath() {
       if (fs.existsSync(executable)) return executable;
     }
   }
-  throw Error('Chromium required: set AI_MEMORY_BROWSER or install the pinned browser from docs/testing-dashboard.md');
+  throw Error('Chromium required: set PITSTOP_BROWSER or install the pinned browser from docs/testing-dashboard.md');
 }
 
 function launch(executable, args, env, log) {
@@ -139,13 +139,13 @@ class Cdp {
 }
 
 async function main() {
-  assert(fs.existsSync(binary), 'Build ai-memory first or set AI_MEMORY_BIN');
+  assert(fs.existsSync(binary), 'Build pitstop first or set PITSTOP_BIN');
   const browserBinary = chromePath();
   const portSocket = net.createServer();await new Promise(resolve => portSocket.listen(0, '127.0.0.1', resolve));
   const port = portSocket.address().port;await new Promise(resolve => portSocket.close(resolve));
   const base = `http://127.0.0.1:${port}`;
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AI_MEMORY_')));
-  env.AI_MEMORY_AUTH_TOKEN = token;
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('PITSTOP_')));
+  env.PITSTOP_AUTH_TOKEN = token;
   const server = launch(binary, ['--data-dir', path.join(artifacts, 'server'), 'serve', '--transport', 'http', '--bind', `127.0.0.1:${port}`, '--enable-web', '--no-watcher', '--workspace', 'team', '--project', 'app'], env, 'server.log');
   const request = async (route, payload) => {
     const response = await fetch(base + route, {method: payload === undefined ? 'GET' : 'POST', headers: {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'X-Ai-Memory-UI': '1'}, ...(payload === undefined ? {} : {body: JSON.stringify(payload)}), signal: AbortSignal.timeout(15000)});
@@ -164,7 +164,7 @@ async function main() {
   for (const project of ['app', 'empty']) await request('/admin/write-page', {workspace: 'team', project, path: 'concepts/fixture.md', title: 'Synthetic knowledge', body: '# Synthetic knowledge\n\nPublic fixture only.'});
   const id = sessions.get('team/app/codex');
   const calls = Array.from({length: 5}, (_, i) => ({call_id: 'response-' + i, input_tokens: i === 4 ? 150000 : 1000, output_tokens: i === 3 ? 25000 : 100, cache_read_tokens: 200, cache_write_tokens: 10, model: 'codex-fixture'}));
-  const usage = async value => request('/hook?' + new URLSearchParams({workspace: 'team', project: 'app', agent: 'codex', event: 'post-tool-use'}), {session_id: id, tool_name: 'Bash', tool_input: {command: 'echo fixture'}, tool_response: 'fixture', _ai_memory_usage_calls: value});
+  const usage = async value => request('/hook?' + new URLSearchParams({workspace: 'team', project: 'app', agent: 'codex', event: 'post-tool-use'}), {session_id: id, tool_name: 'Bash', tool_input: {command: 'echo fixture'}, tool_response: 'fixture', _pitstop_usage_calls: value});
   await usage(calls);await usage(calls);
   await until(async () => {
     const response = await request('/web/w/team/app');return (await response.text()).includes('Captured calls</span><strong>5</strong>');
@@ -180,7 +180,7 @@ async function main() {
   cdp.sessionId = (await cdp.send('Target.attachToTarget', {targetId, flatten: true})).sessionId;
   await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', {cacheDisabled: true});
-  await cdp.send('Network.setCookie', {name: 'ai_memory_auth', value: token, url: base, httpOnly: true, sameSite: 'Strict'});
+  await cdp.send('Network.setCookie', {name: 'pitstop_auth', value: token, url: base, httpOnly: true, sameSite: 'Strict'});
   await cdp.send('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false});
   {
     const change = mutation && mutations[mutation];
@@ -234,7 +234,7 @@ async function main() {
       await until(()=>cdp.evaluate('!document.getElementById("inbox-pending-count").hidden'),'Notifications did not recover');
       await cdp.goto(href,'.mail-row');assert.equal(await cdp.evaluate('document.querySelector(".page-heading strong").textContent'),'other / app');
       assert(await cdp.evaluate('document.querySelector(".mail-row").textContent.includes("Notification fixture")'));
-      const popped=spawnSync(binary,['message','pop','--workspace','other','--project','app','--agent','gemini-cli','--id',sent.message_id,'--json'],{env:{...env,AI_MEMORY_SERVER_URL:base,AI_MEMORY_DATA_DIR:path.join(artifacts,'client')},encoding:'utf8',timeout:15000});
+      const popped=spawnSync(binary,['message','pop','--workspace','other','--project','app','--agent','gemini-cli','--id',sent.message_id,'--json'],{env:{...env,PITSTOP_SERVER_URL:base,PITSTOP_DATA_DIR:path.join(artifacts,'client')},encoding:'utf8',timeout:15000});
       assert.equal(popped.status,0);assert.equal(JSON.parse(popped.stdout).message.id,sent.message_id);
       await until(()=>cdp.evaluate('document.getElementById("inbox-pending-count").hidden&&document.getElementById("inbox-notifications").hidden'),'Collected mail must clear the notification without reload',18000);
       await cdp.evaluate('document.getElementById("mail-state").value="claimed";document.getElementById("mail-state").dispatchEvent(new Event("change",{bubbles:true}))');
@@ -314,7 +314,7 @@ async function main() {
       const sent = await cdp.evaluate('document.querySelector("#message-result a").href');
       await cdp.goto(sent, '.mail-row');assert(await cdp.evaluate(`document.querySelector('.mail-row').textContent.includes('Review <script>window.fixtureXss=true</script>')&&!window.fixtureXss`));
       const pop = agent => {
-        const result = spawnSync(binary, ['message','pop','--workspace','other','--project','app','--agent',agent,'--id',messageId,'--json'], {env: {...env, AI_MEMORY_SERVER_URL: base, AI_MEMORY_DATA_DIR: path.join(artifacts, 'client')}, encoding: 'utf8', timeout: 15000});
+        const result = spawnSync(binary, ['message','pop','--workspace','other','--project','app','--agent',agent,'--id',messageId,'--json'], {env: {...env, PITSTOP_SERVER_URL: base, PITSTOP_DATA_DIR: path.join(artifacts, 'client')}, encoding: 'utf8', timeout: 15000});
         assert.equal(result.status, 0, 'Native message pop failed');return JSON.parse(result.stdout).message;
       };
       assert.equal(pop('codex'), null);assert.equal(pop('gemini-cli').id, messageId);assert.equal(pop('gemini-cli'), null);
@@ -324,7 +324,7 @@ async function main() {
       const row = messageId => '.mail-row[data-message-id="' + messageId + '"]';
       const queue = async (subject, body) => (await (await request('/web/messages', {from_workspace:'team',from_project:'other',to_workspace:'team',to_project:'app',to_agent:'codex',subject,body})).json()).message_id;
       const pop = messageId => {
-        const result = spawnSync(binary, ['message','pop','--workspace','team','--project','app','--agent','codex','--id',messageId,'--json'], {env:{...env,AI_MEMORY_SERVER_URL:base,AI_MEMORY_DATA_DIR:path.join(artifacts,'edit-client')},encoding:'utf8',timeout:15000});
+        const result = spawnSync(binary, ['message','pop','--workspace','team','--project','app','--agent','codex','--id',messageId,'--json'], {env:{...env,PITSTOP_SERVER_URL:base,PITSTOP_DATA_DIR:path.join(artifacts,'edit-client')},encoding:'utf8',timeout:15000});
         assert.equal(result.status, 0, 'Native claim failed: ' + result.stderr);return JSON.parse(result.stdout).message;
       };
       const open = async (messageId, action) => {
@@ -397,9 +397,9 @@ async function main() {
     },
     async 'capture-backlog'() {
       const cwd=path.join(artifacts,'backlog-repository'),client=path.join(artifacts,'backlog-client'),transcript=path.join(artifacts,'backlog.jsonl'),sid=crypto.randomUUID();
-      fs.mkdirSync(cwd);fs.writeFileSync(path.join(cwd,'.ai-memory.toml'),'workspace = "backlog"\nproject = "capture"\n');
+      fs.mkdirSync(cwd);fs.writeFileSync(path.join(cwd,'.pitstop.toml'),'workspace = "backlog"\nproject = "capture"\n');
       fs.writeFileSync(transcript,Array.from({length:300},(_,n)=>JSON.stringify({type:'assistant',message:{id:'backlog-'+n,model:'backlog-model',usage:{input_tokens:100,output_tokens:20}}})+'\n').join(''));
-      const options={cwd,env:{...env,AI_MEMORY_HOME:client},encoding:'utf8',timeout:15000};
+      const options={cwd,env:{...env,PITSTOP_HOME:client},encoding:'utf8',timeout:15000};
       for(const expected of [256,300,300]) {
         const hook=spawnSync(binary,['--data-dir',client,'hook','--event','post-tool-use','--agent','claude-code','--server-url',base,'--auth-token',token],{...options,input:JSON.stringify({session_id:sid,cwd,transcript_path:transcript,tool_name:'Bash',tool_input:{command:'echo fixture'},tool_response:'fixture'})});
         assert.equal(hook.status,0,'Native catch-up hook failed: '+hook.stderr);
@@ -423,7 +423,7 @@ async function main() {
     async 'call-history'() {
       const workspace='history',name='app',sid=crypto.randomUUID(),href=base+'/web/w/history/app';
       const hook='/hook?'+new URLSearchParams({workspace,project:name,agent:'codex',event:'post-tool-use'});
-      const publish=async rows=>request(hook,{session_id:sid,tool_name:'Bash',tool_input:{command:'echo synthetic'},tool_response:'synthetic',_ai_memory_usage_calls:rows.map(row=>({cache_read_tokens:0,cache_write_tokens:0,...row}))});
+      const publish=async rows=>request(hook,{session_id:sid,tool_name:'Bash',tool_input:{command:'echo synthetic'},tool_response:'synthetic',_pitstop_usage_calls:rows.map(row=>({cache_read_tokens:0,cache_write_tokens:0,...row}))});
       await request('/hook?'+new URLSearchParams({workspace,project:name,agent:'codex',event:'session-start'}),{session_id:sid});
       await publish(Array.from({length:56},(_,n)=>({call_id:'bulk-'+n,input_tokens:1000+n,output_tokens:10,model:'bulk-model'})));
       await until(async()=> (await (await request('/web/w/history/app')).text()).includes('Captured calls</span><strong>56</strong>'),'History fixture did not settle');
@@ -452,7 +452,7 @@ async function main() {
       const hook='/hook?'+new URLSearchParams({workspace:'investigation',project:'app',agent:'codex',event:'post-tool-use'});
       await request('/hook?'+new URLSearchParams({workspace:'investigation',project:'app',agent:'codex',event:'session-start'}),{session_id:sid});
       const rows=Array.from({length:57},(_,n)=>({call_id:'context-'+n,model:n===56?'rare-model':'bulk-model',input_tokens:20,output_tokens:2,cache_read_tokens:0,cache_write_tokens:0,context:{turn_id:'native-turn',response_id:'native-'+n,recorded_at:'2026-10-01T12:00:00Z',tools:[{id:'exec-1',name:'exec_command',relation:'turn',is_error:true}]}}));
-      await request(hook,{session_id:sid,tool_name:'Bash',tool_input:{command:'echo synthetic'},tool_response:'synthetic',_ai_memory_usage_calls:rows});
+      await request(hook,{session_id:sid,tool_name:'Bash',tool_input:{command:'echo synthetic'},tool_response:'synthetic',_pitstop_usage_calls:rows});
       await until(async()=> (await (await request('/web/w/investigation/app')).text()).includes('Captured calls</span><strong>57</strong>'),'Context fixture never reached storage');
       await cdp.goto(href+'?tab=tokens','#token-usage');
       await cdp.evaluate(`document.querySelector('[name=calls_model]').value='rare-model';document.querySelector('[name=calls_agent]').value='codex';document.querySelector('[name=calls_session]').value=${literal(sid)};document.querySelector('[name=calls_from]').value='2026-10-01T12:00:00';document.querySelector('[name=calls_until]').value='2026-10-01T12:00:01';document.querySelector('[name=calls_tool]').value='exec_command';document.getElementById('call-query').requestSubmit()`);
@@ -576,7 +576,7 @@ async function main() {
       }
       await cdp.goto(base + '/web/inbox', '#mail-project');
       assert.equal(await cdp.evaluate('document.getElementById("mail-project").selectedOptions[0].dataset.project'), 'app', 'Default should prefer a project with queued mail');
-      const claimed = spawnSync(binary, ['message','pop','--workspace','other','--project','app','--agent','gemini-cli','--id',ids[1],'--json'], {env:{...env,AI_MEMORY_SERVER_URL:base,AI_MEMORY_DATA_DIR:path.join(artifacts,'client')},encoding:'utf8',timeout:15000});
+      const claimed = spawnSync(binary, ['message','pop','--workspace','other','--project','app','--agent','gemini-cli','--id',ids[1],'--json'], {env:{...env,PITSTOP_SERVER_URL:base,PITSTOP_DATA_DIR:path.join(artifacts,'client')},encoding:'utf8',timeout:15000});
       assert.equal(claimed.status, 0);assert.equal(JSON.parse(claimed.stdout).message.id, ids[1], 'Reading must leave the queued message available to its agent');
       await cdp.reload();
       assert(await cdp.evaluate(`document.querySelector('.mail-overview').textContent.includes('2 queued')&&document.querySelector('[data-mailbox-workspace="other"]').textContent.includes('1 queued')`), 'Collected messages must leave the queued counts');

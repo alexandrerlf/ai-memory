@@ -1,6 +1,6 @@
 # Shell completions
 
-`ai-memory completions <shell>` prints a completion script to stdout for
+`pitstop completions <shell>` prints a completion script to stdout for
 `bash`, `zsh`, `fish`, `powershell`, or `elvish`. The script is generated from
 the binary's own command tree, so it covers every subcommand and flag of the
 version that produced it, including nested commands like `user reset-password`,
@@ -11,7 +11,7 @@ native clap command tree, so it is the one subcommand not present in generated
 completions.
 
 The command reads no config and does not need a data directory, so it can be
-run before `ai-memory init` or inside a packaging step.
+run before `pitstop init` or inside a packaging step.
 
 The Docker wrapper buffers this bounded command before writing it to stdout, so
 short consumers such as `head` can close the pipe without Docker adding a
@@ -24,7 +24,7 @@ prints no partial completion script.
 
 ```fish
 mkdir -p ~/.config/fish/completions
-ai-memory completions fish > ~/.config/fish/completions/ai-memory.fish
+pitstop completions fish > ~/.config/fish/completions/pitstop.fish
 ```
 
 Fish loads that path lazily on first use, so you need neither a shell restart
@@ -34,7 +34,7 @@ nor a `config.fish` edit.
 
 ```zsh
 mkdir -p ~/.zfunc
-ai-memory completions zsh > ~/.zfunc/_ai-memory
+pitstop completions zsh > ~/.zfunc/_pitstop
 ```
 
 `~/.zfunc` must be on `$fpath` before `compinit` runs. If it is not already,
@@ -54,19 +54,19 @@ Requires [bash-completion](https://github.com/scop/bash-completion).
 
 ```bash
 mkdir -p ~/.local/share/bash-completion/completions
-ai-memory completions bash > ~/.local/share/bash-completion/completions/ai-memory
+pitstop completions bash > ~/.local/share/bash-completion/completions/pitstop
 ```
 
 Start a new shell to pick it up. To load it for the current shell only:
 
 ```bash
-source <(ai-memory completions bash)
+source <(pitstop completions bash)
 ```
 
 ### PowerShell
 
 ```powershell
-ai-memory completions powershell | Out-String | Invoke-Expression
+pitstop completions powershell | Out-String | Invoke-Expression
 ```
 
 To persist the generated script, keep it beside your PowerShell profile and
@@ -74,9 +74,9 @@ dot-source it from `$PROFILE` once:
 
 ```powershell
 $completionDir = Join-Path (Split-Path -Parent $PROFILE) "completions"
-$completionPath = Join-Path $completionDir "ai-memory.ps1"
+$completionPath = Join-Path $completionDir "pitstop.ps1"
 New-Item -ItemType Directory -Force $completionDir | Out-Null
-ai-memory completions powershell | Set-Content -Encoding utf8 $completionPath
+pitstop completions powershell | Set-Content -Encoding utf8 $completionPath
 Add-Content -Path $PROFILE -Value ". '$completionPath'"
 ```
 
@@ -87,15 +87,15 @@ be added again.
 
 ```elvish
 mkdir -p ~/.config/elvish/lib
-ai-memory completions elvish > ~/.config/elvish/lib/ai-memory.elv
+pitstop completions elvish > ~/.config/elvish/lib/pitstop.elv
 ```
 
-Then add `use ai-memory` to `~/.config/elvish/rc.elv`.
+Then add `use pitstop` to `~/.config/elvish/rc.elv`.
 
 ## Upgrades
 
 The script is a snapshot of the command tree at the moment it was generated.
-Re-run the same command after upgrading `ai-memory` so completions pick up new
+Re-run the same command after upgrading `pitstop` so completions pick up new
 subcommands and flags. Nothing is checked into the repository, so a
 stale script cannot ship alongside a newer binary.
 
@@ -103,5 +103,5 @@ Docker users can generate a script without a local install:
 
 ```bash
 docker run --rm akitaonrails/ai-memory:latest completions fish \
-  > ~/.config/fish/completions/ai-memory.fish
+  > ~/.config/fish/completions/pitstop.fish
 ```

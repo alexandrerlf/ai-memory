@@ -10,7 +10,7 @@ Run the repository's normal gates from `AGENTS.md`, including the full Rust
 suite. The browser suite needs a built executable and an installed Chromium:
 
 ```bash
-cargo build --locked --bin ai-memory
+cargo build --locked --bin pitstop
 # Pinned test browser; installation follows Playwright's browser installer.
 npx --yes playwright@1.63.0 install --with-deps --only-shell chromium
 node tests/e2e/web_dashboard_browser.mjs
@@ -22,7 +22,7 @@ python3 scripts/check-dashboard-core-mutations.py
 python3 scripts/check-dashboard-core-mutations.py --case expose-restricted-mailbox-projects
 ```
 
-Use `AI_MEMORY_BIN` for another built executable and `AI_MEMORY_BROWSER` for an
+Use `PITSTOP_BIN` for another built executable and `PITSTOP_BROWSER` for an
 existing Chromium executable. On Linux, the runner also finds Chromium in the
 Playwright cache. An absent executable, a missing browser, a failed setup or a
 JavaScript exception fails the command. The Linux CI test job installs the

@@ -96,13 +96,13 @@ expectations with current-fact retention checks. No prompt-only abstention
 guarantee is claimed.
 
 ```sh
-cargo test -p ai-memory-mcp --lib answer_budget_labeled_evidence_retention_boundaries -- --nocapture
+cargo test -p pitstop-mcp --lib answer_budget_labeled_evidence_retention_boundaries -- --nocapture
 ```
 
 ## Reproduce
 
 ```sh
-cargo test -p ai-memory-mcp --lib answer_budget_measurements -- --ignored --nocapture
+cargo test -p pitstop-mcp --lib answer_budget_measurements -- --ignored --nocapture
 ```
 
 Lines beginning `C2CSV,` contain the receipt. Remove that prefix to recover the

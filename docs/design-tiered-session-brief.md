@@ -19,7 +19,7 @@ No `viking://` URI scheme, no VLM sidecar, no TrieHI index, no on-disk
 
 ## Problem
 
-`render_session_brief` in `crates/ai-memory-hooks/src/router.rs` (around
+`render_session_brief` in `crates/pitstop-hooks/src/router.rs` (around
 line 2391) spends `[briefing] max_chars` (default 4000, clamp 1500-20000)
 on full L2 bodies of up to 24 core pages (pinned / `_rules/` /
 `_slots/`), then titles-only for up to 10 recent pages, then an omitted
@@ -45,7 +45,7 @@ This is a token-efficiency change on the hot path: every opted-in session
 start, synchronously, inside the `GET /handoff` budget (shell hooks
 `curl --max-time 1.0` in `hooks/_lib.sh`; native
 `DEFAULT_HANDOFF_TIMEOUT` is 3s in
-`crates/ai-memory-cli/src/commands/hook.rs`).
+`crates/pitstop-cli/src/commands/hook.rs`).
 
 ---
 
@@ -53,7 +53,7 @@ start, synchronously, inside the `GET /handoff` budget (shell hooks
 
 ### SessionStart brief renderer
 
-Verified in `crates/ai-memory-hooks/src/router.rs`:
+Verified in `crates/pitstop-hooks/src/router.rs`:
 
 - `BRIEF_BUDGET_DEFAULT = 4_000`, `BRIEF_BUDGET_MIN = 1_500`,
   `BRIEF_BUDGET_MAX = 20_000` (UTF-8 bytes, truncated on a code-point
@@ -90,7 +90,7 @@ Verified in `crates/ai-memory-hooks/src/router.rs`:
 
 ### Store fetch
 
-`BriefPageBody` in `crates/ai-memory-store/src/reader.rs` (around 1720) is
+`BriefPageBody` in `crates/pitstop-store/src/reader.rs` (around 1720) is
 `{path, title, body, pinned, updated_at}`. Full body only. No abstract,
 summary, or frontmatter.
 
@@ -117,12 +117,12 @@ slot-filtered, whole project.
 
 Isolation: sibling projects never leak
 (`session_brief_pages_selects_core_pages_and_isolates_projects` in
-`crates/ai-memory-store/src/lib.rs`). Slot visibility:
-`SlotVisibility::for_viewer` in `crates/ai-memory-core/src/slots.rs`,
+`crates/pitstop-store/src/lib.rs`). Slot visibility:
+`SlotVisibility::for_viewer` in `crates/pitstop-core/src/slots.rs`,
 applied in SQL (`slot_visibility.rs`).
 
 `pages.body` is markdown excluding YAML frontmatter (`NewPage.body`
-in `crates/ai-memory-core/src/page.rs`). Abstracts live in
+in `crates/pitstop-core/src/page.rs`). Abstracts live in
 `pages.frontmatter_json`. The current SELECT cannot see `abstract:` or
 `summary:`.
 
@@ -145,7 +145,7 @@ They do not agree on clip size or prose granularity.
 | Site | Order | Prose fallback | Clip |
 |---|---|---|---|
 | Profile digest `ProfileEntry::from_page` (`profile.rs` ~452-475) | `summary` then `abstract` then first prose **line** (then title) | `first_prose_line`: skips headings, `---`, ADR metadata fields | 240 **bytes**, ellipsis (`ENTRY_STATEMENT_MAX_BYTES`) |
-| A2 compaction `summary_line` (`crates/ai-memory-consolidate/src/compaction.rs` ~68-91) | `summary` then `abstract` then first non-empty, non-heading **paragraph** | collapse whitespace | `MAX_SUMMARY_LEN = 500` bytes, ellipsis |
+| A2 compaction `summary_line` (`crates/pitstop-consolidate/src/compaction.rs` ~68-91) | `summary` then `abstract` then first non-empty, non-heading **paragraph** | collapse whitespace | `MAX_SUMMARY_LEN = 500` bytes, ellipsis |
 | V61 / wiki `frontmatter_abstract` (`wiki.rs` ~3099, duplicated in `embed.rs`) | `abstract` only | none | store cap `MAX_PAGE_ABSTRACT_LEN = 1024` (`page.rs` ~166) |
 
 A2 compact (`build_compacted_markdown`): keeps the L0 `abstract:`
@@ -163,7 +163,7 @@ L1 here.
 
 ### Marker and once-per-session gate
 
-`.ai-memory.toml`:
+`.pitstop.toml`:
 
 ```toml
 [briefing]
@@ -173,7 +173,7 @@ max_chars = 4000
 
 Opt-in, off when absent (`HandoffQuery.briefing`, forwarded by
 `marker_query_suffix_impl_from_selection` in
-`crates/ai-memory-cli/src/commands/hook_capture.rs` ~650-720). Truthiness
+`crates/pitstop-cli/src/commands/hook_capture.rs` ~650-720). Truthiness
 and the clamp are server-side. `inject_on_session_start` and `max_chars`
 are already in the marker boundary key list (`marker.rs`
 `declares_more_than_capture`).
@@ -197,7 +197,7 @@ Claude; Kimi v1 does not; this design does not change that.
 - `memory_explore`: LLM prose over that snapshot; degrades to JSON with
   no provider. Do not put the SessionStart brief on this path.
 - MCP tools: frozen at 23 (`MCP_TOOL_NAMES` in
-  `crates/ai-memory-mcp/src/server.rs` ~7940). Footer already tells the
+  `crates/pitstop-mcp/src/server.rs` ~7940). Footer already tells the
   agent to call `memory_query` for detail.
 
 ### What R7 already spent
@@ -317,7 +317,7 @@ Restated from `AGENTS.md` because they bound the packing:
 4. **`BriefPageBody` grows the raw materials the helper needs.** Add
    `frontmatter_json: serde_json::Value`. The renderer calls a core
    helper. The store stays a fetch. Rationale: extraction has to live in
-   one place; `ai-memory-store` should not own clip policy. An earlier
+   one place; `pitstop-store` should not own clip policy. An earlier
    draft also carried a `compacted` flag; nothing in packing reads it,
    so it is not fetched.
 
@@ -365,9 +365,9 @@ Restated from `AGENTS.md` because they bound the packing:
 
 ## Proposed design
 
-### 1. Extractive helper in `ai-memory-core`
+### 1. Extractive helper in `pitstop-core`
 
-New module `crates/ai-memory-core/src/excerpt.rs`, IO-free, exported
+New module `crates/pitstop-core/src/excerpt.rs`, IO-free, exported
 from `lib.rs`. Same frontmatter keys and prose skip list as the profile
 digest, with brief-specific clips.
 
@@ -414,7 +414,7 @@ rule after it, so the walk reads on into lists.
 Also skip a block whose trimmed text starts with
 `_Extractively compacted from a cold episodic page` (the A2 footer
 prefix) and continue. Do not import `COMPACTION_FOOTER` into
-`ai-memory-core`. A compacted body that is only that footer then has no
+`pitstop-core`. A compacted body that is only that footer then has no
 prose and falls through to title-only.
 
 Required walker tests (all with empty frontmatter so L0/L1 come from
@@ -833,7 +833,7 @@ grow.
 
 **Rust (internal).**
 
-- `ai_memory_core::excerpt::{excerpt_from_page, PageExcerpt, BRIEF_L0_MAX_BYTES, BRIEF_L1_MAX_BYTES}`
+- `pitstop_core::excerpt::{excerpt_from_page, PageExcerpt, BRIEF_L0_MAX_BYTES, BRIEF_L1_MAX_BYTES}`
 - `BriefPageBody { frontmatter_json, …existing }`
 - `render_session_brief` signature can stay
   `(core, recent, budget) -> Option<String>`. It will read the new
@@ -934,9 +934,9 @@ rule disappears.
 **Mitigations this design keeps.**
 
 - `UNTRUSTED_MEMORY_NOTICE` precedes the fence
-  (`ai_memory_core::UNTRUSTED_MEMORY_NOTICE`).
+  (`pitstop_core::UNTRUSTED_MEMORY_NOTICE`).
 - Untrusted region is wrapped in
-  `<!-- ai-memory:untrusted-history:start/end -->`.
+  `<!-- pitstop:untrusted-history:start/end -->`.
 - Fence marker strings inside bodies are escaped before the closing
   fence is written; tests already assert a single real pair of markers
   (`router.rs` ~6464).
@@ -1010,7 +1010,7 @@ still present.
 
 ## Tests the implementation PRs must add
 
-Hook renderer (`crates/ai-memory-hooks/src/router.rs` tests, next to the
+Hook renderer (`crates/pitstop-hooks/src/router.rs` tests, next to the
 existing three):
 
 - Budget never exceeded: extend
@@ -1108,7 +1108,7 @@ Merge-gate docs, **same commit as the packer** (commit 4):
   currently says "Page bodies are served first". Update to coverage-first
   L0/L1 then L2 promotion. Keep clamp numbers.
 - `docs/usage.md` / `docs/cookbook.md`: the recipe "if the project's
-  `.ai-memory.toml` opts into the on-start brief, rules are prepended"
+  `.pitstop.toml` opts into the on-start brief, rules are prepended"
   (`cookbook.md` ~51) should say abstracts of standing pages are
   prepended, with full bodies when they fit, and `memory_read_page` for
   the rest. Pin a rule to keep it privileged.
@@ -1214,15 +1214,15 @@ No remaining blocker that needs a new fact from the codebase.
 - `docs/marker-file.md` `[briefing]`
 - `docs/ARCHITECTURE.md` SessionStart brief, `memory_briefing`,
   `memory_read_page`
-- `crates/ai-memory-hooks/src/router.rs` `render_session_brief`
-- `crates/ai-memory-store/src/reader.rs` `BriefPageBody`,
+- `crates/pitstop-hooks/src/router.rs` `render_session_brief`
+- `crates/pitstop-store/src/reader.rs` `BriefPageBody`,
   `session_brief_pages_with_slot_visibility`
-- `crates/ai-memory-core/src/page.rs` `MAX_PAGE_ABSTRACT_LEN`,
+- `crates/pitstop-core/src/page.rs` `MAX_PAGE_ABSTRACT_LEN`,
   `NewPage.body`
-- `crates/ai-memory-core/src/profile.rs` `ProfileEntry::from_page`
-- `crates/ai-memory-consolidate/src/compaction.rs` `MAX_SUMMARY_LEN`,
+- `crates/pitstop-core/src/profile.rs` `ProfileEntry::from_page`
+- `crates/pitstop-consolidate/src/compaction.rs` `MAX_SUMMARY_LEN`,
   `summary_line`
-- `crates/ai-memory-mcp/src/server.rs` `MCP_TOOL_NAMES` (23)
+- `crates/pitstop-mcp/src/server.rs` `MCP_TOOL_NAMES` (23)
 
 ---
 
@@ -1241,11 +1241,11 @@ Base: `release/3.1`.
 - **Description:** Design-doc-before-code for remaining landscape R7
   consumption of extractive tiers on the opted-in project brief. No code.
 
-### Commit 2: Extractive L0/L1 helper in `ai-memory-core`
+### Commit 2: Extractive L0/L1 helper in `pitstop-core`
 
 - **Title:** `feat(core): extractive L0/L1 page excerpts for the session brief`
-- **Files:** `crates/ai-memory-core/src/excerpt.rs` (new),
-  `crates/ai-memory-core/src/lib.rs` (mod + re-export), optionally
+- **Files:** `crates/pitstop-core/src/excerpt.rs` (new),
+  `crates/pitstop-core/src/lib.rs` (mod + re-export), optionally
   `profile.rs` calling `frontmatter_nonempty` without changing digest
   clips. Unit tests in `excerpt.rs`.
 - **Dependencies:** commit 1.
@@ -1264,10 +1264,10 @@ Base: `release/3.1`.
 ### Commit 3: Carry frontmatter on `BriefPageBody`
 
 - **Title:** `feat(store): session brief rows include frontmatter and compacted`
-- **Files:** `crates/ai-memory-store/src/reader.rs` (`BriefPageBody`,
+- **Files:** `crates/pitstop-store/src/reader.rs` (`BriefPageBody`,
   `session_brief_pages_with_slot_visibility` SELECT/mapper),
-  `crates/ai-memory-store/src/lib.rs` isolation test, slot tests if they
-  construct rows, `crates/ai-memory-hooks/src/router.rs` struct
+  `crates/pitstop-store/src/lib.rs` isolation test, slot tests if they
+  construct rows, `crates/pitstop-hooks/src/router.rs` struct
   literals in existing tests (fill `frontmatter_json`) with **no packing
   change**.
 - **Dependencies:** commit 2 not strictly required (fields are raw), but
@@ -1281,7 +1281,7 @@ Base: `release/3.1`.
 ### Commit 4: Rewrite packing, CHANGELOG, and merge-gate briefing docs
 
 - **Title:** `feat(hooks): pack the session brief as L0/L1 with L2 promotion`
-- **Files:** `crates/ai-memory-hooks/src/router.rs` (`render_session_brief`,
+- **Files:** `crates/pitstop-hooks/src/router.rs` (`render_session_brief`,
   omitted/recent helpers, `BRIEF_AGENT_FOOTER`, delete
   `BRIEF_TRUNCATED_NOTICE`, new tests). Possibly a tiny packer module in
   the same crate if the function grows past the surrounding style.

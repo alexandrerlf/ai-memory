@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
-    <img alt="ai-memory" src="docs/logo-light.png" width="480">
+    <img alt="pitstop" src="docs/logo-light.png" width="480">
   </picture>
 </p>
 
@@ -17,14 +17,14 @@
 [![Rust](https://img.shields.io/badge/rust-1.95+-blue)](rust-toolchain.toml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-## Why ai-memory
+## Why pitstop
 
 Your coding agent probably has a memory feature already. Claude Code takes its
 own notes, Cursor remembers some things, and every platform is adding more. They
 all have the same limits: the notes live on one machine, belong to one agent,
 and drop out of view when you switch tools or hand the work to a teammate.
 
-ai-memory removes those limits.
+pitstop removes those limits.
 
 - **It follows you across agents.** More than twenty harnesses (Claude Code,
   Codex, Cursor, Gemini CLI, OpenCode, Grok, Devin, Kimi, Kiro, and others)
@@ -34,7 +34,7 @@ ai-memory removes those limits.
   each one has an owner and is claimed exactly once.
 
 - **It can carry the session, not just a summary.** Start agents with
-  `ai-memory run`: quit Claude Code, run `ai-memory run codex`, and Codex gets
+  `pitstop run`: quit Claude Code, run `pitstop run codex`, and Codex gets
   the shared workstream plus a private, temporary local projection of Claude's
   visible native history for exact details the bounded startup packet omitted.
   The remote server receives only the harness and session identity, never the
@@ -175,7 +175,7 @@ caveats is in [`docs/support-matrix.md`](docs/support-matrix.md).
 
 Most agent-memory tools optimize for one thing: extracting atomic facts per
 turn, a temporal knowledge graph, an agent-editable memory OS, or a hosted
-context API. ai-memory is built around a **git-backed markdown wiki as the
+context API. pitstop is built around a **git-backed markdown wiki as the
 source of truth**, with a derived index for retrieval. It captures
 automatically from lifecycle hooks, is shared across agents, machines, and
 people, and works with **zero LLM calls by default**. This table shows what
@@ -189,9 +189,9 @@ carries over from each tool and what you gain:
 | **basic-memory** (file-first markdown) | Markdown-on-disk as the source of truth | Automatic lifecycle capture and a derived FTS/entity/graph index on top, cross-agent handoffs, and multi-user sharing built in |
 | **Claude Code built-in memory** | "Remember my project" convenience, zero setup | Synced across machines and agents, searchable, team-capable, and captures tool lifecycle, unlike a per-laptop `MEMORY.md` |
 | **Hindsight / OpenViking** (LLM or VLM in the loop) | Living pages / document memory with a background consolidation loop, plus, on 2.4, belief-strength confidence plus an opt-in LLM "dream" rewrite of cold clusters | A self-contained binary that runs zero-LLM by default and keeps memory in markdown files that are the source of truth, not a mirror; claim-once handoffs; the dream/belief features are **opt-in, off by default, and never delete a source** (vs a mandatory LLM loop) |
-| **Supermemory / LiquidLM** (hosted memory API) | A managed second brain with automatic ingestion | Git-versioned markdown you own, no required API spend, offline operation, and per-project team sharing; ai-memory remembers *this repo*, not a general vault |
+| **Supermemory / LiquidLM** (hosted memory API) | A managed second brain with automatic ingestion | Git-versioned markdown you own, no required API spend, offline operation, and per-project team sharing; pitstop remembers *this repo*, not a general vault |
 
-Across all of these, ai-memory gives you files you own (git-backed markdown),
+Across all of these, pitstop gives you files you own (git-backed markdown),
 a zero-LLM default, one self-contained binary, sharing across agents, machines,
 and teams, automatic lifecycle capture, and typed, claim-once handoffs.
 Opt-in features (LLM consolidation, vector search, the "dream" consolidation
@@ -211,8 +211,8 @@ triplet embeddings),
 self-improvement loop), and [A-MEM](https://arxiv.org/abs/2502.12110)
 (Zettelkasten-style atomic notes).
 
-The full comparison, covering where each approach wins, where ai-memory
-differs, and the published benchmark, is in [How ai-memory compares](docs/comparison.md).
+The full comparison, covering where each approach wins, where pitstop
+differs, and the published benchmark, is in [How pitstop compares](docs/comparison.md).
 
 ## Quick start
 
@@ -220,12 +220,12 @@ differs, and the published benchmark, is in [How ai-memory compares](docs/compar
 
 ```bash
 curl -fsSL https://github.com/akitaonrails/ai-memory/releases/latest/download/install.sh | sh
-ai-memory setup
+pitstop setup
 ```
 
 `install.sh` downloads the release for your OS and CPU, checks it against the
 release's published SHA-256 checksum (it refuses to install without a match),
-and links `~/.local/bin/ai-memory`. `ai-memory setup` then creates the data
+and links `~/.local/bin/pitstop`. `pitstop setup` then creates the data
 directory with a bearer token in an owner-only file, starts a per-user service
 (systemd `--user` or a launchd LaunchAgent), and wires MCP, hooks and Agent
 Skills for every agent it finds, or the ones you name with `--agent`. It shows
@@ -234,18 +234,18 @@ the numbers of the agents to wire. `--plan` prints the plan and changes
 nothing, `--web` shows the plan as a page in your browser and applies the agents
 you tick there, `--yes` skips the question, and running it again changes nothing.
 Afterwards, restart your agents and ask one of them "What do you remember
-about this project?" to see it answer through ai-memory. Details, the environment
+about this project?" to see it answer through pitstop. Details, the environment
 variables and how to verify the script before running it are in
-[`docs/install.md`](docs/install.md#one-step-native-install-installsh--ai-memory-setup).
-An AI agent installing ai-memory for you can follow
+[`docs/install.md`](docs/install.md#one-step-native-install-installsh--pitstop-setup).
+An AI agent installing pitstop for you can follow
 [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md).
 
 Claude Code and Codex users can wire their agent as a marketplace plugin
 instead (the binary is still installed as above):
 
 ```bash
-claude plugin marketplace add akitaonrails/ai-memory && claude plugin install ai-memory@ai-memory
-codex plugin marketplace add akitaonrails/ai-memory && codex plugin add ai-memory@ai-memory
+claude plugin marketplace add akitaonrails/ai-memory && claude plugin install pitstop@pitstop
+codex plugin marketplace add akitaonrails/ai-memory && codex plugin add pitstop@pitstop
 ```
 
 Codex then asks you to trust the hooks in `/hooks`. See
@@ -257,37 +257,37 @@ In PowerShell:
 
 ```powershell
 irm https://github.com/akitaonrails/ai-memory/releases/latest/download/install.ps1 | iex
-ai-memory setup
+pitstop setup
 ```
 
 `install.ps1` checks the release zip against its published SHA-256 checksum,
-unpacks it under `%LOCALAPPDATA%\Programs\ai-memory` and adds that directory
-to your user `PATH`. `ai-memory setup` then does what it does on Linux and
+unpacks it under `%LOCALAPPDATA%\Programs\pitstop` and adds that directory
+to your user `PATH`. `pitstop setup` then does what it does on Linux and
 macOS, with a logon entry in place of the service: the server starts when you
 sign in, with no console window, and restarts if it fails. Details and the
 other Windows setups (WSL2, Docker Desktop, a real Windows service) are in
 [`docs/windows.md`](docs/windows.md).
 
-With [Scoop](https://scoop.sh) (ai-memory 3.4.0 or later):
+With [Scoop](https://scoop.sh) (pitstop 3.4.0 or later):
 
 ```powershell
 scoop bucket add akitaonrails https://github.com/akitaonrails/scoop-bucket
-scoop install ai-memory
-ai-memory setup
+scoop install pitstop
+pitstop setup
 ```
 
-Update it with `scoop update ai-memory`.
+Update it with `scoop update pitstop`.
 
 ### Arch Linux (AUR)
 
 For native Arch installs, use the AUR packages. They install
-`/usr/bin/ai-memory`, packaged hook sources, and both system-level and
+`/usr/bin/pitstop`, packaged hook sources, and both system-level and
 user-level systemd units.
 
 ```bash
-yay -S ai-memory-bin    # prebuilt Linux x86_64/aarch64 binary
-yay -S ai-memory        # builds from source
-ai-memory setup         # data dir, user service, agents, self-check
+yay -S pitstop-bin    # prebuilt Linux x86_64/aarch64 binary
+yay -S pitstop        # builds from source
+pitstop setup         # data dir, user service, agents, self-check
 ```
 
 ### Homebrew (macOS and Linux)
@@ -297,11 +297,11 @@ Linux, including atomic distributions such as Bazzite or Fedora Silverblue
 where Homebrew is the usual way to add tools:
 
 ```bash
-brew install akitaonrails/tap/ai-memory
-ai-memory setup         # data dir, user service, agents, self-check
+brew install akitaonrails/tap/pitstop
+pitstop setup         # data dir, user service, agents, self-check
 ```
 
-Use either `ai-memory setup` or `brew services start ai-memory`, not both.
+Use either `pitstop setup` or `brew services start pitstop`, not both.
 Details are in [`docs/install.md`](docs/install.md#homebrew-macos-and-linux).
 
 ### Fedora (RPM)
@@ -311,52 +311,52 @@ Download the `x86_64` or `aarch64` RPM from the
 then install it:
 
 ```bash
-sudo dnf install ./ai-memory-*.rpm
+sudo dnf install ./pitstop-*.rpm
 ```
 
-On a single-user workstation, `ai-memory setup` then does the rest, as on the
+On a single-user workstation, `pitstop setup` then does the rest, as on the
 two-command path above: data dir and token, a user service, the agents it
 finds, and a self-check.
 
 ```bash
-ai-memory setup
+pitstop setup
 ```
 
-System service installs use `/var/lib/ai-memory` and `/etc/ai-memory/` via the
+System service installs use `/var/lib/pitstop` and `/etc/pitstop/` via the
 packaged unit. Full user-service, system-service, auth, and provider setup is in
 [`docs/install.md#arch-linux-native-packages-aur`](docs/install.md#arch-linux-native-packages-aur).
 
 ### macOS (menu bar app)
 
-A self-contained `.app` that bundles the native `ai-memory` binary and
+A self-contained `.app` that bundles the native `pitstop` binary and
 `hooks/` tree, starts the existing LaunchAgent, and opens `/web`,
-`ai-memory status`, and `config.toml` from the menu bar. Wiki, SQLite,
-config, and models stay in `~/Library/Application Support/ai-memory`, so
+`pitstop status`, and `config.toml` from the menu bar. Wiki, SQLite,
+config, and models stay in `~/Library/Application Support/pitstop`, so
 replacing the app is an update and does not rewrite that tree.
 
 Needs a Rust toolchain and Xcode / Swift 6 (same as a source build):
 
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
-cd ai-memory
-./companions/ai-memory-macos/build.sh
-open "companions/ai-memory-macos/dist/AI Memory.app"
+cd pitstop
+./companions/pitstop-macos/build.sh
+open "companions/pitstop-macos/dist/Pitstop.app"
 ```
 
-Drag **AI Memory.app** to `/Applications`, then **Install & Start Server**
+Drag **Pitstop.app** to `/Applications`, then **Install & Start Server**
 from the menu extra (no Dock icon). The app reads the bearer token `init`
 wrote into its data dir, so the status item turns green on its own. Then wire
 your agents with the bundled binary; `--no-service` leaves the app's
 LaunchAgent in charge:
 
 ```bash
-BIN="/Applications/AI Memory.app/Contents/Resources/runtime/ai-memory"
+BIN="/Applications/Pitstop.app/Contents/Resources/runtime/pitstop"
 "$BIN" setup --no-service
 ```
 
 Prebuilt tarball and launchd-without-the-app paths:
 [`docs/macos.md`](docs/macos.md). Companion details:
-[`companions/ai-memory-macos`](companions/ai-memory-macos).
+[`companions/pitstop-macos`](companions/pitstop-macos).
 
 ### Docker
 
@@ -370,31 +370,31 @@ without `--platform linux/amd64` emulation.
 The Docker quick-start below has **no authentication**: the container never
 runs `init`, so it starts without a token. The server binds to loopback only,
 so nothing outside the machine can reach it, but local processes and browser
-pages can. Native installs that run `ai-memory init` get a bearer token by
+pages can. Native installs that run `pitstop init` get a bearer token by
 default; see [Security](#security) below for that and for adding a token here.
 
 ```bash
-# 1. Install the ai-memory CLI wrapper (a small shell script that
+# 1. Install the pitstop CLI wrapper (a small shell script that
 #    runs the binary inside a container with your $HOME mounted). This is
 #    the only thing that needs to live on the host filesystem.
 mkdir -p ~/.local/bin
 wrapper_tmp="$(mktemp -d)"
 trap 'rm -rf "$wrapper_tmp"' EXIT
-wrapper_base=https://github.com/akitaonrails/ai-memory/releases/latest/download/ai-memory-wrapper
-curl -fsSL "$wrapper_base" -o "$wrapper_tmp/ai-memory-wrapper"
-curl -fsSL "$wrapper_base.sha256" -o "$wrapper_tmp/ai-memory-wrapper.sha256"
-expected="$(awk 'NR == 1 { print $1 }' "$wrapper_tmp/ai-memory-wrapper.sha256")"
+wrapper_base=https://github.com/akitaonrails/ai-memory/releases/latest/download/pitstop-wrapper
+curl -fsSL "$wrapper_base" -o "$wrapper_tmp/pitstop-wrapper"
+curl -fsSL "$wrapper_base.sha256" -o "$wrapper_tmp/pitstop-wrapper.sha256"
+expected="$(awk 'NR == 1 { print $1 }' "$wrapper_tmp/pitstop-wrapper.sha256")"
 if command -v sha256sum >/dev/null 2>&1; then
-    actual="$(sha256sum "$wrapper_tmp/ai-memory-wrapper" | awk '{ print $1 }')"
+    actual="$(sha256sum "$wrapper_tmp/pitstop-wrapper" | awk '{ print $1 }')"
 else
-    actual="$(shasum -a 256 "$wrapper_tmp/ai-memory-wrapper" | awk '{ print $1 }')"
+    actual="$(shasum -a 256 "$wrapper_tmp/pitstop-wrapper" | awk '{ print $1 }')"
 fi
 [ -n "$expected" ] && [ "$actual" = "$expected" ] || { echo "wrapper checksum mismatch" >&2; exit 1; }
-install -m 0755 "$wrapper_tmp/ai-memory-wrapper" ~/.local/bin/ai-memory
+install -m 0755 "$wrapper_tmp/pitstop-wrapper" ~/.local/bin/pitstop
 rm -rf "$wrapper_tmp"
 trap - EXIT
 # Most distros put ~/.local/bin on PATH automatically. If `which
-# ai-memory` comes up empty, add this to ~/.bashrc / ~/.zshrc:
+# pitstop` comes up empty, add this to ~/.bashrc / ~/.zshrc:
 #     export PATH="$HOME/.local/bin:$PATH"
 
 # 2. Start the server. `--restart unless-stopped` makes it come back
@@ -404,13 +404,13 @@ trap - EXIT
 #    so nothing outside this machine can reach it. Omit the LLM /
 #    EMBEDDING lines for zero-LLM mode — FTS5 search still works
 #    without any keys.
-docker run -d --name ai-memory \
+docker run -d --name pitstop \
     --restart unless-stopped \
     -p 127.0.0.1:49374:49374 \
-    -v ai-memory-data:/data \
-    -e AI_MEMORY_LLM_PROVIDER=anthropic \
+    -v pitstop-data:/data \
+    -e PITSTOP_LLM_PROVIDER=anthropic \
     -e ANTHROPIC_API_KEY=sk-ant-... \
-    -e AI_MEMORY_EMBEDDING_PROVIDER=openai \
+    -e PITSTOP_EMBEDDING_PROVIDER=openai \
     -e OPENAI_API_KEY=sk-... \
     docker.io/akitaonrails/ai-memory:latest
 
@@ -422,33 +422,33 @@ docker run -d --name ai-memory \
 #    `--client gemini-cli`, `--client grok`, `--client kiro-cli`,
 #    `--client cline`, `--client freebuff`, etc.
 #    for additional agents; full list in docs/install.md.
-ai-memory install-mcp   --client claude-code --apply
-ai-memory install-hooks --agent  claude-code --apply
+pitstop install-mcp   --client claude-code --apply
+pitstop install-hooks --agent  claude-code --apply
 ```
 
 On Linux and macOS, the Docker wrapper runs `install-hooks` through its
 checksum-verified native host client. Global options may precede the command,
-for example `ai-memory --config /path/to/config.toml run codex`; the native
+for example `pitstop --config /path/to/config.toml run codex`; the native
 client receives the complete argument list. The installed hooks therefore enforce
 client-side capture controls such as `[capture] ignore_paths` and allowlist
 mode before an event reaches the spool or network. Set
-`AI_MEMORY_HOOK_PLATFORM=posix` explicitly only when you need the legacy shell
+`PITSTOP_HOOK_PLATFORM=posix` explicitly only when you need the legacy shell
 compatibility path; the installer warns that path cannot enforce capture
 policy v1.
 
 The examples use `docker`; replace it with `podman` on a Podman host. The
 wrapper automatically uses Podman when Docker is not installed. Set
-`AI_MEMORY_DOCKER=podman` to force Podman when both engines are available.
+`PITSTOP_DOCKER=podman` to force Podman when both engines are available.
 
 That completes the setup on Linux/macOS. Start a Claude Code session as
-usual: every prompt and tool call now lands in ai-memory, and the next session
+usual: every prompt and tool call now lands in pitstop, and the next session
 you open in this project will see a handoff with where you left off.
 On macOS the native binary is the recommended path when you do not need
 Docker, either through the [menu bar app](#macos-menu-bar-app) above or a
 [release tarball / launchd agent](docs/macos.md). Later updates for that
-path use `ai-memory upgrade` (checksum-verified GitHub release replace + hook
+path use `pitstop upgrade` (checksum-verified GitHub release replace + hook
 refresh); see
-[`docs/install.md#keeping-ai-memory-up-to-date`](docs/install.md#keeping-ai-memory-up-to-date).
+[`docs/install.md#keeping-pitstop-up-to-date`](docs/install.md#keeping-pitstop-up-to-date).
 The same native upgrade path covers Windows x86_64 zip installs under a
 writable prefix (see [`docs/windows.md`](docs/windows.md) Scenario C).
 Upgrading a 2.x install of any kind to 3.0? Read
@@ -469,27 +469,27 @@ out of the box: the "current project" pointer is isolated per caller
 by default (v1.39+). See [`docs/auto-scope.md`](docs/auto-scope.md) for the
 optional session-aware Claude Code bridge and the details.
 
-**If in doubt, start your harness with `ai-memory run`.** It is the preferred
+**If in doubt, start your harness with `pitstop run`.** It is the preferred
 way to launch: the first time it runs a harness it auto-installs that harness's
-ai-memory hooks + MCP if they are missing (so capture and recall work without
+pitstop hooks + MCP if they are missing (so capture and recall work without
 a separate `install-hooks`/`install-mcp` step to forget), it wires the right
 project scope by construction, and it adds cross-harness *session* continuity on
 top of shared memory. Everything is idempotent and one-time per harness and
 config home. If the server is unreachable, `run` warns and launches anyway
-with local capture spooling; run `ai-memory recover` after the server returns
+with local capture spooling; run `pitstop recover` after the server returns
 (see [Degraded offline launches](docs/managed-workstreams.md#degraded-offline-launches)).
 Pass `--require-server` to fail closed instead.
 
 ```bash
-ai-memory run claude
-ai-memory run codex --yolo   # same workstream + local Claude history dossier
-ai-memory run --profile work claude  # reusable config.toml env/account preset
-ai-memory continue           # resume the newest managed checkout
+pitstop run claude
+pitstop run codex --yolo   # same workstream + local Claude history dossier
+pitstop run --profile work claude  # reusable config.toml env/account preset
+pitstop continue           # resume the newest managed checkout
 # after a dead launcher left its lease behind (same operator only)
-ai-memory run --force-unlock codex
-ai-memory resume             # pick from ALL workstreams in this checkout only
-ai-memory resume --search auth # find a workstream by name (case-insensitive)
-ai-memory resume --all       # pick across every linked checkout
+pitstop run --force-unlock codex
+pitstop resume             # pick from ALL workstreams in this checkout only
+pitstop resume --search auth # find a workstream by name (case-insensitive)
+pitstop resume --all       # pick across every linked checkout
 ```
 
 `--force-unlock` immediately expires the selected workstream's active lease;
@@ -499,12 +499,12 @@ the [managed-workstream recovery notes](docs/managed-workstreams.md#lease-recove
 for the full safety contract.
 
 On a real harness switch, the receiving managed agent is told to consult
-`AI_MEMORY_PREVIOUS_SESSION_HISTORY` when you ask to continue and the bounded
+`PITSTOP_PREVIOUS_SESSION_HISTORY` when you ask to continue and the bounded
 portable packet lacks a detail. The variable names a private temporary
 Markdown projection created from the previous harness's checkout-validated,
 read-only adapter; the file disappears when the managed child exits. It is
 local to the launcher machine. This covers quota exhaustion and other abrupt
-exits where the old harness cannot write a handoff: refreshed ai-memory routing
+exits where the old harness cannot write a handoff: refreshed pitstop routing
 also tells the new agent that "continue", "resume", and "pick up where we left
 off" mean to read that file first when the three managed-run variables are
 present. A switch on another machine still gets the server's portable ledger
@@ -521,7 +521,7 @@ listed first in `memory_briefing`'s `recent_sessions`, and `memory_handoff_list`
 names it as `newer_unended_session`.
 
 If that variable is absent on a real same-machine switch, run
-`type -a ai-memory` and `ai-memory --version` in the launching shell. This path
+`type -a pitstop` and `pitstop --version` in the launching shell. This path
 requires the 3.1.0 or newer host client; a stale Cargo or package-manager binary
 earlier in `PATH` can shadow an updated wrapper.
 
@@ -537,21 +537,21 @@ anywhere. Listing reads Git identity only; it does not scan the working tree
 with `git status` before showing the picker. Full checkpoints are still captured
 when launching the selected workstream.
 
-Auto-wiring is on by default; opt out with `ai-memory run --no-autowire` or
-`AI_MEMORY_RUN_AUTOWIRE=false`. You can still wire agents by hand with
+Auto-wiring is on by default; opt out with `pitstop run --no-autowire` or
+`PITSTOP_RUN_AUTOWIRE=false`. You can still wire agents by hand with
 `install-hooks` / `install-mcp` (e.g. for a harness you never launch through
-`ai-memory run`).
+`pitstop run`).
 
-`ai-memory uninstall --apply` removes everything ai-memory installed,
-and only what it installed. It also clears `ai-memory run`'s auto-wire
+`pitstop uninstall --apply` removes everything pitstop installed,
+and only what it installed. It also clears `pitstop run`'s auto-wire
 record, so the next managed launch wires that harness again; to keep it
-unwired, launch with `--no-autowire` or set `AI_MEMORY_RUN_AUTOWIRE=false`. Install commands are idempotent and write
+unwired, launch with `--no-autowire` or set `PITSTOP_RUN_AUTOWIRE=false`. Install commands are idempotent and write
 timestamped backups next to any file they touch.
 
 ### NixOS
 
 This flake ships a NixOS module (`nixosModules.default`) with a
-`systemd.services.ai-memory` unit: a dedicated `ai-memory` system user
+`systemd.services.pitstop` unit: a dedicated `pitstop` system user
 (`nologin`, no linger) plus a hardened systemd sandbox
 (`ProtectSystem = "strict"`, empty capability sets,
 `MemoryDenyWriteExecute`, `RestrictAddressFamilies`, and the rest; see
@@ -563,15 +563,15 @@ Homebrew, but not by the pinned Nixpkgs revision.
 
 ```nix
 {
-  inputs.ai-memory.url = "github:akitaonrails/ai-memory";
+  inputs.pitstop.url = "github:akitaonrails/ai-memory";
 
-  outputs = { nixpkgs, ai-memory, ... }: {
+  outputs = { nixpkgs, pitstop, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        ai-memory.nixosModules.default
+        pitstop.nixosModules.default
         {
-          services.ai-memory = {
+          services.pitstop = {
             enable = true;
             # enableWeb = true;  # off by default — the web UI is opt-in
             # enableApi = true;  # API-only companions; no browser UI
@@ -581,8 +581,8 @@ Homebrew, but not by the pinned Nixpkgs revision.
             };
             # Loopback (default): secrets optional; missing env file is tolerated.
             # Non-loopback: set one of ageSecret, sopsSecret, or environmentFile.
-            # ageSecret = "ai-memory-env";  # config.age.secrets.<name> (agenix)
-            # sopsSecret = "ai-memory/env"; # config.sops.secrets.<name> (sops-nix)
+            # ageSecret = "pitstop-env";  # config.age.secrets.<name> (agenix)
+            # sopsSecret = "pitstop/env"; # config.sops.secrets.<name> (sops-nix)
           };
         }
       ];
@@ -591,16 +591,16 @@ Homebrew, but not by the pinned Nixpkgs revision.
 }
 ```
 
-Declarative non-secret config lives in `services.ai-memory.settings` (a
+Declarative non-secret config lives in `services.pitstop.settings` (a
 small typed set for common keys, plus `freeformType` for the rest of
 `config.toml`). The module renders a generated TOML file and passes
 `--config`. Top-level `bind`, `port`, and `enableWeb` win over duplicate
 settings keys. Anything in `settings` (including `llm_headers`) lands in a
 world-readable Nix store path, so do not put API keys there.
 
-Secrets such as `AI_MEMORY_AUTH_TOKEN` never go in `settings` or the
+Secrets such as `PITSTOP_AUTH_TOKEN` never go in `settings` or the
 world-readable Nix store. This includes `llm_headers`, which can carry API
-credentials; set `AI_MEMORY_LLM_HEADERS` in `ageSecret`, `sopsSecret`, or
+credentials; set `PITSTOP_LLM_HEADERS` in `ageSecret`, `sopsSecret`, or
 `environmentFile` instead. These three secret sources are mutually exclusive.
 Non-loopback binds require one; loopback may omit them and tolerates a missing
 environment file (systemd `EnvironmentFile=-…`). Put TLS in front of a LAN/WAN
@@ -610,36 +610,36 @@ All options and defaults are in [`nix/nixos-module.nix`](nix/nixos-module.nix).
 The module is entirely opt-in: `nix build`, `nix run`, `nix develop`, and the CLI are
 unchanged if you don't import it.
 
-`git` is a runtime dependency. Hook capture and `ai-memory doctor` run it to
+`git` is a runtime dependency. Hook capture and `pitstop doctor` run it to
 read the repository a session works in. The module puts `pkgs.git` on the
 service's `PATH`. The package itself leaves the binary unwrapped, because a
 wrapper renames the running process and the live-process guard in `reset`,
 `restore`, `reindex` and `uninstall --purge-data` looks for a process named
-`ai-memory`. If you install the package without the module (`nix profile
+`pitstop`. If you install the package without the module (`nix profile
 install`, `home.packages`), install `git` next to it.
 
 ## Everyday use
 
-Day to day, you mostly do not think about ai-memory. Hooks capture
+Day to day, you mostly do not think about pitstop. Hooks capture
 prompts, tool calls, and session boundaries; session end turns them into
 readable wiki pages; the next session starts with a handoff.
 
 - Ask "where did we leave off?" to continue from the pending handoff.
 - Import a local PDF, DOCX, PPTX, XLSX, Markdown file, or VTT/SRT transcript as
   attributed, sanitized memory with the optional
-  [`ai-memory-importer`](companions/ai-memory-importer) `document` command.
+  [`pitstop-importer`](companions/pitstop-importer) `document` command.
 - Ask "have we discussed X?" or "search memory for Y" to query the wiki.
 - Narrow a large wiki before ranking with `memory_query` filters such as
   `path_prefix: "procedures/"`, `tag: "rust"`, `kind: "decision"`, or
   `tier: "procedural"`.
 - Inspect content-free per-workload LLM call, outcome, latency, and usage
-  telemetry with `ai-memory status --json`; it diagnoses the configured
+  telemetry with `pitstop status --json`; it diagnoses the configured
   provider but does not route different workloads to different models.
 - Ask "catch me up" for a prose digest of recent project activity, or run
-  `ai-memory recent` (`--global` for every project) to list the newest pages.
+  `pitstop recent` (`--global` for every project) to list the newest pages.
 - Search Chinese, Japanese and Korean text without spaces: zero-LLM search
   matches unspaced Han, Kana and Hangul substrings.
-- Run `ai-memory bootstrap` once when adopting an existing project with
+- Run `pitstop bootstrap` once when adopting an existing project with
   months of history.
 - Start the server with `--enable-web` for a read-only browser view of
   the wiki, a link graph at `/web/graph`, a root/operator managed-workstream
@@ -660,8 +660,8 @@ readable wiki pages; the next session starts with a handoff.
   recall explanations, and the [feature guide](docs/features.md) shows the
   effective installation states in the web UI.
 - Back up host-side harness configuration with
-  `ai-memory backup-agents -o agent-assets.tar.gz`; inspect a restore with
-  `ai-memory restore-agents -i agent-assets.tar.gz`, then add `--apply` only
+  `pitstop backup-agents -o agent-assets.tar.gz`; inspect a restore with
+  `pitstop restore-agents -i agent-assets.tar.gz`, then add `--apply` only
   after reviewing the active skills, plugins, instructions, and destinations.
 
 Search modes, entities, feedback, briefings, and the web API are covered in [`docs/usage.md`](docs/usage.md) and
@@ -669,7 +669,7 @@ Search modes, entities, feedback, briefings, and the web API are covered in [`do
 
 ### Interface language
 
-Use `ai-memory --language pt-BR status` or set `AI_MEMORY_LANGUAGE=pt-BR`
+Use `pitstop --language pt-BR status` or set `PITSTOP_LANGUAGE=pt-BR`
 for Brazilian Portuguese. The web interface follows the browser's language
 and offers an independent language selector. See [interface languages](docs/localization.md)
 for configuration, translation boundaries and contributor instructions.
@@ -695,12 +695,12 @@ API keys ([`docs/self-service-keys.md`](docs/self-service-keys.md)).
 
 ## Security
 
-The server binds to loopback only by default. A fresh `ai-memory init` also
+The server binds to loopback only by default. A fresh `pitstop init` also
 mints a root bearer token into the data dir, which the hooks, the CLI and the
-`ai-memory mcp-bridge` stdio bridge read from there; it is never written into
+`pitstop mcp-bridge` stdio bridge read from there; it is never written into
 a harness config. An install created before that default (and the Docker
-quick-start) runs without auth until `ai-memory auth enable`, and
-`ai-memory status` says so. From there, hardening is incremental: a bearer
+quick-start) runs without auth until `pitstop auth enable`, and
+`pitstop status` says so. From there, hardening is incremental: a bearer
 token for the LAN, per-user accounts, OIDC device auth for hooks, TLS via
 a reverse proxy. Capture is sanitized at a typed privacy boundary before
 anything is stored, and per-repository `[capture]` rules can exclude
@@ -770,20 +770,20 @@ diagram, crate breakdown, schema notes, and invariants.
 | [`docs/install.md`](docs/install.md) | **Installation cookbook.** Every agent CLI, every alternative (curl, source build, no-docker, no-auth), and the server-on-a-different-machine walkthrough. |
 | [`docs/usage.md`](docs/usage.md) | Handoffs, proactive memory queries, slim routing snippet + managed Agent Skills, web UI, raw-wiki inspection, and the rules, memory and profile precedence. |
 | [`docs/cross-project-profile.md`](docs/cross-project-profile.md) | **The cross-project profile.** Your usual choices delivered to every project as defaults: defaults per deployment, every setting, per-project opt-outs, multi-user opt-in and privacy, CLI. |
-| [`docs/managed-workstreams.md`](docs/managed-workstreams.md) | Optional `ai-memory run` continuity across harnesses: auto harness selection, native resume, argument forwarding, ledger search, privacy, and recovery. |
+| [`docs/managed-workstreams.md`](docs/managed-workstreams.md) | Optional `pitstop run` continuity across harnesses: auto harness selection, native resume, argument forwarding, ledger search, privacy, and recovery. |
 | [`docs/agent-messaging.md`](docs/agent-messaging.md) | Cross-project agent-to-agent messaging: a directed, claim-once inbox/queue plus the on-start "you have mail" notice. |
-| [`docs/marker-file.md`](docs/marker-file.md) | Default repository-path project naming plus `.ai-memory.toml` workspace/project routing for multi-client trees, mono-repos, worktrees, and work/personal separation, plus per-repository server profiles. |
+| [`docs/marker-file.md`](docs/marker-file.md) | Default repository-path project naming plus `.pitstop.toml` workspace/project routing for multi-client trees, mono-repos, worktrees, and work/personal separation, plus per-repository server profiles. |
 | [`docs/auto-scope.md`](docs/auto-scope.md) | `[auto_scope]` modes for shared servers: the default `per_actor` isolation, session-aware `per_session` isolation, and the pre-v1.39 `single` slot. |
 | [`docs/macos.md`](docs/macos.md) | macOS install paths: menu bar app, native release tarball, source build, Docker wrapper, launchd, and current limitations. |
 | [`docs/windows.md`](docs/windows.md) | Windows install modes: full WSL2, native Windows with Docker Desktop, prebuilt native release zip, native source builds, and caveats. |
 | [`docs/mcp-install.md`](docs/mcp-install.md) | Per-client MCP and lifecycle notes, handoff-injection limits, and community bridge guidance. |
-| [`docs/programmatic-memory.md`](docs/programmatic-memory.md) | Use ai-memory from any tool: MCP write/query/handoff calls, scope rules and incremental reads. |
+| [`docs/programmatic-memory.md`](docs/programmatic-memory.md) | Use pitstop from any tool: MCP write/query/handoff calls, scope rules and incremental reads. |
 | [`docs/deploy.md`](docs/deploy.md) | Homelab deploy: bin/deploy, bearer-token auth, pointers to the TLS guide. |
-| [`docs/users.md`](docs/users.md) | **Multi-user attribution and human login.** Four-rung bearer ladder, password sessions, `ai-memory user` / `api-key` walkthrough, brownfield migration. |
+| [`docs/users.md`](docs/users.md) | **Multi-user attribution and human login.** Four-rung bearer ladder, password sessions, `pitstop user` / `api-key` walkthrough, brownfield migration. |
 | [`docs/management-ui.md`](docs/management-ui.md) | Optional server-rendered console: feature gates, user and session management, MCP keys, public deployment, and frontend checks. |
 | [`docs/https-via-proxy.md`](docs/https-via-proxy.md) | **HTTPS via a reverse proxy.** When you need TLS and when you don't, with copy-paste Caddy / nginx / Cloudflare Tunnel templates and the "secure when you're not" failure modes. |
 | [`docs/lifecycle-ops.md`](docs/lifecycle-ops.md) | **Read before purge / rename / merge / backup / restore / reset / reindex / restore-page.** Safety matrix, lossless project-identity merge, per-project disk layout, retained-version recovery, and operator workflows. |
-| [`docs/backup.md`](docs/backup.md) | Backing up the wiki + data dir to a remote git repository: what to include, what to exclude, scheduled push pattern, restore, and security posture. Companion to `docs/lifecycle-ops.md` (which covers the on-box `ai-memory backup` snapshot). |
+| [`docs/backup.md`](docs/backup.md) | Backing up the wiki + data dir to a remote git repository: what to include, what to exclude, scheduled push pattern, restore, and security posture. Companion to `docs/lifecycle-ops.md` (which covers the on-box `pitstop backup` snapshot). |
 | [`docs/design-backup-agent-assets.md`](docs/design-backup-agent-assets.md) | Host agent-asset backup/restore: supported paths, filtering, redaction limits, archive bounds, active-content warning, and rollback behavior. |
 | [`docs/llm-providers.md`](docs/llm-providers.md) | Provider configuration for consolidation and embeddings. |
 | [`docs/security.md`](docs/security.md) | The full security model. |
@@ -804,7 +804,7 @@ diagram, crate breakdown, schema notes, and invariants.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Operational summary: data flow, crate layout, cross-cutting invariants, schema. |
 | [`docs/design-decisions.md`](docs/design-decisions.md) | The full v1 spec. |
 | [`docs/managed-harness-contributions.md`](docs/managed-harness-contributions.md) | Protocol and acceptance bar for adding managed resume, transcript import, and startup context delivery to another harness. |
-| [`docs/companion-crates.md`](docs/companion-crates.md) | Optional companion projects: the [importer](companions/ai-memory-importer), [external lifecycle relay](companions/ai-memory-relay), [team-wiki sync](companions/ai-memory-wikisync), the [TypeScript client SDK](companions/ai-memory-ts) and the [desktop installer](companions/ai-memory-desktop) (unsigned preview). |
+| [`docs/companion-crates.md`](docs/companion-crates.md) | Optional companion projects: the [importer](companions/pitstop-importer), [external lifecycle relay](companions/pitstop-relay), [team-wiki sync](companions/pitstop-wikisync), the [TypeScript client SDK](companions/pitstop-ts) and the [desktop installer](companions/pitstop-desktop) (unsigned preview). |
 | [`docs/external-lifecycle.md`](docs/external-lifecycle.md) | External lifecycle producers: per-execution native capture suppression, preserved handoffs, batch ingestion and stable retry identity. |
 | [`docs/auto-improvement-loop.md`](docs/auto-improvement-loop.md) | Auto-improvement design notes: scheduled review, auto-approval default, manual review opt-in, pending proposal storage, and curator work. |
 
@@ -819,8 +819,8 @@ them.
 
 Written by users; not maintained here, so check them against the version you run.
 
-- [Installing and configuring ai-memory on Linux](https://www.linuxpro.com.br/2026/09/ai-memory-instalar-configurar-agentes-linux/) (pt-BR, LinuxPro, covers v2.6.3)
-- [ai-memory from v2.4 to v2.6.3](https://www.linuxpro.com.br/2026/10/ai-memory-a-evolucao-da-2-4-a-2-6-3/) (pt-BR, LinuxPro)
+- [Installing and configuring pitstop on Linux](https://www.linuxpro.com.br/2026/09/pitstop-instalar-configurar-agentes-linux/) (pt-BR, LinuxPro, covers v2.6.3)
+- [pitstop from v2.4 to v2.6.3](https://www.linuxpro.com.br/2026/10/pitstop-a-evolucao-da-2-4-a-2-6-3/) (pt-BR, LinuxPro)
 
 The built-in web UI also has Documentation at `/web/docs` and a Changelog at
 `/web/docs/changelog`. The [feature activation guide](docs/features.md) covers

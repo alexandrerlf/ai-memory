@@ -1,3 +1,3 @@
-. "$PSScriptRoot\..\lib\ai-memory-hook.ps1"
-Invoke-AiMemoryHook -Event "stop" -Agent "gemini-cli"
+. "$PSScriptRoot\..\lib\pitstop-hook.ps1"
+Invoke-PitstopHook -Event "stop" -Agent "gemini-cli"
 exit 0

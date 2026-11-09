@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex session-start",
-            "commandWindows": "ai-memory hook --event session-start --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex session-start",
+            "commandWindows": "pitstop hook --event session-start --agent codex"
           }
         ]
       }
@@ -16,8 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex user-prompt-submit",
-            "commandWindows": "ai-memory hook --event user-prompt-submit --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex user-prompt-submit",
+            "commandWindows": "pitstop hook --event user-prompt-submit --agent codex"
           }
         ]
       }
@@ -27,8 +27,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex pre-tool-use",
-            "commandWindows": "ai-memory hook --event pre-tool-use --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex pre-tool-use",
+            "commandWindows": "pitstop hook --event pre-tool-use --agent codex"
           }
         ]
       }
@@ -38,8 +38,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex post-tool-use",
-            "commandWindows": "ai-memory hook --event post-tool-use --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex post-tool-use",
+            "commandWindows": "pitstop hook --event post-tool-use --agent codex"
           }
         ]
       }
@@ -49,8 +49,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex pre-compact",
-            "commandWindows": "ai-memory hook --event pre-compact --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex pre-compact",
+            "commandWindows": "pitstop hook --event pre-compact --agent codex"
           }
         ]
       }
@@ -60,8 +60,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex stop",
-            "commandWindows": "ai-memory hook --event stop --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex stop",
+            "commandWindows": "pitstop hook --event stop --agent codex"
           }
         ]
       }
@@ -71,8 +71,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex session-end",
-            "commandWindows": "ai-memory hook --event session-end --agent codex"
+            "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex session-end",
+            "commandWindows": "pitstop hook --event session-end --agent codex"
           }
         ]
       }

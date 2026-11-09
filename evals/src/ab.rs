@@ -1,15 +1,15 @@
-//! Live A/B harness for the ai-memory consolidation prompt.
+//! Live A/B harness for the pitstop consolidation prompt.
 //!
 //! ## What it does
 //!
 //! For each fixture under `evals/fixtures/*.json` (each one a small,
 //! synthetic session log), the runner:
 //!
-//! 1. Calls [`ai_memory_consolidate::build_batch_request`] to build
+//! 1. Calls [`pitstop_consolidate::build_batch_request`] to build
 //!    the EXACT ChatRequest the production consolidator would send.
 //! 2. Sends that request to two providers concurrently — a
 //!    *baseline* and a *candidate* — via
-//!    [`ai_memory_llm::complete_structured`], which is the same
+//!    [`pitstop_llm::complete_structured`], which is the same
 //!    parse-extract-and-validate path the live system uses.
 //! 3. Saves the deserialised `ConsolidatedBatch`, the raw JSON, a
 //!    flattened markdown rendering, and a `meta.json` (timing,
@@ -33,7 +33,7 @@
 //! version:
 //!
 //! ```bash
-//! cargo run -p ai-memory-eval -- ab \
+//! cargo run -p pitstop-eval -- ab \
 //!     --baseline-provider openai-compat \
 //!     --baseline-base-url https://openrouter.ai/api/v1 \
 //!     --baseline-model moonshotai/kimi-k2.6 \
@@ -55,9 +55,9 @@ use jiff::Timestamp;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
-use ai_memory_consolidate::{ConsolidatedBatch, build_batch_request};
-use ai_memory_core::{Observation, ObservationKind, ProjectId, SessionId, WorkspaceId};
-use ai_memory_llm::{AuthRequirement, LlmProvider, ProviderAuth, ProviderChoice, ProviderConfig};
+use pitstop_consolidate::{ConsolidatedBatch, build_batch_request};
+use pitstop_core::{Observation, ObservationKind, ProjectId, SessionId, WorkspaceId};
+use pitstop_llm::{AuthRequirement, LlmProvider, ProviderAuth, ProviderChoice, ProviderConfig};
 
 use crate::fidelity::{PageFidelity, PromptFidelity, Scorer, request_text};
 use crate::generate;
@@ -250,7 +250,7 @@ pub async fn run(args: AbArgs) -> Result<()> {
     };
 
     println!();
-    println!("ai-memory eval — {stamp}");
+    println!("pitstop eval — {stamp}");
     println!(
         "  fixtures : {} ({})",
         fixtures.len(),
@@ -515,7 +515,7 @@ fn resolve_provider(side: &str, args: &AbArgs) -> Result<ResolvedConfig> {
             base_url.clone(),
         ),
         AuthRequirement::AnthropicOAuthToken => ProviderAuth::anthropic_oauth_token(api_key),
-        AuthRequirement::CursorCli => ProviderAuth::cursor(ai_memory_llm::CursorAuth::new(
+        AuthRequirement::CursorCli => ProviderAuth::cursor(pitstop_llm::CursorAuth::new(
             "agent",
             std::env::temp_dir(),
             &std::env::vars_os().collect::<Vec<_>>(),
@@ -560,7 +560,7 @@ impl From<ResolvedConfig> for ProviderConfig {
             // keep the product default (off) for every candidate.
             compat_disable_thinking: false,
             compat_stream: None,
-            request_timeout_secs: ai_memory_llm::DEFAULT_REQUEST_TIMEOUT_SECS,
+            request_timeout_secs: pitstop_llm::DEFAULT_REQUEST_TIMEOUT_SECS,
             // The A/B harness compares consolidation quality; reasoning
             // effort stays at each model's own default unless a future
             // flag threads it through.
@@ -568,13 +568,13 @@ impl From<ResolvedConfig> for ProviderConfig {
             // No operator header list here: `build_provider` still layers
             // the default user agent, which is what a gateway needs to
             // attribute harness traffic.
-            extra_headers: ai_memory_llm::ExtraHeaders::default(),
+            extra_headers: pitstop_llm::ExtraHeaders::default(),
         }
     }
 }
 
 fn make_provider(r: ResolvedConfig) -> Result<Arc<dyn LlmProvider>> {
-    ai_memory_llm::build_provider(ProviderConfig::from(r))
+    pitstop_llm::build_provider(ProviderConfig::from(r))
         .map_err(anyhow::Error::from)
         .context("building provider")
 }
@@ -602,7 +602,7 @@ pub(crate) fn synthesise_observations(fx: &Fixture) -> Vec<Observation> {
     fx.observations
         .iter()
         .map(|f| Observation {
-            id: ai_memory_core::ObservationId::new(),
+            id: pitstop_core::ObservationId::new(),
             session_id,
             workspace_id,
             project_id,
@@ -636,7 +636,7 @@ struct ProviderResult {
 async fn run_one(
     provider: Arc<dyn LlmProvider>,
     side: &str,
-    request: ai_memory_llm::ChatRequest,
+    request: pitstop_llm::ChatRequest,
 ) -> ProviderResult {
     let start = Instant::now();
     // Call `complete` directly — bypassing `complete_structured` —

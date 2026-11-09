@@ -1,10 +1,10 @@
 # macOS Support
 
 macOS is a supported platform: the workspace test suite runs on macOS CI and
-tagged releases publish native `ai-memory-macos-aarch64.tar.gz` (Apple Silicon)
-and `ai-memory-macos-x86_64.tar.gz` (Intel) binaries.
+tagged releases publish native `pitstop-macos-aarch64.tar.gz` (Apple Silicon)
+and `pitstop-macos-x86_64.tar.gz` (Intel) binaries.
 
-On macOS the **native binary** is the recommended way to run ai-memory. Three
+On macOS the **native binary** is the recommended way to run pitstop. Three
 native installs exist:
 
 - **[Scenario D: menu bar app](#scenario-d-menu-bar-app)**: a self-contained
@@ -14,7 +14,7 @@ native installs exist:
   no Rust toolchain; run `serve` in a terminal or install the LaunchAgent by
   hand.
 - **[Scenario B: source build](#scenario-b-source-build)**: for developing
-  ai-memory itself.
+  pitstop itself.
 
 It binds the server on `127.0.0.1:49374`, and both the MCP endpoint and the
 lifecycle hooks talk to that loopback address, which the native agent can
@@ -36,14 +36,14 @@ normal Terminal.
   `install-mcp` / `install-hooks` commands render `http://127.0.0.1:49374`,
   which works from the host agent.
 - Hooks are rendered for one of two platforms:
-  - `posix-native`: a direct `ai-memory hook --event …` call. The default for
+  - `posix-native`: a direct `pitstop hook --event …` call. The default for
     native macOS/Linux Claude Code installs (cargo / release binary) and the
     Docker wrapper's checksum-verified host client; it uses the local event
     spool + OIDC-token fallback and enforces capture policy v1.
   - `posix`: `sh` runs the bundled `.sh` script. This is an explicit
     compatibility fallback for the Docker wrapper.
 
-  Set `AI_MEMORY_HOOK_PLATFORM` before wiring hooks to override the default.
+  Set `PITSTOP_HOOK_PLATFORM` before wiring hooks to override the default.
 
 - The [menu bar app](#scenario-d-menu-bar-app) still needs `install-mcp` /
   `install-hooks` from a shell; use the bundled binary inside the `.app` so
@@ -52,15 +52,15 @@ normal Terminal.
 ## Scenario A: Prebuilt Release Binary (Recommended, No Toolchain)
 
 The shortest route is two commands: `install.sh` downloads and verifies the
-tarball for your chip, and `ai-memory setup` initialises the data dir, installs
+tarball for your chip, and `pitstop setup` initialises the data dir, installs
 and starts the LaunchAgent below for you, and wires your agents:
 
 ```bash
 curl -fsSL https://github.com/akitaonrails/ai-memory/releases/latest/download/install.sh | sh
-ai-memory setup
+pitstop setup
 ```
 
-See [`docs/install.md`](install.md#one-step-native-install-installsh--ai-memory-setup)
+See [`docs/install.md`](install.md#one-step-native-install-installsh--pitstop-setup)
 for what each step does. The manual steps follow.
 
 Use this when you want a local server plus native hooks without a Rust toolchain
@@ -69,23 +69,23 @@ or Docker. Each tagged release publishes a macOS tarball per architecture.
 ```bash
 # 1. Download the archive for your chip and extract it to a stable location.
 #    aarch64 = Apple Silicon (M-series); x86_64 = Intel.
-mkdir -p ~/Applications/ai-memory && cd ~/Applications/ai-memory
-curl -fsSL -O https://github.com/akitaonrails/ai-memory/releases/latest/download/ai-memory-macos-aarch64.tar.gz
-tar -xzf ai-memory-macos-aarch64.tar.gz
+mkdir -p ~/Applications/pitstop && cd ~/Applications/pitstop
+curl -fsSL -O https://github.com/akitaonrails/ai-memory/releases/latest/download/pitstop-macos-aarch64.tar.gz
+tar -xzf pitstop-macos-aarch64.tar.gz
 # `curl` downloads are not Gatekeeper-quarantined, so the binary runs as-is.
 # If you downloaded via a browser instead, clear the quarantine flag once:
-#   xattr -d com.apple.quarantine ./ai-memory
+#   xattr -d com.apple.quarantine ./pitstop
 
 # 2. Initialise the data dir (defaults to
-#    ~/Library/Application Support/ai-memory; override with AI_MEMORY_DATA_DIR).
-./ai-memory init
+#    ~/Library/Application Support/pitstop; override with PITSTOP_DATA_DIR).
+./pitstop init
 
 # 3. Start the server (loopback only).
-./ai-memory serve --transport http --bind 127.0.0.1:49374
+./pitstop serve --transport http --bind 127.0.0.1:49374
 ```
 
 > **The server from step 3 must stay running for every other command.**
-> `ai-memory init` only creates the data dir; it does **not** start a
+> `pitstop init` only creates the data dir; it does **not** start a
 > server. `bootstrap`, `install-hooks`, `install-mcp`, and `status` are all
 > clients that talk to the running server over HTTP, so running them while
 > nothing is serving fails with `Connection refused (os error 61)` /
@@ -96,18 +96,18 @@ tar -xzf ai-memory-macos-aarch64.tar.gz
 In a second terminal, wire the agent:
 
 ```bash
-cd ~/Applications/ai-memory
+cd ~/Applications/pitstop
 # `install-hooks` auto-discovers the bundled hooks/ directory beside the binary.
-./ai-memory install-hooks --agent claude-code --apply
-./ai-memory install-mcp --client claude-code --apply
+./pitstop install-hooks --agent claude-code --apply
+./pitstop install-mcp --client claude-code --apply
 ```
 
 Optionally, once hooks are wired, put the binary on `PATH` so later commands
-(`ai-memory status`, a fresh terminal tab, the checklist below) don't need
+(`pitstop status`, a fresh terminal tab, the checklist below) don't need
 `cd`/`./`:
 
 ```bash
-sudo ln -sf ~/Applications/ai-memory/ai-memory /usr/local/bin/ai-memory
+sudo ln -sf ~/Applications/pitstop/pitstop /usr/local/bin/pitstop
 ```
 
 As of v1.39.0, running `install-hooks` through the symlink works: hook
@@ -115,60 +115,60 @@ discovery canonicalises the running binary's path before walking up to
 the sibling `hooks/` directory
 ([#546](https://github.com/akitaonrails/ai-memory/issues/546), fixed in
 v1.39.0). **On v1.38.x or older**, the walk did not resolve through a
-symlink: running `install-hooks` via `/usr/local/bin/ai-memory` sent
+symlink: running `install-hooks` via `/usr/local/bin/pitstop` sent
 discovery to the wrong parent directories, failing outright on a clean
 machine:
 
 ```
 Error: could not locate hooks directory. Tried: ["/…/hooks/claude-code",
-"/usr/local/share/ai-memory/hooks/claude-code", "/usr/share/ai-memory/hooks/claude-code",
-"…/Library/Application Support/ai-memory/hooks/claude-code"]
+"/usr/local/share/pitstop/hooks/claude-code", "/usr/share/pitstop/hooks/claude-code",
+"…/Library/Application Support/pitstop/hooks/claude-code"]
 ```
 
 On a machine with an earlier install it could instead silently wire a stale
-hooks cache from `~/Library/Application Support/ai-memory`, which is worse. If you are on an older release, run `install-hooks` via the
-extracted `./ai-memory` path (or upgrade).
+hooks cache from `~/Library/Application Support/pitstop`, which is worse. If you are on an older release, run `install-hooks` via the
+extracted `./pitstop` path (or upgrade).
 
 Notes:
 
 - `init` on a fresh data dir writes a root bearer token to
   `<data_dir>/auth-tokens/default`. The hooks, the CLI and `install-mcp` read
   it from there, so you never pass `--auth-token` locally. An install from
-  before 3.0 keeps running without a token until `ai-memory auth enable`.
-- Keep the extracted `ai-memory` at a stable path; the hook commands (and the
+  before 3.0 keeps running without a token until `pitstop auth enable`.
+- Keep the extracted `pitstop` at a stable path; the hook commands (and the
   symlink, if you made one) reference it. Re-run `install-hooks` and re-point
   the symlink if you move it.
-- Later updates: with the release binary on `PATH` (or invoked as `./ai-memory`),
-  run `ai-memory upgrade` to download the latest matching macOS tarball, verify
+- Later updates: with the release binary on `PATH` (or invoked as `./pitstop`),
+  run `pitstop upgrade` to download the latest matching macOS tarball, verify
   its `.sha256`, replace the binary (and sibling `hooks/` when present), and
   refresh staged agent hooks. See
-  [`docs/install.md#keeping-ai-memory-up-to-date`](install.md#keeping-ai-memory-up-to-date).
+  [`docs/install.md#keeping-pitstop-up-to-date`](install.md#keeping-pitstop-up-to-date).
 
 ## Scenario B: Source Build
 
-Use this when developing ai-memory itself. Requires Rust 1.95
+Use this when developing pitstop itself. Requires Rust 1.95
 (`rust-toolchain.toml`) plus the Xcode Command Line Tools
 (`xcode-select --install`); SQLite is bundled and libgit2 is vendored, so no
 extra system libraries are needed.
 
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
-cd ai-memory
+cd pitstop
 cargo build --release --workspace
-./target/release/ai-memory init
-./target/release/ai-memory serve --transport http --bind 127.0.0.1:49374
+./target/release/pitstop init
+./target/release/pitstop serve --transport http --bind 127.0.0.1:49374
 ```
 
 From another shell in the repo, `install-hooks` finds the bundled `hooks/`
 automatically (no `--source` needed from the repo root):
 
 ```bash
-./target/release/ai-memory install-hooks --agent claude-code --apply
-./target/release/ai-memory install-mcp   --client claude-code --apply
+./target/release/pitstop install-hooks --agent claude-code --apply
+./target/release/pitstop install-mcp   --client claude-code --apply
 ```
 
 If you symlink the built binary onto `PATH` for convenience (e.g.
-`ln -sf "$(pwd)/target/release/ai-memory" ~/.local/bin/ai-memory`), do it
+`ln -sf "$(pwd)/target/release/pitstop" ~/.local/bin/pitstop`), do it
 *after* the `install-hooks` call above, not before. See the `install-hooks`
 symlink caution in Scenario A
 ([#546](https://github.com/akitaonrails/ai-memory/issues/546)); it applies
@@ -181,24 +181,24 @@ runs as a native macOS process. The wrapper renders host-side agent config with
 `http://127.0.0.1:49374`, but its own thin-client commands reach the server from
 inside a helper container via Docker Desktop's `host.docker.internal` alias.
 
-This assumes the `ai-memory` thin-client wrapper is already on `PATH`; if
-`ai-memory --version` doesn't resolve yet, install it first via the
+This assumes the `pitstop` thin-client wrapper is already on `PATH`; if
+`pitstop --version` doesn't resolve yet, install it first via the
 [README Docker quick-start](../README.md#docker) (downloads a small shell
-script to `~/.local/bin/ai-memory`). On a stock macOS Terminal `~/.local/bin`
+script to `~/.local/bin/pitstop`). On a stock macOS Terminal `~/.local/bin`
 is **not** on `PATH` by default; add
-`export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` if `which ai-memory`
+`export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` if `which pitstop`
 comes up empty after installing the wrapper.
 
 ```bash
 # Start the server. The image default allowlist includes host.docker.internal so
 # wrapper thin-client commands (status, search, …) are not rejected with 403.
-docker run -d --name ai-memory --restart unless-stopped \
-    -p 127.0.0.1:49374:49374 -v ai-memory-data:/data \
+docker run -d --name pitstop --restart unless-stopped \
+    -p 127.0.0.1:49374:49374 -v pitstop-data:/data \
     akitaonrails/ai-memory:latest
 
 # Wire the native host agent. The wrapper keeps these rendered URLs on loopback.
-ai-memory install-mcp   --client claude-code --apply
-ai-memory install-hooks --agent  claude-code --apply
+pitstop install-mcp   --client claude-code --apply
+pitstop install-hooks --agent  claude-code --apply
 ```
 
 The wrapper is a shell script, not the native binary, so the `install-hooks`
@@ -210,24 +210,24 @@ Apple Silicon pulls the native arm64 image without `--platform linux/amd64`.
 ## Scenario D: Menu bar app
 
 Use this when you want a self-contained macOS install: one `.app` that contains
-the `ai-memory` binary and `hooks/`, starts the existing LaunchAgent, and opens
-the surfaces the tool already has (`/web`, `ai-memory status`, `config.toml`,
+the `pitstop` binary and `hooks/`, starts the existing LaunchAgent, and opens
+the surfaces the tool already has (`/web`, `pitstop status`, `config.toml`,
 logs). It does not replace those tools with a second dashboard.
 
 From a source checkout (Rust 1.95 + Xcode / Swift 6):
 
 ```bash
-./companions/ai-memory-macos/build.sh
-open "companions/ai-memory-macos/dist/AI Memory.app"
+./companions/pitstop-macos/build.sh
+open "companions/pitstop-macos/dist/Pitstop.app"
 ```
 
-Drag `AI Memory.app` to `/Applications` so the LaunchAgent path stays stable
+Drag `Pitstop.app` to `/Applications` so the LaunchAgent path stays stable
 across rebuilds. The menu extra has no Dock icon.
 
-1. **Install & Start Server** runs bundled `ai-memory init` if
-   `~/Library/Application Support/ai-memory/config.toml` is missing, renders
-   `packaging/launchd/com.github.akitaonrails.ai-memory.plist`, and bootstraps
-   the same `com.github.akitaonrails.ai-memory` label as the hand-installed
+1. **Install & Start Server** runs bundled `pitstop init` if
+   `~/Library/Application Support/pitstop/config.toml` is missing, renders
+   `packaging/launchd/com.github.akitaonrails.pitstop.plist`, and bootstraps
+   the same `com.github.akitaonrails.pitstop` label as the hand-installed
    LaunchAgent below. Do not skip this click; the app does not start the
    server on first launch by itself.
 2. The status item is green when `GET /admin/status` succeeds, yellow when the
@@ -243,15 +243,15 @@ Wire an agent with the **bundled** binary so `install-hooks` finds the sibling
 `hooks/` tree (#546):
 
 ```bash
-BIN="/Applications/AI Memory.app/Contents/Resources/runtime/ai-memory"
+BIN="/Applications/Pitstop.app/Contents/Resources/runtime/pitstop"
 "$BIN" install-mcp --client claude-code --apply
 "$BIN" install-hooks --agent claude-code --apply
 ```
 
 Memory, config, models, and logs stay outside the bundle
-(`~/Library/Application Support/ai-memory` and `~/Library/Logs/ai-memory`).
+(`~/Library/Application Support/pitstop` and `~/Library/Logs/pitstop`).
 Replacing the `.app` is an update; it does not rewrite that tree. Details:
-[`companions/ai-memory-macos/README.md`](../companions/ai-memory-macos/README.md).
+[`companions/pitstop-macos/README.md`](../companions/pitstop-macos/README.md).
 
 Notarization and a Homebrew cask are not part of this companion yet.
 
@@ -262,7 +262,7 @@ capture stops. Scenario D already installs this LaunchAgent from **Install &
 Start Server**. The macOS counterpart of a systemd user unit is a
 **LaunchAgent**: a plist in `~/Library/LaunchAgents/` that the per-user
 launchd domain starts at login and restarts on failure. The repo ships one at
-`packaging/launchd/com.github.akitaonrails.ai-memory.plist`, and the macOS
+`packaging/launchd/com.github.akitaonrails.pitstop.plist`, and the macOS
 release tarballs include it.
 
 launchd expands nothing. A plist has no home specifier and no
@@ -273,24 +273,24 @@ tarball (Scenario A) or the repo root (Scenario B):
 ```bash
 # launchd creates the log files but not their parent directory, and a missing
 # one is a silent redirect failure.
-mkdir -p ~/Library/Logs/ai-memory
+mkdir -p ~/Library/Logs/pitstop
 
-# Wherever you keep the binary: ~/Applications/ai-memory/ai-memory for a
-# release tarball, ./target/release/ai-memory for a source build.
-AI_MEMORY_BIN=~/Applications/ai-memory/ai-memory
+# Wherever you keep the binary: ~/Applications/pitstop/pitstop for a
+# release tarball, ./target/release/pitstop for a source build.
+PITSTOP_BIN=~/Applications/pitstop/pitstop
 
-sed -e "s|__AI_MEMORY_BIN__|$AI_MEMORY_BIN|" \
+sed -e "s|__PITSTOP_BIN__|$PITSTOP_BIN|" \
     -e "s|__HOME__|$HOME|" \
-    packaging/launchd/com.github.akitaonrails.ai-memory.plist \
-    > ~/Library/LaunchAgents/com.github.akitaonrails.ai-memory.plist
+    packaging/launchd/com.github.akitaonrails.pitstop.plist \
+    > ~/Library/LaunchAgents/com.github.akitaonrails.pitstop.plist
 
 launchctl bootstrap gui/$(id -u) \
-    ~/Library/LaunchAgents/com.github.akitaonrails.ai-memory.plist
+    ~/Library/LaunchAgents/com.github.akitaonrails.pitstop.plist
 ```
 
-The agent runs `ai-memory serve --transport http --enable-web` and passes
+The agent runs `pitstop serve --transport http --enable-web` and passes
 neither `--data-dir` nor `--config`: on macOS the binary already defaults to
-`~/Library/Application Support/ai-memory` with the config file inside it, so
+`~/Library/Application Support/pitstop` with the config file inside it, so
 naming them would only add two more paths to substitute. `bind` comes from that
 config, defaulting to `127.0.0.1:49374`. Re-render and reload the plist if you
 move the binary.
@@ -298,9 +298,9 @@ move the binary.
 Verify it came up:
 
 ```bash
-launchctl print gui/$(id -u)/com.github.akitaonrails.ai-memory | grep state
+launchctl print gui/$(id -u)/com.github.akitaonrails.pitstop | grep state
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:49374/mcp   # 405
-tail -f ~/Library/Logs/ai-memory/stderr.log
+tail -f ~/Library/Logs/pitstop/stderr.log
 ```
 
 ### Privacy controls and Full Disk Access
@@ -327,10 +327,10 @@ Access, then restart the agent:
 ```bash
 # The binary the LaunchAgent runs:
 plutil -extract ProgramArguments.0 raw \
-    ~/Library/LaunchAgents/com.github.akitaonrails.ai-memory.plist
+    ~/Library/LaunchAgents/com.github.akitaonrails.pitstop.plist
 # System Settings > Privacy & Security > Full Disk Access: click +, press
 # Cmd+Shift+G and paste that path. Then:
-launchctl kickstart -k gui/$(id -u)/com.github.akitaonrails.ai-memory
+launchctl kickstart -k gui/$(id -u)/com.github.akitaonrails.pitstop
 ```
 
 The grant belongs to that file path. If `setup` later points the plist at a
@@ -340,15 +340,15 @@ different binary, grant that one too.
 
 | systemd `--user` | launchd (per-user domain) |
 |---|---|
-| `systemctl --user enable --now ai-memory` | `launchctl bootstrap gui/$(id -u) <plist>` |
-| `systemctl --user disable --now ai-memory` | `launchctl bootout gui/$(id -u)/<label>` |
-| `systemctl --user status ai-memory` | `launchctl print gui/$(id -u)/<label>` |
-| `systemctl --user restart ai-memory` | `launchctl kickstart -k gui/$(id -u)/<label>` |
-| `journalctl --user -u ai-memory -f` | `tail -f ~/Library/Logs/ai-memory/stderr.log` |
+| `systemctl --user enable --now pitstop` | `launchctl bootstrap gui/$(id -u) <plist>` |
+| `systemctl --user disable --now pitstop` | `launchctl bootout gui/$(id -u)/<label>` |
+| `systemctl --user status pitstop` | `launchctl print gui/$(id -u)/<label>` |
+| `systemctl --user restart pitstop` | `launchctl kickstart -k gui/$(id -u)/<label>` |
+| `journalctl --user -u pitstop -f` | `tail -f ~/Library/Logs/pitstop/stderr.log` |
 | `loginctl enable-linger $USER` | no equivalent; a LaunchAgent stops at logout |
 | `EnvironmentFile=` | no equivalent; see the token note below |
 
-`<label>` is `com.github.akitaonrails.ai-memory`. After editing the plist,
+`<label>` is `com.github.akitaonrails.pitstop`. After editing the plist,
 `bootout` then `bootstrap` again; `kickstart -k` only restarts the process and
 does not re-read the definition.
 
@@ -358,38 +358,38 @@ does not re-read the definition.
 `<data_dir>/auth-tokens/default` and records `[auth] bearer_token_file` in
 `config.toml`, so the LaunchAgent needs no token in its plist. To replace that
 token with one from the environment, note that launchd has no
-`EnvironmentFile`: add `AI_MEMORY_AUTH_TOKEN` to your rendered plist and
+`EnvironmentFile`: add `PITSTOP_AUTH_TOKEN` to your rendered plist and
 tighten the file, because `~/Library/LaunchAgents` is not private:
 
 ```xml
   <key>EnvironmentVariables</key>
   <dict>
-    <key>AI_MEMORY_AUTH_TOKEN</key>
+    <key>PITSTOP_AUTH_TOKEN</key>
     <string>…</string>
   </dict>
 ```
 
 ```bash
-chmod 600 ~/Library/LaunchAgents/com.github.akitaonrails.ai-memory.plist
+chmod 600 ~/Library/LaunchAgents/com.github.akitaonrails.pitstop.plist
 ```
 
 ### Removing the agent
 
 ```bash
-launchctl bootout gui/$(id -u)/com.github.akitaonrails.ai-memory
-rm ~/Library/LaunchAgents/com.github.akitaonrails.ai-memory.plist
+launchctl bootout gui/$(id -u)/com.github.akitaonrails.pitstop
+rm ~/Library/LaunchAgents/com.github.akitaonrails.pitstop.plist
 ```
 
 Nothing rotates the two log files; they grow without bound. Add a
 `newsyslog.d` entry or truncate them periodically if that matters to you.
 
-> **Validated on** macOS 26.6.2 (build 25G83, Apple Silicon) with ai-memory
+> **Validated on** macOS 26.6.2 (build 25G83, Apple Silicon) with pitstop
 > v1.38.0 installed per Scenario A, and separately with v1.21.0 to confirm the
 > agent does not depend on a recently added flag. Confirmed: `launchctl
 > bootstrap`; the job `running` with `last exit code = (never exited)` rather
 > than crash-looping; the launchd child (`PPID 1`) owning `127.0.0.1:49374`, so
 > the reply came from the agent rather than a foreground server left over on the
-> same port; `~/Library/Application Support/ai-memory` resolved and logged as
+> same port; `~/Library/Application Support/pitstop` resolved and logged as
 > the data dir with no `--data-dir` passed; `405` from `GET /mcp` on the bound
 > port; `KeepAlive` (the served process was `SIGKILL`ed and a replacement was
 > answering about a second later, with `runs` incrementing); and a clean
@@ -401,7 +401,7 @@ Nothing rotates the two log files; they grow without bound. Add a
 
 ## Hook Platform on macOS
 
-`AI_MEMORY_HOOK_PLATFORM` selects how hook commands are rendered. On macOS the
+`PITSTOP_HOOK_PLATFORM` selects how hook commands are rendered. On macOS the
 two relevant values are `posix-native` (direct binary call; the native default)
 and `posix` (the bundled `.sh` scripts; the Docker-wrapper default). Set it
 before running `install-hooks` so the choice is baked into the rendered
@@ -410,7 +410,7 @@ cleanup, and starts a detached session-end `hook-drain` helper; the whole-minute
 spool-timing overrides are shared with Windows and documented in
 [`docs/windows.md`](windows.md#tuning-the-spool-timings-high-latency-instances).
 
-Native `posix-native` `ai-memory hook` commands enforce the nearest-marker
+Native `posix-native` `pitstop hook` commands enforce the nearest-marker
 `[capture] ignore_paths` policy before spool or network delivery. The Docker
 wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
 <agent> --apply` after upgrading to refresh an existing native install; see
@@ -428,8 +428,8 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
 - **`403 forbidden host` from Docker-wrapper CLI commands:** update the Docker
   image and wrapper script. Current images allowlist `host.docker.internal` for
   loopback-published Docker Desktop servers.
-- **Agent config points at `host.docker.internal`:** re-run `ai-memory
-  install-mcp --client <client> --apply` and `ai-memory install-hooks --agent
+- **Agent config points at `host.docker.internal`:** re-run `pitstop
+  install-mcp --client <client> --apply` and `pitstop install-hooks --agent
   <agent> --apply` with the current wrapper. Host-side agent config should use
   `http://127.0.0.1:49374`.
 - **Hooks bundle not found from a release archive:** ensure you extracted the
@@ -437,11 +437,11 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
   `hooks/` directory automatically.
 - **Platform-mismatch warning on Apple Silicon:** update to a current Docker
   tag. Tagged releases publish a multi-arch manifest with `linux/arm64`.
-- **`ai-memory: command not found` in a new terminal tab:** Scenario A/B's
-  `./ai-memory`/`./target/release/ai-memory` is a relative path, so it only
+- **`pitstop: command not found` in a new terminal tab:** Scenario A/B's
+  `./pitstop`/`./target/release/pitstop` is a relative path, so it only
   resolves from inside the install/build directory. Either keep `cd`-ing there
   first, or symlink the binary onto `PATH` once you're done wiring hooks (see
-  the Scenario A/B notes above) so plain `ai-memory` works everywhere.
+  the Scenario A/B notes above) so plain `pitstop` works everywhere.
 - **`install-hooks` wires the wrong (or no) `hooks/` bundle even though the
   tarball was extracted whole:** if the binary is reached through a symlink
   (e.g. you put it on `PATH` before running `install-hooks`), macOS discovery
@@ -449,26 +449,26 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
   see [#546](https://github.com/akitaonrails/ai-memory/issues/546). On a
   clean machine this fails outright with `Error: could not locate hooks
   directory. Tried: [...]`; if a hooks cache from an earlier install already
-  exists under `~/Library/Application Support/ai-memory`, it can silently
+  exists under `~/Library/Application Support/pitstop`, it can silently
   reuse that stale copy instead and report success. Run `install-hooks` via
   the real extracted/built path instead of the symlink
   until that's fixed.
-- **No Dock icon after opening AI Memory.app:** that is the menu extra. Look
+- **No Dock icon after opening Pitstop.app:** that is the menu extra. Look
   in the menu bar (brain / status symbol), not the Dock.
 - **Menu extra says "Runtime not bundled":** `swift run` from the package
-  does not stage `ai-memory` + `hooks/`. Use
-  `./companions/ai-memory-macos/build.sh`.
+  does not stage `pitstop` + `hooks/`. Use
+  `./companions/pitstop-macos/build.sh`.
 - **Install & Start does not turn the item green:** check
-  `~/Library/Logs/ai-memory/stderr.log` and
-  `launchctl print gui/$(id -u)/com.github.akitaonrails.ai-memory`. The app
+  `~/Library/Logs/pitstop/stderr.log` and
+  `launchctl print gui/$(id -u)/com.github.akitaonrails.pitstop`. The app
   never writes into its own bundle; a missing `config.toml` is created under
-  `~/Library/Application Support/ai-memory` by bundled `ai-memory init`.
+  `~/Library/Application Support/pitstop` by bundled `pitstop init`.
 - **`Error: binding 127.0.0.1:49374` / `Address already in use` (the server
   exits immediately and the menu extra stays red):** another process already
   holds the port, for example OpenCode v2's background service (reported in
   #1044 to default to 49374). Move one side: start
-  ai-memory elsewhere (`bind = "127.0.0.1:<free-port>"` in
-  `~/Library/Application Support/ai-memory/config.toml`, then update the app's
+  pitstop elsewhere (`bind = "127.0.0.1:<free-port>"` in
+  `~/Library/Application Support/pitstop/config.toml`, then update the app's
   server URL in Settings to match), or move the other service
   (`opencode service set port <free-port>`). Find the current holder with
   `lsof -nP -iTCP:49374 -sTCP:LISTEN`. The menu extra now surfaces this error
@@ -476,8 +476,8 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
 
 ## Suggested Test Checklist
 
-1. `ai-memory serve --bind 127.0.0.1:49374` starts and logs `bind=127.0.0.1:49374`
-   (`./ai-memory serve …`, or `./target/release/ai-memory serve …` for
+1. `pitstop serve --bind 127.0.0.1:49374` starts and logs `bind=127.0.0.1:49374`
+   (`./pitstop serve …`, or `./target/release/pitstop serve …` for
    Scenario B, if you haven't put it on `PATH` yet).
 2. `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:49374/mcp` returns
    `405` (reachable; GET not allowed), confirming the loopback server is up.
@@ -485,13 +485,13 @@ wrapper's `posix` shell-script path does not. Re-run `install-hooks --agent
    reference `http://127.0.0.1:49374` and host-side paths.
 4. `install-mcp --client claude-code` renders `http://127.0.0.1:49374/mcp`.
 5. Launch the agent, call `memory_status`, send a prompt, then confirm capture
-   (`ai-memory status` shows non-zero observations, or query the SQLite
+   (`pitstop status` shows non-zero observations, or query the SQLite
    `observations` table).
 6. **Scenario D:** after **Install & Start Server**, the menu extra is green;
    **Open Web UI** loads `http://127.0.0.1:49374/web`;
-   `launchctl print gui/$(id -u)/com.github.akitaonrails.ai-memory` shows
+   `launchctl print gui/$(id -u)/com.github.akitaonrails.pitstop` shows
    `state = running`; replacing the `.app` leaves
-   `~/Library/Application Support/ai-memory` untouched.
+   `~/Library/Application Support/pitstop` untouched.
 
 Report which scenario you used, your chip (Apple Silicon / Intel), the agent and
 version, and whether hooks executed or failed with a connect/resolve error.

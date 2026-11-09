@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "ai-memory": {
-      "command": "${user_config.ai_memory_bin}",
+    "pitstop": {
+      "command": "${user_config.pitstop_bin}",
       "args": [
         "mcp-bridge",
         "--server-url",

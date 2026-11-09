@@ -4,19 +4,19 @@
 # In a clean temporary HOME, with nothing from the real one:
 #   1. `curl -fsSL <release>/install.sh | sh` against a release tarball built
 #      from a local binary and served over local HTTP;
-#   2. `ai-memory setup --yes`, with a stand-in service manager first on PATH
+#   2. `pitstop setup --yes`, with a stand-in service manager first on PATH
 #      (`systemctl` on Linux, `launchctl` on macOS) that runs the rendered
 #      unit's command in the background and never reaches a real session; its
 #      output must end on the question to ask the restarted agent;
 #   3. one synthetic hook event, as the installed Claude Code hook sends it;
-#   4. `memory_query` over `ai-memory mcp-bridge` until it returns the event.
+#   4. `memory_query` over `pitstop mcp-bridge` until it returns the event.
 #
 # Reports the user-facing command count (target 2) and the time from the first
 # command to the memory being returned (target <= 60 s). Local embeddings are
 # off so the optional model download is not in the measurement.
 #
-# Usage: scripts/onboarding-acceptance.sh [path/to/ai-memory]
-#   default binary: target/release/ai-memory, else target/debug/ai-memory
+# Usage: scripts/onboarding-acceptance.sh [path/to/pitstop]
+#   default binary: target/release/pitstop, else target/debug/pitstop
 #   KEEP=1 keeps the temp dir for inspection.
 # Needs: curl, tar, python3, and sha256sum or shasum.
 
@@ -25,25 +25,25 @@ set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="${1:-}"
 if [ -z "$bin" ]; then
-    for candidate in "$repo/target/release/ai-memory" "$repo/target/debug/ai-memory"; do
+    for candidate in "$repo/target/release/pitstop" "$repo/target/debug/pitstop"; do
         if [ -x "$candidate" ]; then bin="$candidate"; break; fi
     done
 fi
-[ -n "$bin" ] && [ -x "$bin" ] || { echo "no ai-memory binary; build one or pass its path" >&2; exit 2; }
+[ -n "$bin" ] && [ -x "$bin" ] || { echo "no pitstop binary; build one or pass its path" >&2; exit 2; }
 bin="$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")"
 
 # The commands the tarball path in docs/install.md and docs/macos.md asks for
 # before the first captured observation, for comparison.
 baseline=(
-    "curl -fsSL -O <release>/ai-memory-<os>-<arch>.tar.gz"
-    "tar -xzf ai-memory-<os>-<arch>.tar.gz"
-    "ai-memory init"
+    "curl -fsSL -O <release>/pitstop-<os>-<arch>.tar.gz"
+    "tar -xzf pitstop-<os>-<arch>.tar.gz"
+    "pitstop init"
     "write a systemd user unit or LaunchAgent by hand"
     "systemctl --user daemon-reload (or launchctl bootstrap)"
-    "systemctl --user enable --now ai-memory.service"
-    "ai-memory install-mcp --client claude-code --apply"
-    "ai-memory install-hooks --agent claude-code --apply"
-    "ai-memory install-skills --scope global"
+    "systemctl --user enable --now pitstop.service"
+    "pitstop install-mcp --client claude-code --apply"
+    "pitstop install-hooks --agent claude-code --apply"
+    "pitstop install-skills --scope global"
 )
 
 case "$(uname -s)-$(uname -m)" in
@@ -53,9 +53,9 @@ case "$(uname -s)-$(uname -m)" in
     Darwin-x86_64) target=macos-x86_64 ;;
     *) echo "unsupported host $(uname -s)-$(uname -m)" >&2; exit 2 ;;
 esac
-asset="ai-memory-$target.tar.gz"
+asset="pitstop-$target.tar.gz"
 
-work="$(mktemp -d "${TMPDIR:-/tmp}/ai-memory-onboarding.XXXXXX")"
+work="$(mktemp -d "${TMPDIR:-/tmp}/pitstop-onboarding.XXXXXX")"
 server_pid=""
 cleanup() {
     if [ -f "$work/service/pid" ]; then kill "$(cat "$work/service/pid")" 2>/dev/null || true; fi
@@ -72,7 +72,7 @@ sha256() {
 # A release laid out the way release.yml publishes one.
 release="$work/release/latest/download"
 mkdir -p "$release" "$work/stage/packaging"
-cp "$bin" "$work/stage/ai-memory"
+cp "$bin" "$work/stage/pitstop"
 cp -R "$repo/hooks" "$work/stage/hooks"
 cp -R "$repo/packaging/systemd" "$repo/packaging/launchd" "$work/stage/packaging/"
 (cd "$work/stage" && COPYFILE_DISABLE=1 tar -czf "$release/$asset" .)
@@ -100,7 +100,7 @@ state="$FAKE_SERVICE_STATE"
 printf '%s\n' "$*" >> "$state/calls"
 [ "$1" = "--user" ] || exit 2
 shift
-unit="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/ai-memory.service"
+unit="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/pitstop.service"
 alive() { [ -f "$state/pid" ] && kill -0 "$(cat "$state/pid")" 2>/dev/null; }
 case "$1" in
   daemon-reload) ;;
@@ -137,7 +137,7 @@ chmod +x "$work/fakebin/systemctl" "$work/fakebin/launchctl"
 
 home="$work/home"
 mkdir -p "$home/.claude/projects" "$home/work/repo"
-printf 'workspace = "onboarding"\nproject = "acceptance"\n' > "$home/work/repo/.ai-memory.toml"
+printf 'workspace = "onboarding"\nproject = "acceptance"\n' > "$home/work/repo/.pitstop.toml"
 port="$(free_port)"
 
 # A clean login: nothing from the caller's environment but a basic PATH.
@@ -148,10 +148,10 @@ clean() {
         LANG=C.UTF-8 \
         PATH="$work/fakebin:$home/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
         FAKE_SERVICE_STATE="$work/service" \
-        AI_MEMORY_RELEASE_BASE_URL="$base" \
-        AI_MEMORY_BIND="127.0.0.1:$port" \
-        AI_MEMORY_SERVER_URL="http://127.0.0.1:$port" \
-        AI_MEMORY_EMBEDDING_PROVIDER=none \
+        PITSTOP_RELEASE_BASE_URL="$base" \
+        PITSTOP_BIND="127.0.0.1:$port" \
+        PITSTOP_SERVER_URL="http://127.0.0.1:$port" \
+        PITSTOP_EMBEDDING_PROVIDER=none \
         RUST_LOG=off \
         "$@"
 }
@@ -165,10 +165,10 @@ echo "== 1. curl -fsSL $base/latest/download/install.sh | sh"
 commands=$((commands + 1))
 clean sh -c "curl -fsSL '$base/latest/download/install.sh' | sh"
 
-echo "== 2. ai-memory setup --yes"
+echo "== 2. pitstop setup --yes"
 commands=$((commands + 1))
 setup_log="$work/setup.log"
-(cd "$home" && clean ai-memory setup --yes) | tee "$setup_log"
+(cd "$home" && clean pitstop setup --yes) | tee "$setup_log"
 installed="$(now)"
 # setup ends on the question to ask the restarted agent, not a health check.
 grep -Fq "What do you remember about this project?" "$setup_log" ||
@@ -177,9 +177,9 @@ grep -Fq "What do you remember about this project?" "$setup_log" ||
 echo "== hook event + memory_query"
 marker="onboarding-acceptance-$(date +%s)-$$"
 payload="{\"session_id\":\"$marker-session\",\"cwd\":\"$home/work/repo\",\"prompt\":\"please remember $marker\"}"
-printf '%s' "$payload" | clean ai-memory hook --event user-prompt-submit --agent claude-code \
+printf '%s' "$payload" | clean pitstop hook --event user-prompt-submit --agent claude-code \
     --server-url "http://127.0.0.1:$port" >/dev/null
-clean ai-memory hook-drain >/dev/null
+clean pitstop hook-drain >/dev/null
 
 found=""
 for _ in $(seq 1 100); do
@@ -187,7 +187,7 @@ for _ in $(seq 1 100); do
 import json, subprocess, sys
 marker = sys.argv[1]
 bridge = subprocess.Popen(
-    ["ai-memory", "mcp-bridge", "--no-session-id"],
+    ["pitstop", "mcp-bridge", "--no-session-id"],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
 )
 def send(message):

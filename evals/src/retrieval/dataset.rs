@@ -5,7 +5,7 @@
 //! pinned sha256. Dataset: `xiaowu0162/longmemeval` (MIT license).
 //!
 //! Two pinned variants load: the original `longmemeval_s` (every published
-//! ai-memory baseline) and the later `longmemeval_s_cleaned` re-release,
+//! pitstop baseline) and the later `longmemeval_s_cleaned` re-release,
 //! which keeps the same 500 questions and evidence labels but replaces
 //! distractor sessions that also held the answer. Other systems publish on
 //! the cleaned file, so a comparison has to say which one it ran.
@@ -39,7 +39,7 @@ pub struct DatasetVariant {
     pub sha256: &'static str,
 }
 
-/// The original S file every published ai-memory baseline uses.
+/// The original S file every published pitstop baseline uses.
 pub const VARIANT_S: DatasetVariant = DatasetVariant {
     name: "longmemeval_s",
     default_path: "evals/datasets/longmemeval_s.json",

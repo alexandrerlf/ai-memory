@@ -35,8 +35,8 @@ Official: <https://antigravity.google/docs/mcp/>
 - IDE GUI: agent side panel → … → **MCP Servers** (MCP Store + "View raw
   config" edits the same `mcp_config.json`). CLI: `/mcp` overlay.
 - Permission model keys: `mcp(server/tool)`, `mcp(server/*)`, `mcp(*)`.
-- ai-memory status today: `install-mcp --client antigravity-cli` writes this
-  file (repo `docs/mcp-install.md`). An HTTP ai-memory server fits the
+- pitstop status today: `install-mcp --client antigravity-cli` writes this
+  file (repo `docs/mcp-install.md`). An HTTP pitstop server fits the
   `serverUrl` entry shape directly.
 
 ## Lifecycle hooks — YES (the standout alongside Claude/Codex/Cursor)
@@ -63,7 +63,7 @@ Official: <https://antigravity.google/docs/hooks/>
   where `<app_data_dir>` = `~/.gemini/antigravity` (2.0),
   `~/.gemini/antigravity-cli` (CLI), **`~/.gemini/antigravity-ide` (IDE)**.
 
-**Consequence for ai-memory:** `install-hooks --agent antigravity-cli` writes
+**Consequence for pitstop:** `install-hooks --agent antigravity-cli` writes
 `~/.gemini/config/hooks.json`, which the IDE also loads, so global
 capture likely already extends to IDE sessions, with the IDE distinguishable
 by its `transcriptPath` prefix (`antigravity-ide/brain/...`). Differences to
@@ -106,7 +106,7 @@ needed for capture conclusions.)
 
 - Antigravity IDE: **closed** (Windsurf/VS Code-derived binary).
 - Antigravity CLI (`agy`): closed binary per repo docs ("built in Go",
-  per ai-memory's `docs/mcp-install.md`); Gemini CLI
+  per pitstop's `docs/mcp-install.md`); Gemini CLI
   (`google-gemini/gemini-cli`) is the open ancestor, and a "GCLI migration"
   doc exists. Not cloned (nothing directly informative beyond docs).
 - SDK: documented Python SDK (<https://antigravity.google/docs/sdk/overview/>).
@@ -119,4 +119,4 @@ needed for capture conclusions.)
   `User/globalStorage/state.vscdb`; no MCP keys configured yet),
   `~/.gemini/` (config root shared by CLI + IDE),
   `/usr/share/applications/antigravity-ide*.desktop`
-- ai-memory repo: `docs/mcp-install.md` (Antigravity CLI section)
+- pitstop repo: `docs/mcp-install.md` (Antigravity CLI section)

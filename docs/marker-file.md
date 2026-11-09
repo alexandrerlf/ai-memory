@@ -1,11 +1,11 @@
-# Marker file: `.ai-memory.toml`
+# Marker file: `.pitstop.toml`
 
 Declare which workspace (and optionally which project) an agent's
 `cwd` belongs to, without depending on the directory's basename.
 
 ## Why
 
-ai-memory namespaces every wiki page by `(workspace, project)`. By
+pitstop namespaces every wiki page by `(workspace, project)`. By
 default, `workspace = "default"`; a valid `upstream`/`origin` remote supplies
 the canonical hostless repository-path project name, and only a checkout
 without one uses `project = basename($cwd)`. That works for a solo developer in
@@ -21,7 +21,7 @@ for the cases this marker file is built for:
   under its own project, your call.
 
 The marker file lets you declare these mappings without forking
-ai-memory or running CLI commands per directory.
+pitstop or running CLI commands per directory.
 
 Static MCP clients also use the marker as the repository-owned source for
 explicit scope arguments. For safe concurrent use, declare both `workspace` and
@@ -31,13 +31,13 @@ session id. Without a marker override, static clients derive the project from no
 `upstream`, then `origin`, joining the full hostless path with the standard safe
 name mapping; only no-valid-remote checkouts use their folder basename.
 Session-aware bridges keep automatic current-project routing. The session-less
-`ai-memory mcp-bridge --no-session-id` applies this derivation itself, from its
+`pitstop mcp-bridge --no-session-id` applies this derivation itself, from its
 launch directory, to a call that names no scope
 ([`auto-scope.md`](auto-scope.md#the-session-less-bridges-launch-scope)).
 
 ## Where to put it
 
-`.ai-memory.toml` in **any allowed ancestor** of your `cwd`. Lifecycle hooks
+`.pitstop.toml` in **any allowed ancestor** of your `cwd`. Lifecycle hooks
 walk up from `cwd` toward `$HOME` (or `/` if `$HOME` is unset) and use the
 **first** marker found. When cwd is outside `$HOME`, the walk stops at the
 nearest checkout root (`.git` file or directory); outside a checkout, only cwd
@@ -82,7 +82,7 @@ Run this from anywhere inside a checkout to create a marker at the current
 worktree root:
 
 ```bash
-ai-memory project init
+pitstop project init
 ```
 
 The command asks for `workspace` and `project`. Each default is the scope the
@@ -273,8 +273,8 @@ that exact remote identity.
 
 ### Operator-home routes
 
-The exact operator-home marker (`$AI_MEMORY_HOME/.ai-memory.toml`, otherwise
-`$HOME/.ai-memory.toml`, with `%USERPROFILE%` as the portable Windows fallback)
+The exact operator-home marker (`$PITSTOP_HOME/.pitstop.toml`, otherwise
+`$HOME/.pitstop.toml`, with `%USERPROFILE%` as the portable Windows fallback)
 may route many unrelated checkouts without placing a marker in each repository:
 
 ```toml
@@ -324,7 +324,7 @@ accept the lifecycle call but drop it before spool or network. Route aliases use
 marker aliases and are forwarded only with a discovered hostful git remote and
 `project_src=marker`. The `route_*` child names are deliberate: older line-based
 clients ignore them instead of treating route fields as root settings. Portable clients use `HOME`, then `USERPROFILE`; native CLI/hooks honor
-`AI_MEMORY_HOME` first. The Docker wrapper passes the host cwd, so path routes
+`PITSTOP_HOME` first. The Docker wrapper passes the host cwd, so path routes
 compare in the host namespace rather than `/work` while remote discovery may
 fall back to the mounted checkout.
 
@@ -356,8 +356,8 @@ session's recovery snapshot is usually noise for that layout.
 the resolved project, even when the marker enables global recall. Explicit
 `workspace` + `project` or `scopes` also override the marker. A query with
 `as_of` reads the current project as it stood at that instant, and an explicit
-`global=true` with `as_of` is refused. The `ai-memory search` and
-`ai-memory recent` terminal commands do not read it: those commands stay
+`global=true` with `as_of` is refused. The `pitstop search` and
+`pitstop recent` terminal commands do not read it: those commands stay
 scoped to the current project and cover every project only when you pass
 `--global` (see
 [usage.md](usage.md#search-from-the-terminal) and
@@ -402,10 +402,10 @@ By default this file is optional: a repository without one is still captured,
 and the marker only *narrows* what is taken. An install can invert that:
 
 ```bash
-ai-memory install-hooks --apply --capture-mode allowlist
+pitstop install-hooks --apply --capture-mode allowlist
 ```
 
-Under allowlist mode the presence of a `.ai-memory.toml` **is** the opt-in. A
+Under allowlist mode the presence of a `.pitstop.toml` **is** the opt-in. A
 repository without one emits no lifecycle event at all. Prompts, tool calls
 and session boundaries alike are dropped in the hook process before anything
 reaches the local spool or the wire. No extra key is needed: an existing marker
@@ -419,28 +419,28 @@ direction whose failure you would rather explain.
 The mode is stored per install rather than per agent, and a later bare
 `install-hooks --apply` (including an upgrade refresh) leaves it in place.
 
-It is enforced both by native `ai-memory hook` commands and by the generated
+It is enforced both by native `pitstop hook` commands and by the generated
 TypeScript integrations (`pi`, `omp`, `opencode`, `opencode2`, `openclaw`);
 each bakes the selected mode in and carries the same marker-presence gate
 before it ever POSTs. Only the raw script-fallback paths (the
-`AI_MEMORY_HOOK_PLATFORM` override, the Docker host wrapper, and
+`PITSTOP_HOOK_PLATFORM` override, the Docker host wrapper, and
 `setup-agent` snippets) POST to the server directly without running either
 enforcement point, so allowlist mode does not gate them.
 
 ## Routing capture to another server (`server`)
 
-One machine can deliver hook capture to more than one ai-memory server, for
+One machine can deliver hook capture to more than one pitstop server, for
 example when each organisation you work for runs its own. Register each server
 locally under a name, then let a repository's marker select one:
 
 ```bash
-ai-memory server add team-a --url https://memory-a.example.com --root ~/work/team-a --auth-token-stdin
-ai-memory server add team-b --url https://memory-b.example.com --root ~/work/team-b --auth-token-stdin
-ai-memory server list      # names, URLs, roots, and whether a token is stored; never the token
+pitstop server add team-a --url https://memory-a.example.com --root ~/work/team-a --auth-token-stdin
+pitstop server add team-b --url https://memory-b.example.com --root ~/work/team-b --auth-token-stdin
+pitstop server list      # names, URLs, roots, and whether a token is stored; never the token
 ```
 
 ```toml
-# ~/work/team-b/.ai-memory.toml
+# ~/work/team-b/.pitstop.toml
 workspace = "team-b"
 server = "team-b"          # a profile NAME, never a URL
 ```
@@ -449,7 +449,7 @@ Profiles live in `<data_dir>/servers.toml`; each token is stored separately in
 `<data_dir>/auth-tokens/<name>`, owner-only. A marker, a rendered hook config
 and a process command line never contain a URL or token for a profile. A
 repository without a `server` key keeps using the server `install-hooks`
-configured, exactly as before. `ai-memory uninstall` removes the stored
+configured, exactly as before. `pitstop uninstall` removes the stored
 tokens together with the hooks that read them and keeps the registry, so a
 later reinstall lists each profile with `token: missing` until you store one
 again.
@@ -482,13 +482,13 @@ resolve. They match the profile's roots against the directory as your
 shell names it (`PWD`, when it is the same directory as the process's working
 directory), the way a harness reports it to the hooks, so a checkout reached
 through a symlink, or macOS's `/var` (really `/private/var`), routes the same
-for both. `AI_MEMORY_SERVER_URL` in the environment still wins for one
-invocation, and `AI_MEMORY_IGNORE_MARKER=1` skips the marker as it does for
+for both. `PITSTOP_SERVER_URL` in the environment still wins for one
+invocation, and `PITSTOP_IGNORE_MARKER=1` skips the marker as it does for
 scope. Install-wide commands (`status`, `list-projects`, `backup`, `user`,
 `api-key`, `project access`, `setup` and the other admin commands) keep using
 the configured server. `run --jail` refuses a profile-routed checkout,
 because the jailed run cannot read the profile's token; set
-`AI_MEMORY_SERVER_URL` and a least-privilege `AI_MEMORY_AUTH_TOKEN` for that
+`PITSTOP_SERVER_URL` and a least-privilege `PITSTOP_AUTH_TOKEN` for that
 launch instead.
 
 Routing is inherited down the tree, unlike the other keys. The nearest marker
@@ -513,7 +513,7 @@ The selection fails closed on shape too:
 - An event whose payload carries no `cwd` is routed by the hook process's
   working directory instead of going to the install default.
 
-Re-running `ai-memory server add` for an existing profile keeps its roots when
+Re-running `pitstop server add` for an existing profile keeps its roots when
 `--root` is omitted, so rotating a token cannot lift the restriction. Changing
 a profile's `--url` without a new token discards the old token first: a token
 belongs to the server it was issued for, so the profile refuses events until
@@ -523,7 +523,7 @@ you add one for the new URL. Both `[servers.<name>]` tables and an inline
 Check the decision for a directory without sending anything:
 
 ```bash
-echo '{"cwd":"'"$PWD"'"}' | ai-memory hook --event user-prompt-submit --agent claude-code \
+echo '{"cwd":"'"$PWD"'"}' | pitstop hook --event user-prompt-submit --agent claude-code \
   --server-url http://127.0.0.1:49374 --check-capture
 ```
 
@@ -533,13 +533,13 @@ echo '{"cwd":"'"$PWD"'"}' | ai-memory hook --event user-prompt-submit --agent cl
 `rejected-unreadable-marker` or `rejected-invalid-registry`. `server_profile`
 names the profile; no URL, path or token is printed.
 
-**Supported integrations.** Native `ai-memory hook` commands route profiles,
+**Supported integrations.** Native `pitstop hook` commands route profiles,
 including the session-start handoff fetch, the spooled events drained later,
 and the one-time boot backfill. The generated TypeScript integrations
 (`opencode`, `opencode2`, `omp`, `pi`, `openclaw`) do not route yet: a
 repository whose marker selects a profile emits nothing from them and fetches
 no handoff. The script hooks (the `.sh` and `.ps1` bundles used by the
-`AI_MEMORY_HOOK_PLATFORM` override, the Docker host wrapper and `setup-agent`
+`PITSTOP_HOOK_PLATFORM` override, the Docker host wrapper and `setup-agent`
 snippets) cannot route either, and likewise drop a routed repository's events
 and handoff fetch. Clients older than this change ignore the key and deliver to
 their install default, so upgrade every client before adding `server` to a
@@ -548,14 +548,14 @@ shared marker.
 **Known limits.**
 
 - **Mixed binaries on one data dir.** Spooled events record their profile in a
-  field older binaries do not know. If an older `ai-memory` drains the same
+  field older binaries do not know. If an older `pitstop` drains the same
   spool, it treats profile events as install-default ones: it may retry a
   rejected one with the install token, or re-send one addressed to a dead
   loopback port to the server in `config.toml`. Upgrade every install that
   shares a data dir.
 - **MCP.** Profiles route hook capture and the checkout commands listed
-  above, `ai-memory run` and its managed-run ledger included. The MCP server
-  entry, including `ai-memory mcp-bridge`, still talks to the server it was
+  above, `pitstop run` and its managed-run ledger included. The MCP server
+  entry, including `pitstop mcp-bridge`, still talks to the server it was
   configured with, so in a routed repository it reaches the install default.
   Point that repository's MCP client at its own server with a per-repository
   `.mcp.json`.
@@ -569,8 +569,8 @@ only in their token. On a shared server that restricts projects per user
 to it:
 
 ```bash
-ai-memory server add team-a --url https://memory.example.com --root ~/work/team-a --auth-token-stdin   # team-a account
-ai-memory server add team-b --url https://memory.example.com --root ~/work/team-b --auth-token-stdin   # team-b account
+pitstop server add team-a --url https://memory.example.com --root ~/work/team-a --auth-token-stdin   # team-a account
+pitstop server add team-b --url https://memory.example.com --root ~/work/team-b --auth-token-stdin   # team-b account
 ```
 
 Events from different profiles never share a request, and each profile's
@@ -606,7 +606,7 @@ read of it is captured and consolidation compiles it into wiki pages that do
 not follow the repo, so the copy is stale the moment the record is superseded
 (see the "Repo-native decision records" section of [`usage.md`](usage.md)).
 
-The **nearest** `.ai-memory.toml` is authoritative; marker sections do not
+The **nearest** `.pitstop.toml` is authoritative; marker sections do not
 merge. A missing `[capture]` section or `ignore_paths = []` is inactive and
 preserves current behavior. `[capture]` accepts only `ignore_paths`: unknown
 keys, invalid types/globs/roots, unreadable markers, or a marker over 64 KiB
@@ -632,7 +632,7 @@ A `**/` matches one or more directories, never zero, unlike `.gitignore`:
 (`[".env", "**/.env"]`). A trailing `/**` does match the directory itself
 (`secrets/**` covers `secrets`).
 
-For fixture-proven direct file tools, ai-memory reads only explicit path fields
+For fixture-proven direct file tools, pitstop reads only explicit path fields
 and documented direct arrays for multi-file calls. If any candidate matches, the
 entire event is **dropped locally** before spool, queue, network, transport
 logs, or server storage. With an active policy, recognized search/list tools are
@@ -664,7 +664,7 @@ retain current behavior. GitHub Copilot CLI's runtime `view`, `create` and
 
 Gemini CLI's `read_many_files` is a file tool whose `include` entries (`paths`
 in older releases) are globs that Gemini expands case-insensitively, with `**`
-reaching any depth. ai-memory reads every entry and drops the whole call when
+reaching any depth. pitstop reads every entry and drops the whole call when
 any one names an ignored path or could expand into one, matching case-insensitively
 like Gemini: `docs/adr/x.md`, `docs/*/x.md`, `docs/**` and `**/*.md` are
 all dropped under `docs/adr/**`, while `src/**/*.rs` and a root-level `*.md`
@@ -682,13 +682,13 @@ selector (`notes.txt:450-455`, `:-5`, `:raw`), an archive member
 (`vault.zip:notes/a.md`), a SQLite table or row (`app.db:users:42`), an
 executable view (`bin:main`), a video time or a query (`data.json?q=.items`).
 OMP reads the file of the full name when one exists and otherwise the part
-before the suffix, so ai-memory also matches every part of the path before a
+before the suffix, so pitstop also matches every part of the path before a
 `:` or `?`: `secrets.env:1-20` and `key.pem:1-40` drop under `secrets.env` and
 `*.pem` like the bare names, and `vault.zip:notes/a.md` drops under
 `vault.zip`. A Windows drive or device prefix (`C:`, `\\?\`) ends no part, and
 a path with more than 32 parts is **metadata-only**.
 
-Both harnesses also rewrite a file-tool path before opening it, and ai-memory
+Both harnesses also rewrite a file-tool path before opening it, and pitstop
 matches the rewritten path as well. OMP's `read`, `write` and `edit` drop a
 stray leading `:` before a path (`:/repo/secrets.env`, `:./key.pem`) and a
 leading `@` before an absolute path or `~` (`@/repo/secrets.env`). Pi's drop
@@ -968,7 +968,7 @@ For a project whose content must never be captured, use allowlist capture mode
 
 ### Supported integrations and refresh
 
-Capture policy v1 is enforced by native `ai-memory hook` commands (including
+Capture policy v1 is enforced by native `pitstop hook` commands (including
 native POSIX/Windows hook commands) and generated OpenCode, OMP, Pi, and
 OpenClaw integrations, including the lexical shell-command matching above.
 Local installers default to native commands where that
@@ -987,7 +987,7 @@ saw. The policy adds no MCP tool and no database migration.
 
 ### Check a decision locally
 
-`ai-memory hook --event ... --agent ... --check-capture` reads one JSON payload
+`pitstop hook --event ... --agent ... --check-capture` reads one JSON payload
 from stdin and performs no spool, queue, drain, network, or handoff work. It
 prints only bounded decision metadata (protocol version, policy state, tool
 family, path count, disposition, and extraction state), never paths, patterns,
@@ -995,7 +995,7 @@ or payload content:
 
 ```bash
 printf '%s\n' '{"session_id":"demo","cwd":"/example/workspace","tool_name":"Edit","tool_input":{"path":"docs/example.md"}}' \
-  | ai-memory hook --event post-tool-use --agent claude-code \
+  | pitstop hook --event post-tool-use --agent claude-code \
       --server-url http://127.0.0.1:49374 --check-capture
 ```
 
@@ -1006,7 +1006,7 @@ server lookup: inspection creates no project and may report server-derived
 coordinates that the server later remaps. Partial marker scope fails closed.
 `event_admits_capture` reports lifecycle eligibility. External producers use
 `policy_admits_capture`, which also checks exclusions and server-profile
-resolution while ignoring `AI_MEMORY_CAPTURE_OWNER`. The existing
+resolution while ignoring `PITSTOP_CAPTURE_OWNER`. The existing
 `admits_capture` field still reports native capture admission. Each scope hint
 is limited to 512 bytes. Oversized names are omitted (`null`), report
 `scope_resolution: "unavailable"` and refuse producer admission; native
@@ -1041,7 +1041,7 @@ available only through the explicit double opt-in described in the install guide
 (`install-hooks --capture-assistant` on the client plus `capture_assistant` on
 the server), where the excerpt is sanitized on both sides and capped. It is not
 gated by this marker file: assistant text is not path-attributable, so a
-`.ai-memory.toml` cannot narrow it. The metadata header is closed; the
+`.pitstop.toml` cannot narrow it. The metadata header is closed; the
 PostToolUse response/error excerpt remains the existing bounded content capture.
 Capture exclusions are evaluated only where paths have a proven schema, so they
 do not claim to filter those other bodies.
@@ -1051,9 +1051,9 @@ do not claim to filter those other bodies.
 ### Multi-client
 
 ```
-~/projects/movvia/.ai-memory.toml     → workspace = "movvia"
-~/projects/cliente-x/.ai-memory.toml  → workspace = "cliente-x"
-~/personal/.ai-memory.toml            → workspace = "personal"
+~/projects/movvia/.pitstop.toml     → workspace = "movvia"
+~/projects/cliente-x/.pitstop.toml  → workspace = "cliente-x"
+~/personal/.pitstop.toml            → workspace = "personal"
 ```
 
 Outcome:
@@ -1065,8 +1065,8 @@ Outcome:
 ### Mono-repo with grouped packages
 
 ```
-~/projects/movvia/.ai-memory.toml              → workspace = "movvia"
-~/projects/movvia/pe-portais/.ai-memory.toml   → workspace = "movvia"
+~/projects/movvia/.pitstop.toml              → workspace = "movvia"
+~/projects/movvia/pe-portais/.pitstop.toml   → workspace = "movvia"
                                                   project   = "pe-portais"
 ```
 
@@ -1079,18 +1079,18 @@ Outcome:
 ### Git worktrees / repo-root identity
 
 ```
-~/projects/.ai-memory.toml → workspace        = "oss"
+~/projects/.pitstop.toml → workspace        = "oss"
                             → project_strategy = "repo-root"
 ```
 
 Outcome:
 
-- `~/projects/ai-memory`                → workspace = `oss`, project = `ai-memory`
-- `~/projects/ai-memory/crates/cli`     → workspace = `oss`, project = `ai-memory`
-- `~/projects/ai-memory-feature-branch` → workspace = `oss`, project = `ai-memory`
+- `~/projects/pitstop`                → workspace = `oss`, project = `pitstop`
+- `~/projects/pitstop/crates/cli`     → workspace = `oss`, project = `pitstop`
+- `~/projects/pitstop-feature-branch` → workspace = `oss`, project = `pitstop`
 
 If the marker lives inside the main checkout instead (for example
-`~/projects/ai-memory/.ai-memory.toml`), copy or commit it into each
+`~/projects/pitstop/.pitstop.toml`), copy or commit it into each
 out-of-tree worktree, or place a shared marker above the worktree parent
 directory as shown here.
 
@@ -1104,10 +1104,10 @@ plugins follow the worktree's commondir pointer (`git rev-parse
 the main repository and send the resolved name as an explicit `project`.
 This means it works even when the worktree directory lives **outside**
 the main repo tree (some tools keep worktrees in a separate directory,
-so the worktree has no `.ai-memory.toml` ancestor of its own) and even
+so the worktree has no `.pitstop.toml` ancestor of its own) and even
 when the server runs in a container that cannot see the host checkout.
 Put the marker anywhere on the walk-up path from the worktree (commonly
-a single `~/.ai-memory.toml`) to select the strategy.
+a single `~/.pitstop.toml`) to select the strategy.
 
 ### Repository identity
 
@@ -1187,7 +1187,7 @@ own name.
   no valid remote exists. They may use
   the canonical path name (`acme-api`) or the v2 basename (`api`) while it is
   unambiguous. A hostless key shared by multiple forges fails closed.
-- `ai-memory doctor` combines the effective local marker and normalized
+- `pitstop doctor` combines the effective local marker and normalized
   repository evidence with the server's read-only coordinate diagnosis. It
   reports exact/canonical/legacy compatibility, missing or ambiguous status,
   rename eligibility, and collision reasons. It parses the routing marker once,
@@ -1206,7 +1206,7 @@ own name.
 ### Single workspace, no per-repo overrides
 
 ```
-~/.ai-memory.toml → workspace = "home"
+~/.pitstop.toml → workspace = "home"
 ```
 
 Every cwd under `$HOME` lands in workspace `home`; a valid remote uses its
@@ -1220,7 +1220,7 @@ Projects already created under workspace `default` stay there. Move one to a
 different workspace with the CLI:
 
 ```sh
-ai-memory move-project \
+pitstop move-project \
     --from-workspace default --project foo \
     --to-workspace movvia --confirm
 ```
@@ -1228,12 +1228,12 @@ ai-memory move-project \
 ## Install-wide default (no marker)
 
 `project_strategy = "repo-root"` normally lives in a marker, which means
-dropping a `.ai-memory.toml` in (or above) every repo. To get the same
+dropping a `.pitstop.toml` in (or above) every repo. To get the same
 repo-root resolution for a whole install **without** a per-repo marker, bake
 it into the generated hooks at install time:
 
 ```sh
-ai-memory install-hooks --apply --agent claude-code --project-strategy repo-root
+pitstop install-hooks --apply --agent claude-code --project-strategy repo-root
 ```
 
 Every session for that install then resolves its project from the main git
@@ -1242,11 +1242,11 @@ longer forks the rest of the session into a phantom project named `sub`.
 
 This is **install-time config**, written into the agent's hook command (and
 the generated OpenCode / OMP / Pi / OpenClaw plugins), with the same status as the
-`AI_MEMORY_AUTH_TOKEN` / `AI_MEMORY_HOOK_URL` it sits beside, *not* a user-set
+`PITSTOP_AUTH_TOKEN` / `PITSTOP_HOOK_URL` it sits beside, *not* a user-set
 runtime override (which was deliberately rejected in #16). The flag accepts
 `basename` (the new-install default, which bakes nothing) or `repo-root`. A later
 `install-hooks --apply` without the flag preserves the value already baked into
-ai-memory's hooks; pass `--project-strategy basename` explicitly to remove it.
+pitstop's hooks; pass `--project-strategy basename` explicitly to remove it.
 
 Precedence is unchanged: a marker's explicit `project_strategy` or `project`
 still wins over the install default.
@@ -1278,7 +1278,7 @@ mid_session = "follow-cwd"   # default
 
 Two guarantees hold in **both** modes:
 
-- **A marker still wins.** A `.ai-memory.toml` naming a project is a
+- **A marker still wins.** A `.pitstop.toml` naming a project is a
   deliberate rescope, not drift, so it is never overruled. The hook tells the
   server which kind of override it sent (`project_src=marker` vs
   `project_src=repo-root`), which is what lets `sticky` overrule a derived
@@ -1295,7 +1295,7 @@ plain non-git folder still names the project after that folder.
 Some harnesses report a cwd other than where a tool ran: a subagent keeps its
 parent session's cwd while using a file tool in another checkout, and Hermes
 Agent always reports its own process directory (usually `~`) while each tool
-call names its repository through `workdir` or `path`. Native `ai-memory hook`
+call names its repository through `workdir` or `path`. Native `pitstop hook`
 commands compensate before applying `follow-cwd` or `sticky`: a tool call's
 absolute location (a fixture-backed file tool's target paths, a search/list
 tool's explicit `path`, or a shell command's structured `workdir`) routes the
@@ -1317,7 +1317,7 @@ Before that lookup, a Hermes event takes `TERMINAL_CWD` (the session's
 `terminal.cwd`) in place of the process directory. A multiplexing Hermes
 gateway exports only its default profile's `terminal.cwd`, so a gateway event
 of a named profile routes instead by a marker in that profile's own Hermes
-home, `~/.hermes/profiles/<name>/.ai-memory.toml` (under the gateway's
+home, `~/.hermes/profiles/<name>/.pitstop.toml` (under the gateway's
 `HERMES_HOME` when set). It is a normal local marker: `workspace`, `project`,
 `[capture]` and `server` all apply. Without it the event keeps the gateway's
 directory. See [install.md](install.md#hermes-agent-nous-research).
@@ -1344,7 +1344,7 @@ Both entry points, as of v1.20:
 Before v1.20 only the hooks read it. A checkout declaring
 `workspace = "acme"` therefore had its captures land in `acme` while every
 CLI command resolved into `default`: the same repository split across two
-scopes, with `ai-memory run`'s managed workstream on the wrong side of the
+scopes, with `pitstop run`'s managed workstream on the wrong side of the
 split.
 
 Each field is resolved independently:
@@ -1362,18 +1362,18 @@ the resolved scope, which half (or halves) the marker decided, and the
 marker that decided it:
 
 ```console
-$ ai-memory search "scope resolver"
-ai-memory: scope acme/api (workspace + project from /Users/dev/projects/acme/.ai-memory.toml)
+$ pitstop search "scope resolver"
+pitstop: scope acme/api (workspace + project from /Users/dev/projects/acme/.pitstop.toml)
 ```
 
-`AI_MEMORY_IGNORE_MARKER=1` skips rung 2 for one invocation, restoring the
+`PITSTOP_IGNORE_MARKER=1` skips rung 2 for one invocation, restoring the
 pre-v1.20 resolution without editing or leaving the marker's tree. It
 applies to **client commands only**. The lifecycle hooks still forward the
 marker's fields on every event, so an invocation run with it set resolves
 into a different scope than the session captures around it. Use it for
 one-off reads, not as a way to relocate a repository's memory.
 
-`ai-memory serve` is deliberately excluded: the server has no caller cwd to
+`pitstop serve` is deliberately excluded: the server has no caller cwd to
 walk up from, and its `--workspace` / `--project` are the baked fallback for
 hook events that arrive without a usable one.
 
@@ -1387,9 +1387,9 @@ hook events that arrive without a usable one.
   share a project when `project_strategy = "repo-root"` is explicitly set
   (per marker, or baked install-wide; see above).
 - No URL or token in the marker. `server = "<name>"` selects a server
-  profile registered locally with `ai-memory server add`; it cannot introduce a
+  profile registered locally with `pitstop server add`; it cannot introduce a
   new destination or carry a credential. Otherwise use the existing env vars
-  (`AI_MEMORY_AUTH_TOKEN`, `AI_MEMORY_HOOK_URL`). (A repo-root
+  (`PITSTOP_AUTH_TOKEN`, `PITSTOP_HOOK_URL`). (A repo-root
   *default* can still be baked into an install without a marker via
   `install-hooks --project-strategy repo-root`, but that is install-time
   config, not a runtime override the user sets in their shell.)
@@ -1402,11 +1402,11 @@ hook events that arrive without a usable one.
 
 **My marker isn't being picked up.** Walk through:
 
-1. File is named exactly `.ai-memory.toml` (note the leading dot).
+1. File is named exactly `.pitstop.toml` (note the leading dot).
 2. File is in an **ancestor** of the cwd, not a sibling or a
    descendant.
 3. There isn't a closer marker overriding it. Run
-   `find ~/projects -maxdepth 5 -name '.ai-memory.toml'` to see all
+   `find ~/projects -maxdepth 5 -name '.pitstop.toml'` to see all
    markers in your tree.
 4. The workspace / project values match the regex above (lowercase
    alphanumerics, dots, dashes, underscores).
@@ -1418,7 +1418,7 @@ hand:
 
 ```sh
 printf '{"cwd":"%s"}' "$PWD" \
-  | sh ~/.local/share/ai-memory/hooks/claude-code/post-tool-use.sh
+  | sh ~/.local/share/pitstop/hooks/claude-code/post-tool-use.sh
 ```
 
 If the marker is being read, the curl line (visible with `set -x`

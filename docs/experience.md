@@ -43,11 +43,11 @@ release binary before running the eval harness, the pass might stage:
 ## Proposed: procedures/eval-run.md
 
 Before benchmarking, rebuild the release server first — the harness
-spawns `target/release/ai-memory`, and a stale binary silently
+spawns `target/release/pitstop`, and a stale binary silently
 benchmarks old code.
 
-    cargo build --release -p ai-memory-cli
-    cargo run --release -p ai-memory-eval -- retrieval
+    cargo build --release -p pitstop-cli
+    cargo run --release -p pitstop-eval -- retrieval
 
 Evidence: sessions 2026-08-28 ("rebuilt release, numbers changed"),
 2026-08-30 ("forgot the rebuild again — rerun").

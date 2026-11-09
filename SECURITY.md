@@ -16,7 +16,7 @@ maintainer will follow up; do not put vulnerability details in that issue.
 
 ## Threat model
 
-ai-memory is a **single-tenant workstation/homelab service**. It supports
+pitstop is a **single-tenant workstation/homelab service**. It supports
 multiple attributed users. Projects are `open` by default, so every
 authenticated user can read the same project memory; a root operator can
 mark a project `restricted` so only root, its creator, and granted database
@@ -43,19 +43,19 @@ what the project is and is not designed to defend against.
   an OIDC event stores no token and resolves it at delivery. Files are `0600`
   in a `0700` directory. A drain at session boundaries delivers and deletes
   them; an event that cannot be delivered is dropped after 7 days, and the
-  spool is capped at 10,000 files. `ai-memory backup` does not include the
+  spool is capped at 10,000 files. `pitstop backup` does not include the
   spool, but a filesystem-level copy of the data directory does.
 
-  An `ai-memory backup` archive includes `<data_dir>/config.toml` verbatim,
+  An `pitstop backup` archive includes `<data_dir>/config.toml` verbatim,
   which may hold the API-key pepper and other inline credentials; protect
   the archive as a secret (see
   [`docs/lifecycle-ops.md`](docs/lifecycle-ops.md#backup)). `restore` keeps
   an existing live config unless `--with-config` is passed.
 
 - **Network exposure when binding to non-loopback addresses.** If you run
-  `ai-memory serve --bind 0.0.0.0:…` you are exposing the MCP and admin
+  `pitstop serve --bind 0.0.0.0:…` you are exposing the MCP and admin
   routes to your local network. Protect this with:
-  - `AI_MEMORY_AUTH_TOKEN` / `ai-memory generate-auth-token` (a bearer
+  - `PITSTOP_AUTH_TOKEN` / `pitstop generate-auth-token` (a bearer
     token checked on every authenticated surface). `/healthz`, `/auth/login`,
     `/auth/recovery`, `/favicon.ico`, and the custom `/web` static assets are
     public by design; the builtin wiki browser and `/api/v1` stay behind
@@ -71,20 +71,20 @@ what the project is and is not designed to defend against.
   address says nothing about reachability there. Reachability is decided by the
   host-side publish spec, which the process cannot see. In a container the
   thing to check is your own `-p`: `-p 127.0.0.1:49374:49374` is loopback-only
-  and safe without a token; anything broader needs `AI_MEMORY_AUTH_TOKEN`.
+  and safe without a token; anything broader needs `PITSTOP_AUTH_TOKEN`.
   The `Host` allowlist is not a substitute: it defends against DNS
   rebinding, where a browser sets the header, and a client that can route to
   the port sets `Host` freely. Authentication does not encrypt
   bearer tokens, so use a TLS reverse proxy for traffic beyond loopback; see
   [`docs/https-via-proxy.md`](docs/https-via-proxy.md).
 
-  For `/web` behind that proxy, set `AI_MEMORY_AUTH__SECURE_COOKIE=true` to
-  make its browser session cookie HTTPS-only. ai-memory does not trust
+  For `/web` behind that proxy, set `PITSTOP_AUTH__SECURE_COOKIE=true` to
+  make its browser session cookie HTTPS-only. pitstop does not trust
   forwarded-protocol headers to decide this. Close or redirect direct HTTP
   access; browsers intentionally withhold Secure cookies over HTTP.
 
 - **Host-header DNS rebinding.** The HTTP server enforces an
-  `AI_MEMORY_ALLOWED_HOSTS` allowlist (defaulting to `localhost`, `127.0.0.1`,
+  `PITSTOP_ALLOWED_HOSTS` allowlist (defaulting to `localhost`, `127.0.0.1`,
   and `::1`). Requests with a `Host` header not in the list are rejected
   with 403.
 
@@ -101,7 +101,7 @@ what the project is and is not designed to defend against.
   which is root only on an exact `root_issuer` + `root_subject` match), and
   database-user `aim_` tokens, which attribute writes but never grant admin
   access; an unknown bearer gets 401. The server itself does not validate
-  OIDC tokens. `ai-memory auth login oidc-device` stores a per-developer
+  OIDC tokens. `pitstop auth login oidc-device` stores a per-developer
   token for an external OIDC-aware gateway or bridge in front of the server,
   which must translate it into one of the rungs above (`docs/sso.md`). The
   first database user (or a configured proxy bearer) makes every `/admin/*`
@@ -122,8 +122,8 @@ what the project is and is not designed to defend against.
 
   On a multi-user server, per-project access modes gate entry on top of that
   boundary: every project is `open` until an operator restricts it
-  (`ai-memory project access --mode restricted`), after which only root, the
-  project's creator, and users holding a grant (`ai-memory user grant`) may
+  (`pitstop project access --mode restricted`), after which only root, the
+  project's creator, and users holding a grant (`pitstop user grant`) may
   reach it, and refusals are explicit 403s rather than empty results. Grants
   apply to database users. Root and single-operator installs are never
   gated, and a user asserted by the trusted-proxy bearer is not subject to
@@ -158,7 +158,7 @@ what the project is and is not designed to defend against.
   - The opt-in is **global** to the install: there is no per-project marker to
     exclude a sensitive repository once the flag is on (assistant text is not
     path-attributable). Turn the server flag off to disable it everywhere.
-  - The excerpt can quote code, secrets, or content from paths ai-memory never
+  - The excerpt can quote code, secrets, or content from paths pitstop never
     sees; the `Sanitizer` is a best-effort credential strip, not a guarantee
     (see the injection note below).
 
@@ -170,9 +170,9 @@ what the project is and is not designed to defend against.
   against current instructions and the checkout.
 
 - **Search reranking is an outbound-data opt-in.** Setting
-  `AI_MEMORY_RERANKER=llm` sends each eligible live query plus bounded page
+  `PITSTOP_RERANKER=llm` sends each eligible live query plus bounded page
   titles and search snippets to the configured LLM provider. Managed writes use
-  ai-memory's sanitizer, but manually edited wiki files can contain unsanitized
+  pitstop's sanitizer, but manually edited wiki files can contain unsanitized
   text; the live query is bounded but is not sanitized because redaction could
   change its meaning. JSON encoding, an explicit untrusted-data prompt, strict
   score validation, a timeout, and a four-call concurrency cap limit control and

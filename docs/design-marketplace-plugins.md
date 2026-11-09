@@ -1,4 +1,4 @@
-# Design proposal: ai-memory as marketplace plugins (#1166)
+# Design proposal: pitstop as marketplace plugins (#1166)
 
 **Status: implemented for 3.0 (Claude Code and Codex plugins), 2026-10-13.
 Cursor, Cowork capture, Antigravity and Gemini remain later work.** The
@@ -6,7 +6,7 @@ sections below keep the research and the reasoning; where the shipped code
 differs from the original proposal, the text says so and
 [Implementation notes](#implementation-notes-30) lists every change. The
 generated files under `plugins/` and the renderer
-(`crates/ai-memory-cli/src/commands/render_plugins.rs`) are authoritative over
+(`crates/pitstop-cli/src/commands/render_plugins.rs`) are authoritative over
 the manifest listings here.
 Builds on RFC #1166, the feedback comments on it, and the
 [`docs/desktop/`](desktop/) notes (especially
@@ -15,11 +15,11 @@ Builds on RFC #1166, the feedback comments on it, and the
 
 ## Summary
 
-Ship ai-memory as a plugin in each coding app's plugin system, starting with
+Ship pitstop as a plugin in each coding app's plugin system, starting with
 Claude Code. The plugin stays thin. It holds manifests, the routing skills,
-an MCP entry that runs `ai-memory mcp-bridge`, and one small POSIX launcher
+an MCP entry that runs `pitstop mcp-bridge`, and one small POSIX launcher
 that hands every lifecycle event to the installed binary's native
-`ai-memory hook` command. The server and the binary are still installed
+`pitstop hook` command. The server and the binary are still installed
 separately. The plugin never captures through the curl script bundle, so
 capture policy (`ignore_paths`, allowlist mode, server profiles) stays
 enforced client-side exactly as it is for `install-hooks` today. When the
@@ -56,7 +56,7 @@ What the local runs showed:
    entry ignored at runtime`), on an unknown manifest key, and on a
    marketplace without `description`. Exit codes are usable in CI.
 2. A sandboxed install works offline: `claude plugin marketplace add <path>`,
-   `claude plugin install ai-memory@ai-memory`, `claude plugin details`.
+   `claude plugin install pitstop@pitstop`, `claude plugin details`.
 3. **Plugin hooks fire in `claude -p` without any login.** With no
    credentials, `claude -p "say ok"` printed `Not logged in` but still ran
    the plugin's `SessionStart`, `UserPromptSubmit` and `SessionEnd` hooks.
@@ -79,14 +79,14 @@ What the local runs showed:
 6. `CLAUDE_PLUGIN_OPTION_<KEY>` is exported to hook processes (shell and exec
    form) once the user sets the option. It is not exported to MCP servers.
 7. The plugin's stdio MCP server receives `CLAUDE_CODE_SESSION_ID`, so the
-   session-aware `ai-memory mcp-bridge` works unchanged. The server is named
-   `plugin:ai-memory:ai-memory` and its tools are
-   `mcp__plugin_ai-memory_ai-memory__<tool>`. Nothing in the codebase matches
-   on the `mcp__ai-memory__` prefix, so the rename is harmless.
+   session-aware `pitstop mcp-bridge` works unchanged. The server is named
+   `plugin:pitstop:pitstop` and its tools are
+   `mcp__plugin_pitstop_pitstop__<tool>`. Nothing in the codebase matches
+   on the `mcp__pitstop__` prefix, so the rename is harmless.
 8. An exec-form hook whose binary is missing fails with a non-blocking
    "Executable not found in $PATH" error on every event.
-9. **The Docker host wrapper runs `ai-memory hook` in a container.**
-   `bin/ai-memory` sends `mcp-bridge`, `install-hooks` and a few other
+9. **The Docker host wrapper runs `pitstop hook` in a container.**
+   `bin/pitstop` sends `mcp-bridge`, `install-hooks` and a few other
    commands to the native host client, but not `hook`. A launcher that found
    the wrapper on `PATH` paid about 280 ms per event (a `docker run`), and
    inside the container `127.0.0.1` is the container. The native client
@@ -95,7 +95,7 @@ What the local runs showed:
 10. Codex 0.162.1 accepted a plugin in the portable layout (root
     `plugin.json`, `mcp.json`, `hooks/hooks.json`) from a local
     `.agents/plugins/marketplace.json`: `codex plugin marketplace add` and
-    `codex plugin add ai-memory@ai-memory` both succeeded in a scratch
+    `codex plugin add pitstop@pitstop` both succeeded in a scratch
     `CODEX_HOME`. **Corrected in Phase 0:** install succeeding was not the
     same as loading. With an Agent Plugins root `plugin.json` (`$schema`
     set), `plugin/read` over `codex app-server` reported the skills and the
@@ -111,24 +111,24 @@ untouched):
 
 11. **Claude option storage.** `claude plugin install` records the plugin in
     `<config dir>/plugins/installed_plugins.json` (`version: 2`,
-    `plugins."ai-memory@ai-memory"[]` with `scope`, `installPath`,
+    `plugins."pitstop@pitstop"[]` with `scope`, `installPath`,
     `version`) and enables it in the user `settings.json` `enabledPlugins`.
     `claude plugin configure --values-stdin` stores option values under
-    `pluginConfigs."ai-memory@ai-memory".options` in the same file, and an
+    `pluginConfigs."pitstop@pitstop".options` in the same file, and an
     empty string clears an option.
 12. **An option whose default is `""` is substituted as an empty argument**
     in the MCP `args` (`mcp-bridge --server-url ""`), while the hook
     environment still has no `CLAUDE_PLUGIN_OPTION_SERVER_URL`. Hooks get
     `CLAUDE_PROJECT_DIR`.
 13. **Codex trust survives an upgrade.** Codex keys plugin hook trust as
-    `ai-memory@ai-memory:hooks/hooks.json:<event>:<group>:<handler>` and
+    `pitstop@pitstop:hooks/hooks.json:<event>:<group>:<handler>` and
     hashes the command *before* `${PLUGIN_ROOT}` expansion: the same plugin
     installed into two `CODEX_HOME`s at different paths reported identical
     `currentHash` values, and a trusted hook stayed `trusted` after a
     version bump and reinstall, both from a local marketplace and through a
     `git-subdir` source with a moved `ref`. The Codex smoke test also
-    reinstalls into a new `cache/ai-memory/ai-memory/<version>` directory,
-    and every hook stays trusted. Editing `scripts/ai-memory-hook` itself
+    reinstalls into a new `cache/pitstop/pitstop/<version>` directory,
+    and every hook stays trusted. Editing `scripts/pitstop-hook` itself
     does not change the hash.
 14. **Codex plugin hooks fire without credentials.** Once trusted, a
     `thread/start` plus `turn/start` over `codex app-server` ran the plugin's
@@ -145,7 +145,7 @@ the runs above.
 
 | App | Hooks in a plugin | MCP in a plugin | Skills | Config and secrets | Updates | Distribution | Review / submission |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Claude Code** (CLI, desktop Code tab) | Yes, `hooks/hooks.json`; merged with user/project hooks; no per-hook approval prompt (install warning and workspace-trust rules only) | Yes, `.mcp.json` or `mcpServers`; stdio/http/sse/ws | Yes, `skills/` (namespaced `/ai-memory:<skill>`) | `userConfig`; `sensitive: true` goes to the OS credential store; `${user_config.KEY}` in MCP config and exec-form hook args; `CLAUDE_PLUGIN_OPTION_<KEY>` in hook env (local: only when set) | `version` pins users; third-party marketplaces have background auto-update **off** by default; `claude plugin update` | Own marketplace (`/plugin marketplace add owner/repo`), directory portal (`<name>@synced`), community marketplace | Directory portal needs a paid plan, README, license, no credentials in files; `claude-plugins-official` takes no portal submissions |
+| **Claude Code** (CLI, desktop Code tab) | Yes, `hooks/hooks.json`; merged with user/project hooks; no per-hook approval prompt (install warning and workspace-trust rules only) | Yes, `.mcp.json` or `mcpServers`; stdio/http/sse/ws | Yes, `skills/` (namespaced `/pitstop:<skill>`) | `userConfig`; `sensitive: true` goes to the OS credential store; `${user_config.KEY}` in MCP config and exec-form hook args; `CLAUDE_PLUGIN_OPTION_<KEY>` in hook env (local: only when set) | `version` pins users; third-party marketplaces have background auto-update **off** by default; `claude plugin update` | Own marketplace (`/plugin marketplace add owner/repo`), directory portal (`<name>@synced`), community marketplace | Directory portal needs a paid plan, README, license, no credentials in files; `claude-plugins-official` takes no portal submissions |
 | **Claude Cowork** | Yes (loads) | Local stdio only "when the Cowork session runs on your computer"; remote listed as a connector | Yes | `${user_config.*}` in MCP "Ignored when a referenced option has no default; Cowork doesn't prompt" | Account-synced | Customize > Plugins, zip upload | Same as above; top-level `bin/` makes the plugin uninstallable |
 | **Claude Chat tab** | Ignored | Remote only | Yes | Remote URL with `${user_config.*}` ignored | Account-synced | Customize > Plugins | Same |
 | **Codex** (CLI + desktop) | Yes, `hooks/hooks.json` or `extensions."com.openai".hooks`; per-hook hash trust: "Installing or enabling a plugin doesn't automatically trust its hooks" | Yes, portable `mcp.json` (`type` required) or legacy `.mcp.json` | Yes | MCP auth types only; no documented per-plugin user settings | `codex plugin marketplace upgrade`; no documented auto-update | `.agents/plugins/marketplace.json` in a repo or `~/.agents/plugins/`; legacy `.claude-plugin/marketplace.json` | Public directory: "Plugins containing lifecycle hooks aren't eligible"; MCP must be public HTTPS |
@@ -154,7 +154,7 @@ the runs above.
 | **Antigravity** | Yes, root `hooks.json`, documented for the CLI only; no SessionEnd or prompt event | Yes, `mcp_config.json` (`serverUrl`, not `url`) | Yes | Not documented | "automatically updated" (2.0) | `agy plugin install <name>@antigravity-plugins-official`, GitHub URL, local dir | Not documented; no plugin-root variable documented |
 | **Copilot CLI** | Yes | Yes | Yes | Not documented | `copilot plugin update` | marketplace repos; also reads `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` as fallbacks | Not documented |
 | **Factory Droid** | Yes, Claude-style `hooks/hooks.json`, `${DROID_PLUGIN_ROOT}` or `${CLAUDE_PLUGIN_ROOT}` | Yes, `mcp.json` (no secrets) | Yes | Not documented | `droid plugin marketplace update` | Reads `.factory-plugin/marketplace.json`, falls back to `.claude-plugin/marketplace.json` | Not documented |
-| **OpenCode** | Code-level plugins (JS/TS events), not a hooks file | From config, not the plugin | — | Config | npm via Bun at startup | npm or local | None. ai-memory already generates this plugin (`install-hooks --agent opencode`) |
+| **OpenCode** | Code-level plugins (JS/TS events), not a hooks file | From config, not the plugin | — | Config | npm via Bun at startup | npm or local | None. pitstop already generates this plugin (`install-hooks --agent opencode`) |
 | **Kimi Code** | No (plugins are tool bundles) | No | — | `config_file`/`inject` | Reinstall | Local, zip, git | None |
 | **Zed** | No | MCP extensions, "We plan to deprecate MCP server extensions in favor of the official MCP registry" | — | — | Registry | Extension registry | Registry PR |
 
@@ -201,29 +201,29 @@ Corrections to the table in RFC #1166:
 
 ### 2. The launcher
 
-One POSIX `sh` script, `scripts/ai-memory-hook`, shared by every plugin and
-called as `ai-memory-hook <agent> <event>`. It:
+One POSIX `sh` script, `scripts/pitstop-hook`, shared by every plugin and
+called as `pitstop-hook <agent> <event>`. It:
 
 1. picks the server URL: the plugin option (`CLAUDE_PLUGIN_OPTION_SERVER_URL`
    on Claude) when set, else an empty value, which the binary reads as "use
    the `server_url` of my config" (section 3). It cannot rely on
    `userConfig` defaults, which hooks do not receive (local finding 5).
    *Shipped differently from the proposal,* which fell back to
-   `AI_MEMORY_HOOK_URL` and then to loopback: that would have sent a user
+   `PITSTOP_HOOK_URL` and then to loopback: that would have sent a user
    whose config names a remote server to `127.0.0.1` unless they also set
    the plugin option;
-2. finds the binary: the `ai_memory_bin` option if set, else `command -v
-   ai-memory`, else the install locations a GUI-launched app may not have on
+2. finds the binary: the `pitstop_bin` option if set, else `command -v
+   pitstop`, else the install locations a GUI-launched app may not have on
    `PATH` (`$HOME/.local/bin`, `$HOME/.cargo/bin`, `/opt/homebrew/bin`,
    `/usr/local/bin`, `/usr/bin`);
 3. if nothing is found: reads and discards stdin, prints
-   `{"systemMessage": "ai-memory: the ai-memory binary was not found, so this
-   session is not captured. Install it and run ai-memory setup: <url>"}` on
+   `{"systemMessage": "pitstop: the pitstop binary was not found, so this
+   session is not captured. Install it and run pitstop setup: <url>"}` on
    `session-start` and `{}` on every other event, and exits 0. This is the
    pattern Anthropic's own `claude-security` plugin uses for a missing
    Python;
 4. otherwise runs `exec "$bin" hook --event <event> --agent <agent>
-   --server-url <url> [--data-dir <dir>]` with `AI_MEMORY_HOOK_ORIGIN=<agent>-plugin`
+   --server-url <url> [--data-dir <dir>]` with `PITSTOP_HOOK_ORIGIN=<agent>-plugin`
    in the environment. The subcommand comes first so the Docker wrapper can
    intercept it.
 
@@ -231,7 +231,7 @@ The prototype took about 2 ms per call on the missing-binary path. The script
 is short enough to read in full, which matters because plugin hooks run with
 the user's full permissions.
 
-Why a script and not exec form straight to `ai-memory`:
+Why a script and not exec form straight to `pitstop`:
 
 - exec form gives a raw "Executable not found" error on every tool call when
   the binary is missing (local finding 8);
@@ -242,7 +242,7 @@ Why a script and not exec form straight to `ai-memory`:
 The script's cost is Windows. Claude Code runs shell-form hooks through Git
 Bash on Windows, so the launcher works there when Git Bash is installed, and
 fails without it (Claude then falls back to PowerShell). Codex has a
-per-hook `commandWindows` override that can call `ai-memory.exe` directly.
+per-hook `commandWindows` override that can call `pitstop.exe` directly.
 See open question 4.
 
 ### 3. Changes to the binary (small, all in existing modules)
@@ -251,18 +251,18 @@ See open question 4.
   identical settings-file hook separately ("A plugin's or skill's copy of the
   same handler stays separate"). A user with `install-hooks` already applied
   who adds the plugin would be captured twice. When
-  `AI_MEMORY_HOOK_ORIGIN=claude-plugin` (read through the injectable lookup,
-  invariant 1) and the Claude settings files already carry ai-memory hooks
-  (`settings_file_carries_ai_memory_hooks` on the user file, honouring
+  `PITSTOP_HOOK_ORIGIN=claude-plugin` (read through the injectable lookup,
+  invariant 1) and the Claude settings files already carry pitstop hooks
+  (`settings_file_carries_pitstop_hooks` on the user file, honouring
   `CLAUDE_CONFIG_DIR`, and the repository's `.claude/settings.local.json`),
   the plugin copy is dropped and prints `{}`. This mirrors
   `is_redundant_cursor_copy` (#721). Settings hooks win because they carry
   flags the plugin does not (`--capture-assistant`, a baked
   `--project-strategy`). An env variable rather than a flag keeps an older
   binary working with a newer plugin; it just skips the de-duplication.
-  *Shipped* as `AI_MEMORY_HOOK_ORIGIN=<agent>-plugin` (`claude-code-plugin`,
+  *Shipped* as `PITSTOP_HOOK_ORIGIN=<agent>-plugin` (`claude-code-plugin`,
   `codex-plugin`), checked per event: the plugin copy is dropped only when a
-  settings file carries an ai-memory hook for *that* event, so an older
+  settings file carries an pitstop hook for *that* event, so an older
   install wiring fewer events still gets the rest from the plugin. The
   checkout is `CLAUDE_PROJECT_DIR` when Claude sets it, else the payload
   `cwd`. Codex plugin events are never de-duplicated: Codex skips an
@@ -280,16 +280,16 @@ See open question 4.
   user's plugin hooks run in a container, over budget and pointed at the
   wrong loopback.
 - **`setup`, `install-hooks`, `install-skills`:** detect an enabled
-  ai-memory Claude plugin (`installed_plugins.json` plus `enabledPlugins` in
+  pitstop Claude plugin (`installed_plugins.json` plus `enabledPlugins` in
   the user settings) and stop writing the parallel Claude settings hooks,
   skills and MCP entry, printing what was skipped. *Shipped:* `setup` and the
-  `ai-memory run` auto-wire skip an agent (Claude Code or Codex) whose plugin
+  `pitstop run` auto-wire skip an agent (Claude Code or Codex) whose plugin
   is enabled. The explicit `install-hooks`, `install-mcp` and
   `install-skills` still write when asked; they are the override, so no
   `--force` flag was added (`install-skills --force` already means something
   else). `setup` has no `--server-url`, and none is needed: the plugin's
   `server_url` option defaults to empty, so hooks and MCP both follow the
-  server in the ai-memory config, and nothing has to be copied into Claude's
+  server in the pitstop config, and nothing has to be copied into Claude's
   plugin options.
 - **`doctor`:** report the plugin (version, enabled, options), version skew
   against the binary, duplicate wiring (plugin plus settings hooks, plugin
@@ -303,32 +303,32 @@ See open question 4.
   wrapper-run `doctor` executes inside the container, where it cannot see
   the host `PATH`.
 - **`upgrade`:** when the plugin is installed, run `claude plugin
-  marketplace update ai-memory` and `claude plugin update
-  ai-memory@ai-memory` after replacing the binary, because background
+  marketplace update pitstop` and `claude plugin update
+  pitstop@pitstop` after replacing the binary, because background
   auto-update is off for third-party marketplaces. This keeps binary and
   plugin in step without asking users to opt into auto-update. *Shipped,*
   also when the binary is already current. For Codex, `upgrade` prints
-  `codex plugin marketplace upgrade ai-memory` and `codex plugin add
-  ai-memory@ai-memory` instead of running them. A package-managed binary
+  `codex plugin marketplace upgrade pitstop` and `codex plugin add
+  pitstop@pitstop` instead of running them. A package-managed binary
   (Homebrew, AUR, RPM) never reaches this path, so those users run the
   plugin update themselves (documented in `docs/install.md`).
-- **`uninstall`:** offer `claude plugin uninstall ai-memory@ai-memory`.
+- **`uninstall`:** offer `claude plugin uninstall pitstop@pitstop`.
 
 None of this touched the MCP tool surface, so that implementation kept the
 then-current count at 23.
 
 ### 4. Configuration surface
 
-Zero required settings. The defaults reproduce a local `ai-memory setup`
+Zero required settings. The defaults reproduce a local `pitstop setup`
 install.
 
 | Knob | Claude plugin | Default | Notes |
 | --- | --- | --- | --- |
-| Server URL | `userConfig.server_url` (string) | empty (shipped; proposed `http://127.0.0.1:49374`) | Read by the launcher from `CLAUDE_PLUGIN_OPTION_SERVER_URL`; MCP gets `${user_config.server_url}`. Empty means the `server_url` of the ai-memory config, for hooks and MCP alike |
-| Binary path | `userConfig.ai_memory_bin` (string) | `ai-memory` | For installs off `PATH` |
+| Server URL | `userConfig.server_url` (string) | empty (shipped; proposed `http://127.0.0.1:49374`) | Read by the launcher from `CLAUDE_PLUGIN_OPTION_SERVER_URL`; MCP gets `${user_config.server_url}`. Empty means the `server_url` of the pitstop config, for hooks and MCP alike |
+| Binary path | `userConfig.pitstop_bin` (string) | `pitstop` | For installs off `PATH` |
 | Data dir | `userConfig.data_dir` (string) | empty | Only for a non-default data dir |
 | Token | **none in the plugin** | — | Hooks read `<data_dir>/auth-token`, the OIDC `auth.json` or a server profile; `mcp-bridge` uses configured auth, then the same stored hook key, then loopback-only discovered root auth. The discovered root key never leaves loopback. Same files `setup`, `install-hooks --auth-token` and `auth login` already write |
-| Project override, capture mode, `ignore_paths`, briefing, server routing | `.ai-memory.toml` marker, persisted capture mode, `servers.toml` profiles | as today | The native hook already enforces all of these. Nothing is duplicated into plugin settings |
+| Project override, capture mode, `ignore_paths`, briefing, server routing | `.pitstop.toml` marker, persisted capture mode, `servers.toml` profiles | as today | The native hook already enforces all of these. Nothing is duplicated into plugin settings |
 
 Keeping the token out of the plugin keeps one credential store for hooks, MCP
 and the CLI. It also avoids a pattern Anthropic's directory scan flags: an
@@ -345,7 +345,7 @@ default, and Cowork never prompts. Every option above has a default.
   hooks run outside Claude's sandbox with full user permissions. The README
   and the marketplace description must say exactly what runs and what is
   sent: lifecycle payloads, sanitized by the server, to the configured
-  ai-memory server only; no telemetry. `disableAllHooks` disables plugin
+  pitstop server only; no telemetry. `disableAllHooks` disables plugin
   hooks too, and `allowManagedHooksOnly` blocks them unless the plugin is
   force-enabled in managed settings. `doctor` reports both.
 - **Codex.** Every plugin hook stays untrusted until approved in `/hooks`,
@@ -392,11 +392,11 @@ our repository would install the Claude plugin and send events tagged
 
 - the launcher recognizes the other harnesses' markers (`DROID_PLUGIN_ROOT`,
   Codex's `PLUGIN_ROOT`, Cursor's `CURSOR_VERSION`). It hands the event to
-  the matching ai-memory agent when one exists, and otherwise prints `{}` and
+  the matching pitstop agent when one exists, and otherwise prints `{}` and
   exits. *Shipped:* `DROID_PLUGIN_ROOT` → `droid`; `PLUGIN_ROOT` without
   `CLAUDE_PLUGIN_ROOT` → `codex`; neither `CLAUDE_PLUGIN_ROOT` nor
   `PLUGIN_ROOT` → `{}`. A Droid-launched event carries
-  `AI_MEMORY_HOOK_ORIGIN=droid-plugin` and gets the same folderless skip and
+  `PITSTOP_HOOK_ORIGIN=droid-plugin` and gets the same folderless skip and
   de-duplication as the Claude Code plugin, against the one file Droid reads
   hooks from (`~/.factory/hooks.json`, else the `hooks` key of
   `~/.factory/settings.json`). Cursor is not remapped: when Cursor runs Claude
@@ -405,7 +405,7 @@ our repository would install the Claude plugin and send events tagged
   one of the Cursor unknowns. *Shipped:* Meta Muse Code sets
   `CLAUDE_PLUGIN_ROOT` for the Claude plugins it loads, so it is told apart
   by `MUSE_PLUGIN_ID` together with `MUSE_SESSION_ID` (both seen in a Muse
-  Code 1.4.7 plugin hook) → `muse`, with `AI_MEMORY_HOOK_ORIGIN=muse-plugin`,
+  Code 1.4.7 plugin hook) → `muse`, with `PITSTOP_HOOK_ORIGIN=muse-plugin`,
   the folderless skip, de-duplication against the `hooks` key of
   `${XDG_CONFIG_HOME:-~/.config}/muse/settings.json`, and the plugin's
   subagent events dropped. Muse Code 1.4.7 refuses to install the published
@@ -432,7 +432,7 @@ plugins/
     .claude-plugin/plugin.json
     hooks/hooks.json
     .mcp.json
-    scripts/ai-memory-hook             generated copy of the shared launcher
+    scripts/pitstop-hook             generated copy of the shared launcher
     skills/<six routing skills>/SKILL.md
     skills/status/SKILL.md
     README.md  LICENSE
@@ -445,7 +445,7 @@ plugins/
 *Shipped layout:* as above without `cursor/`, and Codex's manifest is
 `plugins/codex/.codex-plugin/plugin.json` (Phase 0 finding 10). The plugin
 templates (launcher, READMEs, `status` skill) live in
-`crates/ai-memory-cli/templates/plugin/`.
+`crates/pitstop-cli/templates/plugin/`.
 
 Each harness gets its own directory: event names, the `--agent` value and
 the MCP flags (`--no-session-id` for everyone except Claude) all differ, and
@@ -458,10 +458,10 @@ symlinks break zip uploads and Windows checkouts.
 Every file under `plugins/` is **generated** by Rust code from the sources
 that already feed `install-hooks` and `install-skills`: `CLAUDE_CODE_EVENTS`,
 `CODEX_EVENTS` and `CURSOR_EVENTS` in `render_shared.rs`, and the
-`MANAGED_SKILLS` in `ai-memory-core::routing_skills`. A CLI suite test fails
+`MANAGED_SKILLS` in `pitstop-core::routing_skills`. A CLI suite test fails
 when the committed tree differs from the renderer's output. That is how
 plugin installs and CLI installs avoid drifting, the RFC's stated goal. The
-renderer is a hidden `ai-memory render-plugins --out <dir>` subcommand with
+renderer is a hidden `pitstop render-plugins --out <dir>` subcommand with
 two callers, the drift test and `bin/release`. A golden-file test with an
 environment toggle would also work; the subcommand is easier to run by hand.
 
@@ -481,7 +481,7 @@ environment toggle would also work; the subcommand is easier to run by hand.
   files and a 31 MiB pack, against the directory checklist's limits of
   10,000 files and 50 MiB. Both CLIs offer `--sparse` for marketplace adds.
 
-**Why not a separate `ai-memory-plugins` repository (yet):** it adds a
+**Why not a separate `pitstop-plugins` repository (yet):** it adds a
 release step that needs a write token for another repository, a second place
 to review, and a drift risk. It becomes worth it for formats that need a
 manifest at the repository root: the Gemini gallery (`gemini-extension.json`
@@ -506,12 +506,12 @@ passed `claude plugin validate --strict` in the prototype.
 
 ```json
 {
-  "name": "ai-memory",
+  "name": "pitstop",
   "owner": { "name": "AkitaOnRails", "url": "https://github.com/akitaonrails" },
-  "description": "ai-memory plugins: lifecycle capture and memory tools for coding agents, backed by your own ai-memory server.",
+  "description": "pitstop plugins: lifecycle capture and memory tools for coding agents, backed by your own pitstop server.",
   "plugins": [
     {
-      "name": "ai-memory",
+      "name": "pitstop",
       "description": "Long-term memory across sessions and harnesses.",
       "source": {
         "source": "git-subdir",
@@ -528,10 +528,10 @@ passed `claude plugin validate --strict` in the prototype.
 
 ```json
 {
-  "name": "ai-memory",
-  "displayName": "ai-memory",
+  "name": "pitstop",
+  "displayName": "pitstop",
   "version": "3.0.0",
-  "description": "Long-term memory across sessions and harnesses. Hands each lifecycle event to the installed ai-memory binary, which applies your capture exclusions and sends a sanitized record only to your ai-memory server (default http://127.0.0.1:49374). Adds the ai-memory MCP tools. No telemetry. Requires the ai-memory binary.",
+  "description": "Long-term memory across sessions and harnesses. Hands each lifecycle event to the installed pitstop binary, which applies your capture exclusions and sends a sanitized record only to your pitstop server (default http://127.0.0.1:49374). Adds the pitstop MCP tools. No telemetry. Requires the pitstop binary.",
   "author": { "name": "AkitaOnRails", "url": "https://github.com/akitaonrails" },
   "homepage": "https://github.com/akitaonrails/ai-memory",
   "repository": "https://github.com/akitaonrails/ai-memory",
@@ -540,19 +540,19 @@ passed `claude plugin validate --strict` in the prototype.
   "userConfig": {
     "server_url": {
       "type": "string",
-      "title": "ai-memory server URL",
-      "description": "Base URL of the ai-memory server. Keep the default for a local install.",
+      "title": "pitstop server URL",
+      "description": "Base URL of the pitstop server. Keep the default for a local install.",
       "default": "http://127.0.0.1:49374"
     },
-    "ai_memory_bin": {
+    "pitstop_bin": {
       "type": "string",
-      "title": "ai-memory executable",
-      "description": "Path to the ai-memory binary, only needed when it is not on PATH.",
-      "default": "ai-memory"
+      "title": "pitstop executable",
+      "description": "Path to the pitstop binary, only needed when it is not on PATH.",
+      "default": "pitstop"
     },
     "data_dir": {
       "type": "string",
-      "title": "ai-memory data directory",
+      "title": "pitstop data directory",
       "description": "Only for an install that uses a non-default data directory.",
       "default": ""
     }
@@ -566,17 +566,17 @@ shape):
 
 ```json
 {
-  "description": "ai-memory lifecycle capture through the installed ai-memory binary",
+  "description": "pitstop lifecycle capture through the installed pitstop binary",
   "hooks": {
-    "SessionStart":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code session-start" }] }],
-    "UserPromptSubmit": [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code user-prompt-submit" }] }],
-    "PreToolUse":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code pre-tool-use" }] }],
-    "PostToolUse":      [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code post-tool-use" }] }],
-    "PreCompact":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code pre-compact" }] }],
-    "Stop":             [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code stop" }] }],
-    "SessionEnd":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code session-end" }] }],
-    "SubagentStart":    [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code subagent-start" }] }],
-    "SubagentStop":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/ai-memory-hook\" claude-code subagent-stop" }] }]
+    "SessionStart":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code session-start" }] }],
+    "UserPromptSubmit": [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code user-prompt-submit" }] }],
+    "PreToolUse":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code pre-tool-use" }] }],
+    "PostToolUse":      [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code post-tool-use" }] }],
+    "PreCompact":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code pre-compact" }] }],
+    "Stop":             [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code stop" }] }],
+    "SessionEnd":       [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code session-end" }] }],
+    "SubagentStart":    [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code subagent-start" }] }],
+    "SubagentStop":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/pitstop-hook\" claude-code subagent-stop" }] }]
   }
 }
 ```
@@ -593,8 +593,8 @@ worth measuring later, but it changes how Claude reports output.
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
-      "command": "${user_config.ai_memory_bin}",
+    "pitstop": {
+      "command": "${user_config.pitstop_bin}",
       "args": ["mcp-bridge", "--server-url", "${user_config.server_url}"]
     }
   }
@@ -610,7 +610,7 @@ must be a real executable on Windows.
 
 `plugins/claude-code/skills/` holds the six managed routing skills plus a
 `status` skill with `disable-model-invocation: true`, invoked as
-`/ai-memory:status`. It runs `ai-memory doctor` for the plugin's agent and
+`/pitstop:status`. It runs `pitstop doctor` for the plugin's agent and
 summarizes the result: binary found, server reachable, duplicate wiring, spool
 backlog, and for Codex untrusted hooks. The skill only reports. Fixes
 stay with the user.
@@ -628,11 +628,11 @@ Portable layout, which Codex 0.162.1 accepted locally (finding 10).
 
 ```json
 {
-  "name": "ai-memory",
-  "interface": { "displayName": "ai-memory" },
+  "name": "pitstop",
+  "interface": { "displayName": "pitstop" },
   "plugins": [
     {
-      "name": "ai-memory",
+      "name": "pitstop",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/akitaonrails/ai-memory.git",
@@ -651,9 +651,9 @@ Plugins root `plugin.json` installs but loads no hooks, finding 10):
 
 ```json
 {
-  "name": "ai-memory",
+  "name": "pitstop",
   "version": "3.0.0",
-  "description": "Long-term memory across sessions and harnesses, backed by the installed ai-memory binary and your ai-memory server. No telemetry. Codex runs the hooks only after you trust them in /hooks.",
+  "description": "Long-term memory across sessions and harnesses, backed by the installed pitstop binary and your pitstop server. No telemetry. Codex runs the hooks only after you trust them in /hooks.",
   "author": { "name": "AkitaOnRails", "url": "https://github.com/akitaonrails" },
   "homepage": "https://github.com/akitaonrails/ai-memory",
   "repository": "https://github.com/akitaonrails/ai-memory",
@@ -668,7 +668,7 @@ Plugins root `plugin.json` installs but loads no hooks, finding 10):
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "mcpServers": {
-    "ai-memory": { "type": "stdio", "command": "ai-memory", "args": ["mcp-bridge", "--no-session-id"] }
+    "pitstop": { "type": "stdio", "command": "pitstop", "args": ["mcp-bridge", "--no-session-id"] }
   }
 }
 ```
@@ -679,8 +679,8 @@ Plugins root `plugin.json` installs but loads no hooks, finding 10):
 {
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command",
-      "command": "sh \"${PLUGIN_ROOT}/scripts/ai-memory-hook\" codex session-start",
-      "commandWindows": "ai-memory hook --event session-start --agent codex" }] }]
+      "command": "sh \"${PLUGIN_ROOT}/scripts/pitstop-hook\" codex session-start",
+      "commandWindows": "pitstop hook --event session-start --agent codex" }] }]
   }
 }
 ```
@@ -704,17 +704,17 @@ drops empty arguments to native commands.
 `preToolUse`, `postToolUse`, `postToolUseFailure`, `preCompact`, `stop`):
 
 ```json
-{ "name": "ai-memory", "version": "3.0.0",
-  "description": "Long-term memory across sessions and harnesses, backed by the installed ai-memory binary. No telemetry.",
+{ "name": "pitstop", "version": "3.0.0",
+  "description": "Long-term memory across sessions and harnesses, backed by the installed pitstop binary. No telemetry.",
   "author": { "name": "AkitaOnRails" }, "license": "MIT" }
 ```
 
 ```json
-{ "hooks": { "sessionStart": [ { "command": "sh \"${CURSOR_PLUGIN_ROOT}/scripts/ai-memory-hook\" cursor session-start" } ] } }
+{ "hooks": { "sessionStart": [ { "command": "sh \"${CURSOR_PLUGIN_ROOT}/scripts/pitstop-hook\" cursor session-start" } ] } }
 ```
 
 ```json
-{ "mcpServers": { "ai-memory": { "command": "ai-memory", "args": ["mcp-bridge", "--no-session-id"] } } }
+{ "mcpServers": { "pitstop": { "command": "pitstop", "args": ["mcp-bridge", "--no-session-id"] } } }
 ```
 
 Not verified, and must be settled before Cursor ships:
@@ -732,7 +732,7 @@ The #721 de-duplication has to learn about the Cursor plugin. Today
 ### Later: Antigravity, Gemini CLI, Copilot CLI, Droid
 
 - **Antigravity.** It documents no plugin-root variable, so a hook cannot
-  find a bundled launcher. Its hook would have to call `ai-memory` from
+  find a bundled launcher. Its hook would have to call `pitstop` from
   `PATH`, which brings back the GUI `PATH` problem. Install by GitHub URL
   probably needs a root manifest. The per-turn `invocationNum` issue
   (verification notes) should be fixed first.
@@ -757,9 +757,9 @@ loopback port, so it needs no secret and no outbound request. Item 7
 run on Windows yet (see the unverified list).
 
 Paths: `plugins/**`, the three catalog files, `render_shared.rs`,
-`ai-memory-core/src/routing_skills/**`, `bin/ai-memory`, the workflow itself.
+`pitstop-core/src/routing_skills/**`, `bin/pitstop`, the workflow itself.
 
-1. **Drift and versions.** `cargo nextest run -p ai-memory-cli -E
+1. **Drift and versions.** `cargo nextest run -p pitstop-cli -E
    'test(/plugin/)'`: the committed `plugins/` tree equals the renderer
    output, every manifest version equals `workspace.package.version`, every
    catalog `ref` is `v<that version>`, and the plugin tree has no
@@ -771,27 +771,27 @@ Paths: `plugins/**`, the three catalog files, `render_shared.rs`,
    missing binary (exit 0, `systemMessage` only on session-start, stdin
    drained), option precedence, the Docker wrapper on `PATH`, the
    foreign-harness guard, and a timing bound.
-4. **Sandboxed Claude end-to-end.** Build the binary, start `ai-memory serve`
+4. **Sandboxed Claude end-to-end.** Build the binary, start `pitstop serve`
    on a scratch data dir and a free port, then:
 
    ```bash
    export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude"
    mkdir -p "$CLAUDE_CONFIG_DIR"
-   # Options for a --plugin-dir plugin live under the id "ai-memory@inline".
-   jq -n --arg url "$URL" --arg bin "$PWD/target/debug/ai-memory" --arg dd "$RUNNER_TEMP/data" \
-     '{pluginConfigs: {"ai-memory@inline": {options: {server_url: $url, ai_memory_bin: $bin, data_dir: $dd}}}}' \
+   # Options for a --plugin-dir plugin live under the id "pitstop@inline".
+   jq -n --arg url "$URL" --arg bin "$PWD/target/debug/pitstop" --arg dd "$RUNNER_TEMP/data" \
+     '{pluginConfigs: {"pitstop@inline": {options: {server_url: $url, pitstop_bin: $bin, data_dir: $dd}}}}' \
      > "$CLAUDE_CONFIG_DIR/settings.json"
    cd "$FIXTURE_REPO"
    env -u ANTHROPIC_API_KEY claude -p "hi" --plugin-dir "$GITHUB_WORKSPACE/plugins/claude-code" || true
    ```
 
-   Then assert through `/api/v1` or `ai-memory search` that the server holds
+   Then assert through `/api/v1` or `pitstop search` that the server holds
    `session-start`, `user-prompt-submit` and `session-end` observations for
    agent `claude-code` in the project the fixture's marker names. This works
    without credentials (local finding 3). `--plugin-dir` loads the PR's files
    directly; the catalog itself pins a tag that does not exist yet, so a
    second step only runs `claude plugin marketplace add "$GITHUB_WORKSPACE"`
-   and checks that the catalog loads. Scrub `AI_MEMORY_*` and managed-run
+   and checks that the catalog loads. Scrub `PITSTOP_*` and managed-run
    variables first: in the prototype run they leaked a `managed_run`
    parameter into the spooled URL.
 5. **Front-door parity.** Tool events cannot be driven without a model, so
@@ -802,7 +802,7 @@ Paths: `plugins/**`, the three catalog files, `render_shared.rs`,
    that a plugin copy is dropped when settings hooks exist. These are the
    adversarial tests the security-boundary row cites.
 6. **Codex smoke.** In a scratch `CODEX_HOME`: `codex plugin marketplace add`
-   on the checkout, then `codex plugin add ai-memory@ai-memory`, and assert
+   on the checkout, then `codex plugin add pitstop@pitstop`, and assert
    the cached plugin root contains the expected files. Optionally, drive `codex
    app-server` with `hooks/list` (the method used in the verification notes)
    to assert the hooks are discovered and reported `untrusted`.
@@ -816,12 +816,12 @@ Paths: `plugins/**`, the three catalog files, `render_shared.rs`,
   commit that bumps `Cargo.toml`.
 - `release.yml`'s `validate-version` job also checks those values against
   the tag.
-- The `github-release` job attaches `ai-memory-claude-plugin.zip` (the
+- The `github-release` job attaches `pitstop-claude-plugin.zip` (the
   `plugins/claude-code` tree) and its `.sha256`, for **Customize > Plugins >
   Upload plugin** in the desktop app and Cowork.
 - Nothing else is published. The catalogs on `main` point at the new tag as
   soon as the release commit lands. Existing users get the update through
-  `ai-memory upgrade` (section 3), `claude plugin update`, or auto-update if
+  `pitstop upgrade` (section 3), `claude plugin update`, or auto-update if
   they turned it on.
 - Add "plugin catalogs point at the new tag; `claude plugin validate` passes
   on the tag" to the release checklist next to the Homebrew tap step.
@@ -844,7 +844,7 @@ Mapped to the boundary inventory, all at integration level:
 | Docker wrapper routes `hook` to the native client | Wrapper fix | Lands on `main` separately (not in this change) |
 | Sandboxed Claude install fires hooks into a scratch server | Real wiring, no API key | `tests/e2e/claude_plugin_smoke.py` in `plugins.yml` |
 | Codex install, untrusted by default, trusted hooks fire, trust survives a bump | Real wiring, no API key | `tests/e2e/codex_plugin_smoke.py` in `plugins.yml` |
-| `setup`/`run` skip, `doctor`, `upgrade`, `uninstall` | Integration | `setup.rs` `an_enabled_plugin_takes_over_the_agents_wiring`, `run_autowire.rs` `an_enabled_plugin_leaves_the_harness_unwired`, `doctor.rs` `plugin_report_names_double_wiring_and_skew`, `upgrade.rs` `upgrade_updates_an_installed_claude_code_plugin_only`, `uninstall.rs` `uninstall_removes_each_plugin_through_its_harness`, `codex_hook_trust.rs` `summarizes_the_ai_memory_plugin_hooks_by_plugin_id` |
+| `setup`/`run` skip, `doctor`, `upgrade`, `uninstall` | Integration | `setup.rs` `an_enabled_plugin_takes_over_the_agents_wiring`, `run_autowire.rs` `an_enabled_plugin_leaves_the_harness_unwired`, `doctor.rs` `plugin_report_names_double_wiring_and_skew`, `upgrade.rs` `upgrade_updates_an_installed_claude_code_plugin_only`, `uninstall.rs` `uninstall_removes_each_plugin_through_its_harness`, `codex_hook_trust.rs` `summarizes_the_pitstop_plugin_hooks_by_plugin_id` |
 
 ## Phased plan for 3.0
 
@@ -885,20 +885,20 @@ decision in brief.
    release that changes a hook command needs one re-trust, which the
    changelog will say. `doctor` and the `status` skill flag skipped hooks.
 3. **Cowork. Decided:** the plugin says in one line that capture runs on the
-   user's computer and needs ai-memory installed there, and that the memory
+   user's computer and needs pitstop installed there, and that the memory
    tools still work (manifest description and README). No extra
    session-start message is added.
 4. **Windows. Decided: Git Bash** is fine for Claude plugin hooks, since
    Claude Code requires it already. A PowerShell launcher only if Codex
    needs one; it does not, because Codex's `commandWindows` calls
-   `ai-memory hook` directly.
+   `pitstop hook` directly.
 5. **Which wiring wins. Decided:** settings hooks win at runtime; the
    plugin's launcher path skips the events the settings hooks already
    deliver, and `doctor` reports the double install and suggests keeping
    one. `setup` stops writing settings wiring while the plugin is enabled.
 6. **Token option. Decided: no** stored-token option in the plugin; it reuses
    the credential files the binary already reads.
-7. **Names. Decided: keep `ai-memory@ai-memory`.**
+7. **Names. Decided: keep `pitstop@pitstop`.**
 8. **Folderless sessions. Decided: skip capture** for a session with no
    project folder (through the plugin; settings-file hooks keep today's
    `default/scratch` routing).
@@ -913,7 +913,7 @@ Where the shipped code differs from the proposal above:
   passes it through unchanged; `hook` and `mcp-bridge` read an empty
   `--server-url` as "use the config". `hook --server-url` may now be
   omitted (the Codex `commandWindows` commands rely on it). No
-  `AI_MEMORY_HOOK_URL` fallback and no `setup --server-url` → `claude plugin
+  `PITSTOP_HOOK_URL` fallback and no `setup --server-url` → `claude plugin
   configure` step: one source of truth, `config.toml`.
 - **Codex manifest.** `.codex-plugin/plugin.json` with `"mcpServers":
   "./mcp.json"`, not the Agent Plugins root manifest (finding 10).
@@ -946,26 +946,26 @@ a scratch config dir, never the operator's own.
   Claude does with the shell-form hook.
 - **Claude desktop Code tab (macOS) hook `PATH`.** Install the plugin, start
   a Code-tab session in a repository, and check that events arrive with
-  only `/opt/homebrew/bin/ai-memory` or `~/.local/bin/ai-memory` installed
-  (the launcher's fallbacks). `ai-memory doctor` coverage, or a temporary
+  only `/opt/homebrew/bin/pitstop` or `~/.local/bin/pitstop` installed
+  (the launcher's fallbacks). `pitstop doctor` coverage, or a temporary
   `env > /tmp/x` line in a copy of the launcher, shows the `PATH`.
-- **Cowork.** Upload `ai-memory-claude-plugin.zip`, start a Cowork session,
+- **Cowork.** Upload `pitstop-claude-plugin.zip`, start a Cowork session,
   and check whether the hooks run on the host or in the VM (new files under
   the host's `<data_dir>/hook-spool/`, or the missing-binary
   `systemMessage`), and whether the host loopback answers.
 - **Codex on Windows.** In Codex for Windows, trust the plugin hooks and
-  check that `commandWindows` (`ai-memory hook --event … --agent codex`)
+  check that `commandWindows` (`pitstop hook --event … --agent codex`)
   spools events; `codex app-server` `hooks/list` shows the command Codex
   will run.
 - **Codex from the GitHub marketplace.** After the 3.0.0 tag exists: `codex
   plugin marketplace add akitaonrails/ai-memory`, `codex plugin add
-  ai-memory@ai-memory`, trust, then after 3.0.1 `codex plugin marketplace
-  upgrade ai-memory` + `codex plugin add ai-memory@ai-memory` and confirm
+  pitstop@pitstop`, trust, then after 3.0.1 `codex plugin marketplace
+  upgrade pitstop` + `codex plugin add pitstop@pitstop` and confirm
   `hooks/list` still reports `trusted` (finding 13 was proven with local
   and `file://` `git-subdir` sources).
 - **Claude install from GitHub at the tag.** After the tag: `claude plugin
   marketplace add akitaonrails/ai-memory`, `claude plugin install
-  ai-memory@ai-memory`, then `claude plugin details ai-memory@ai-memory`.
+  pitstop@pitstop`, then `claude plugin details pitstop@pitstop`.
 - **Tool events from a live model turn** (PreToolUse, PostToolUse, Stop,
   subagents) need a logged-in model; the CLI suite covers them one level
   down with recorded payloads.
@@ -1004,21 +1004,21 @@ foreign-harness guard from section 6, per-harness option variables, and the
 
 ```sh
 #!/bin/sh
-# ai-memory plugin hook launcher. Usage: ai-memory-hook <agent> <event>
-# Resolves the installed ai-memory binary and hands the event to the native
-# `ai-memory hook` command, which owns capture policy, spooling and routing.
+# pitstop plugin hook launcher. Usage: pitstop-hook <agent> <event>
+# Resolves the installed pitstop binary and hands the event to the native
+# `pitstop hook` command, which owns capture policy, spooling and routing.
 # Never blocks the agent: a missing binary drains stdin and exits 0.
 agent="$1"
 event="$2"
-url="${CLAUDE_PLUGIN_OPTION_SERVER_URL:-${AI_MEMORY_HOOK_URL:-http://127.0.0.1:49374}}"
-bin="${CLAUDE_PLUGIN_OPTION_AI_MEMORY_BIN:-}"
-if [ -z "$bin" ] || [ "$bin" = "ai-memory" ]; then
+url="${CLAUDE_PLUGIN_OPTION_SERVER_URL:-${PITSTOP_HOOK_URL:-http://127.0.0.1:49374}}"
+bin="${CLAUDE_PLUGIN_OPTION_PITSTOP_BIN:-}"
+if [ -z "$bin" ] || [ "$bin" = "pitstop" ]; then
     bin=""
-    if command -v ai-memory >/dev/null 2>&1; then
-        bin=$(command -v ai-memory)
+    if command -v pitstop >/dev/null 2>&1; then
+        bin=$(command -v pitstop)
     else
-        for candidate in "$HOME/.local/bin/ai-memory" /opt/homebrew/bin/ai-memory \
-            /usr/local/bin/ai-memory /usr/bin/ai-memory; do
+        for candidate in "$HOME/.local/bin/pitstop" /opt/homebrew/bin/pitstop \
+            /usr/local/bin/pitstop /usr/bin/pitstop; do
             if [ -x "$candidate" ]; then bin="$candidate"; break; fi
         done
     fi
@@ -1026,7 +1026,7 @@ fi
 if [ -z "$bin" ] || [ ! -x "$bin" ]; then
     cat >/dev/null
     if [ "$event" = "session-start" ]; then
-        printf '%s\n' '{"systemMessage":"ai-memory: the ai-memory binary was not found, so this session is not captured. Install it and run `ai-memory setup`: https://github.com/akitaonrails/ai-memory#install"}'
+        printf '%s\n' '{"systemMessage":"pitstop: the pitstop binary was not found, so this session is not captured. Install it and run `pitstop setup`: https://github.com/akitaonrails/ai-memory#install"}'
     else
         printf '{}\n'
     fi
@@ -1036,7 +1036,7 @@ set -- --event "$event" --agent "$agent" --server-url "$url"
 if [ -n "${CLAUDE_PLUGIN_OPTION_DATA_DIR:-}" ]; then
     set -- --data-dir "$CLAUDE_PLUGIN_OPTION_DATA_DIR" "$@"
 fi
-AI_MEMORY_HOOK_ORIGIN="$agent-plugin" exec "$bin" hook "$@"
+PITSTOP_HOOK_ORIGIN="$agent-plugin" exec "$bin" hook "$@"
 ```
 
 ## Sources

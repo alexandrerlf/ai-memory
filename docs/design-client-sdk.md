@@ -1,10 +1,10 @@
 # Design: an optional client SDK (#1165)
 
 **Status: phases 1 to 3 implemented for 3.0 (2026-10-13) in
-`companions/ai-memory-ts`. Phase 4 (publishing) is prepared but disabled until
+`companions/pitstop-ts`. Phase 4 (publishing) is prepared but disabled until
 decision D1. Phase 5 (Python) is out of scope.**
 
-This document plans a typed client library for programs that call ai-memory
+This document plans a typed client library for programs that call pitstop
 over HTTP. It records the shape the maintainer accepted (issue #1165, owner
 comments), the evidence from the repository behind each choice, and the
 decisions taken or still pending (§9). It does not approve any new core
@@ -15,7 +15,7 @@ the plan left open, the section says so in an "Implemented" note.
 
 ### Who it is for
 
-People who write programs that use ai-memory without being a coding-agent
+People who write programs that use pitstop without being a coding-agent
 harness:
 
 - builders of their own agents and bots who want durable pages, search and
@@ -28,7 +28,7 @@ harness:
 
 Today these callers copy the `curl` and `jq` recipes from
 [programmatic-memory.md](programmatic-memory.md), or re-implement what
-`companions/ai-memory-wikisync/src/mcp.rs` already does in Rust: build a
+`companions/pitstop-wikisync/src/mcp.rs` already does in Rust: build a
 JSON-RPC envelope, accept both plain JSON and SSE frames, check JSON-RPC
 `error` and `result.isError` separately, decode the tool's JSON from
 `result.content[0].text`, and type the precondition failure. Each caller has
@@ -68,7 +68,7 @@ nothing to that path and must never become a requirement for it.
   change with its own permission tests (owner comment on #1165).
 - No lifecycle capture. Producers that replace native capture use the
   [external lifecycle contract](external-lifecycle.md) and
-  `companions/ai-memory-relay`, which keeps a durable queue the SDK will not
+  `companions/pitstop-relay`, which keeps a durable queue the SDK will not
   duplicate.
 - No session-aware routing. The SDK is a static MCP client: project calls
   always carry explicit scope (§3.2).
@@ -84,23 +84,23 @@ nothing to that path and must never become a requirement for it.
 
 | Package | Path | Phase |
 |---|---|---|
-| TypeScript client | `companions/ai-memory-ts/` | first |
-| Python client | `companions/ai-memory-py/` | later, separate decision |
+| TypeScript client | `companions/pitstop-ts/` | first |
+| Python client | `companions/pitstop-py/` | later, separate decision |
 
-The `-ts` suffix avoids a clash with `companions/ai-memory-client`, which
+The `-ts` suffix avoids a clash with `companions/pitstop-client`, which
 already exists: it is the private Rust crate of capture-privacy helpers shared
-by the relay and importer (`companions/ai-memory-client/README.md`).
+by the relay and importer (`companions/pitstop-client/README.md`).
 
 Each package follows the companion boundary in
 [companion-crates.md](companion-crates.md): its own manifest (`package.json`
 with a committed `package-lock.json`; later `pyproject.toml`), its own tests,
-README and changelog, and it talks to ai-memory only through public HTTP and
+README and changelog, and it talks to pitstop only through public HTTP and
 MCP surfaces. It never opens the wiki directory or SQLite.
 
 Proposed layout of the first package:
 
 ```text
-companions/ai-memory-ts/
+companions/pitstop-ts/
 ├── package.json            # "private": true until publishing is approved
 ├── package-lock.json
 ├── tsconfig.json
@@ -110,7 +110,7 @@ companions/ai-memory-ts/
 ├── docs/                   # concept guide, troubleshooting, compatibility
 ├── src/
 │   ├── index.ts            # public exports only
-│   ├── client.ts           # AiMemoryClient and namespaces
+│   ├── client.ts           # PitstopClient and namespaces
 │   ├── transport.ts        # fetch, JSON-RPC, SSE frames, timeouts
 │   ├── errors.ts           # error taxonomy
 │   ├── scope.ts            # scope validation
@@ -127,7 +127,7 @@ companions/ai-memory-ts/
 Implemented: the shipped layout adds `src/core.ts` (shared tool-call
 plumbing), `src/decode.ts` (result decoders), `src/coverage.ts` (the tool
 classification table the drift test, the static schema check and the README
-generator read), `src/admin.ts` (the `ai-memory-ts/admin` entry point),
+generator read), `src/admin.ts` (the `pitstop-ts/admin` entry point),
 `test/support/` (the real-server harness, the scripted `fetch` and schema
 normalization) and `scripts/` (`schema:update`, `schema:check`,
 `docs:generate`/`docs:check`).
@@ -155,7 +155,7 @@ the `hooks/` tree, and the SDK must stay out of all of them:
 The first slice adds a guard so this stays true: a check in
 `scripts/check-native-packaging.sh` (or a CLI repo-layout test, matching the
 existing one that refuses stray test files) that fails if `release.yml`, the
-Dockerfile, a PKGBUILD or the flake references `companions/ai-memory-ts`.
+Dockerfile, a PKGBUILD or the flake references `companions/pitstop-ts`.
 
 ### 2.3 Installing it
 
@@ -165,7 +165,7 @@ supported path is a local tarball:
 
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
-cd ai-memory/companions/ai-memory-ts
+cd pitstop/companions/pitstop-ts
 npm ci --ignore-scripts
 npm run build
 npm pack                      # writes <package-name>-<version>.tgz
@@ -194,11 +194,11 @@ release targets Node 22 and newer. Deno and Bun work through standard
 other runtimes inject their own `fetch`.
 
 ```ts
-import { AiMemoryClient } from "ai-memory-ts"; // final name: decision D1
+import { PitstopClient } from "pitstop-ts"; // final name: decision D1
 
-const memory = new AiMemoryClient({
+const memory = new PitstopClient({
   serverUrl: "http://127.0.0.1:49374",
-  token: process.env.AI_MEMORY_AUTH_TOKEN,      // optional on loopback
+  token: process.env.PITSTOP_AUTH_TOKEN,      // optional on loopback
   scope: { workspace: "demo", project: "app" }, // default for project calls
   timeoutMs: 30_000,
 });
@@ -260,11 +260,11 @@ caller's value through and documents the clamp.
 Restore and purge are root-only admin routes, not MCP tools
 ([programmatic-memory.md, Lifecycle from code](programmatic-memory.md#lifecycle-from-code)).
 They live in a separate class, imported from a separate entry point
-(`ai-memory-ts/admin`), so an application that only reads and writes pages
+(`pitstop-ts/admin`), so an application that only reads and writes pages
 never imports code that can purge a project:
 
 ```ts
-import { AdminClient } from "ai-memory-ts/admin";
+import { AdminClient } from "pitstop-ts/admin";
 
 const admin = new AdminClient({ serverUrl, token: process.env.ROOT_TOKEN });
 const preview = await admin.purgeSession({ workspace, project, sessionId });
@@ -280,7 +280,7 @@ await admin.purgeSession({ workspace, project, sessionId, dryRun: false, confirm
 - `restorePage({ workspace, project, path, rev })` and
   `checkpoints({ limit })` cover the documented restore flow. The server's
   restore has no dry run (`RestorePageRequest` in
-  `crates/ai-memory-mcp/src/admin.rs` has no such field), so the method writes
+  `crates/pitstop-mcp/src/admin.rs` has no such field), so the method writes
   a new latest version and its documentation says so.
 - `force` on `purgeProject` is a separate flag with its own warning, because
   it purges despite a live managed-workstream lease.
@@ -308,7 +308,7 @@ The SDK is a static MCP client, so it follows the static-client rule in
 - Multi-project queries pass `scopes: Scope[]`, each element validated the same
   way.
 - A later helper may read workspace and project from the nearest
-  `.ai-memory.toml` for scripts that run inside a repository, but only when
+  `.pitstop.toml` for scripts that run inside a repository, but only when
   the marker declares both. That stays out of the first slice (open question
   Q3).
 
@@ -320,7 +320,7 @@ The SDK surfaces those server errors as typed errors and adds no fallback.
 
 MCP tool results carry their payload as JSON text in `result.content[].text`,
 and the server's tools publish no output schema (the responses are built
-ad hoc in `crates/ai-memory-mcp/src/server.rs`; protocol `2024-11-05`, set at
+ad hoc in `crates/pitstop-mcp/src/server.rs`; protocol `2024-11-05`, set at
 `get_info`, predates `outputSchema`). The SDK therefore hand-writes result
 types for each wrapped tool, decodes the JSON, checks the fields it promises,
 and passes unknown extra fields through unchanged so a newer server does not
@@ -357,7 +357,7 @@ are never renamed. A global query puts its cross-project hits in `hits` with
 
 ### 3.4 Error taxonomy
 
-All errors extend `AiMemoryError`, which carries a stable `code` string for
+All errors extend `PitstopError`, which carries a stable `code` string for
 callers who prefer a switch over `instanceof`.
 
 | Class | When | Notable fields |
@@ -379,7 +379,7 @@ callers who prefer a switch over `instanceof`.
 
 The precondition decoding matches wikisync's `precondition_failure` exactly:
 code `-32600` and reason `precondition_failed` together, and nothing else
-(`companions/ai-memory-wikisync/src/mcp.rs`). An admission-webhook rejection
+(`companions/pitstop-wikisync/src/mcp.rs`). An admission-webhook rejection
 arrives as `-32603` ([programmatic-memory.md](programmatic-memory.md)), which
 is also the generic internal-error code, so it stays a plain `RpcError` until
 the server marks it with a `data.reason` of its own (open question Q5).
@@ -420,7 +420,7 @@ header or a request body.
   configurable per client and per call. A caller `signal` combines with the
   deadline through `AbortSignal.any`, and the SDK reports which one fired. The
   generated Pi bridge does the same (`mcpSignal` in
-  `crates/ai-memory-cli/src/commands/install_hooks.rs`).
+  `crates/pitstop-cli/src/commands/install_hooks.rs`).
 - No automatic retries. Reads are safe to retry and callers can do it in one
   line; writes are not, and silent retries would turn an uncertain outcome
   into a duplicate or a lost claim.
@@ -435,7 +435,7 @@ token before the 300-character preview, so a hostile server that echoes the
 
 - The client sends `initialize` with the newest MCP protocol version it
   implements and accepts the server's answer when it is in the SDK's supported
-  list. ai-memory answers `2024-11-05` today (`get_info` in `server.rs`); the
+  list. pitstop answers `2024-11-05` today (`get_info` in `server.rs`); the
   Pi bridge already sends `2025-03-26` and accepts that answer. The SDK uses
   only `initialize`, `tools/list` and `tools/call`, which behave the same across
   those versions.
@@ -446,7 +446,7 @@ token before the 300-character preview, so a hostile server that echoes the
   would let an older server ignore `expectedPageId` as an unknown argument and
   turn a guarded write into an unconditional one, which is why wikisync
   refuses servers without that seam (`ensure_conditional_writes` in
-  `companions/ai-memory-wikisync/src/mcp.rs`).
+  `companions/pitstop-wikisync/src/mcp.rs`).
 - `capabilities()` runs `initialize` (server name, version, protocol version),
   `tools/list` (tool names and input-schema property names) and
   `GET /identity` (`level`, `operator`, `version`), and probes whether `/api/v1`
@@ -471,14 +471,14 @@ crates (`AGENTS.md`, dependency policy).
 
 ## 4. Documentation plan
 
-The audience is a developer who has never seen ai-memory. Every page in this
-section lives in `companions/ai-memory-ts/` and ships in the package.
+The audience is a developer who has never seen pitstop. Every page in this
+section lives in `companions/pitstop-ts/` and ships in the package.
 
 ### 4.1 README quickstart
 
 A five-minute path, tested in CI as an example (§4.4):
 
-1. Install and start a local server: `ai-memory serve --transport http
+1. Install and start a local server: `pitstop serve --transport http
    --enable-api` (link to [install.md](install.md) for the binary).
 2. Install the SDK (§2.3).
 3. Create a client with a `demo/app` scope.
@@ -539,7 +539,7 @@ caught this.
 - `AuthError`: missing or wrong token; the static root token versus `aim_`
   keys; a bearer never authenticates `/auth/*`.
 - `ForbiddenError`: restricted project without a grant; admin route with a
-  user key; `Host` not in `AI_MEMORY_ALLOWED_HOSTS`.
+  user key; `Host` not in `PITSTOP_ALLOWED_HOSTS`.
 - `ScopeError`: the call had no scope, or only half of one.
 - A server error on the first read of a new project: reads never create a
   scope, so write first or check the names.
@@ -591,18 +591,18 @@ responses. No network. Coverage:
 
 ### 5.2 Integration tests against a real server
 
-The harness spawns the `ai-memory` binary built earlier in the same CI job,
+The harness spawns the `pitstop` binary built earlier in the same CI job,
 following `tests/e2e/external_relay_smoke.py`: a temporary data directory, a
 free loopback port, `serve --transport http --enable-api --no-watcher`, a
-synthetic root token in `AI_MEMORY_AUTH_TOKEN`, and a readiness loop with a
-deadline. Setup creates a DB user and an `aim_` key through `ai-memory user
-add-human` and `ai-memory api-key add` ([users.md](users.md)), so tests run at
+synthetic root token in `PITSTOP_AUTH_TOKEN`, and a readiness loop with a
+deadline. Setup creates a DB user and an `aim_` key through `pitstop user
+add-human` and `pitstop api-key add` ([users.md](users.md)), so tests run at
 both root and user level. Each test uses its own workspace and project.
 
 Implemented: each test file starts its own server (`test/support/server.ts`),
 so files run in parallel without sharing state. The server gets a synthetic
 root token and token pepper and an environment built from scratch, so no
-`AI_MEMORY_*` variable from the developer's shell reaches it. Sessions for the
+`PITSTOP_*` variable from the developer's shell reaches it. Sessions for the
 observation and purge tests are seeded through `POST /hook/batch`. Handoff
 ownership is tested between two DB users, because handoffs created with the
 root token have no owner. Extra servers cover `--enable-api` off and a
@@ -679,7 +679,7 @@ Two pieces, matching existing patterns in `.github/workflows/ci.yml`:
    warnings as errors; the generated-docs freshness check; `npm audit
    --audit-level=moderate` against the lockfile.
 2. Integration steps added to the Linux leg of the existing `test` job, after
-   the relay smoke, reusing `target/debug/ai-memory` the way the relay smoke
+   the relay smoke, reusing `target/debug/pitstop` the way the relay smoke
    does (`if: matrix.os == 'ubuntu-latest'`, Node already set up there):
    integration tests, the drift test and every example.
 
@@ -715,7 +715,7 @@ unless they also change the server.
 the SDK exists, the first slice extends that rule:
 
 > MCP tool surface changes also update the TypeScript SDK in
-> `companions/ai-memory-ts` (schema snapshot, wrapper or coverage-table
+> `companions/pitstop-ts` (schema snapshot, wrapper or coverage-table
 > classification, types, tests and docs) in the same change.
 
 The drift test (§5.3) enforces it. The same applies to `/api/v1` changes for
@@ -760,7 +760,7 @@ Status: implemented.
 
 Files:
 
-- `companions/ai-memory-ts/` with the layout in §2.1, `"private": true`.
+- `companions/pitstop-ts/` with the layout in §2.1, `"private": true`.
 - `src/transport.ts`, `errors.ts`, `scope.ts`, `capabilities.ts`, `client.ts`,
   `types.ts`, `index.ts`.
 - Methods: `capabilities`, `identity`, `status`, `pages.write`, `pages.read`,
@@ -796,7 +796,7 @@ Decision: none beyond phase 1, unless the maintainer wants to trim the list.
 Status: implemented (D3 approved).
 
 `checkpoints`, `restorePage`, `purgeSession`, `purgeProject`, behind
-`ai-memory-ts/admin`, with the dry-run defaults and the admin security tests.
+`pitstop-ts/admin`, with the dry-run defaults and the admin security tests.
 Decision D3: whether the SDK should ship admin methods at all, or leave
 lifecycle operations to the CLI and the documented HTTP recipes.
 
@@ -816,7 +816,7 @@ Publishing is a long-term maintenance commitment (owner comment on #1165).
 
 Status: out of scope for 3.0.
 
-`companions/ai-memory-py/` with the same surface, standard library only
+`companions/pitstop-py/` with the same surface, standard library only
 (`urllib.request`, `json`), the same error taxonomy, sharing the schema
 snapshot and the integration harness. Decision D2: build it, and whether to
 publish to PyPI.
@@ -843,12 +843,12 @@ Decisions taken for the 3.0 implementation, each the smallest choice that
 fits the plan:
 
 - D1 (publishing, package name and owner): **pending.** The directory and the
-  placeholder package name are `ai-memory-ts`. The package stays
+  placeholder package name are `pitstop-ts`. The package stays
   `"private": true` and the publish workflow stays dispatch-only and refuses to
   run until the maintainer picks the npm name and the account that owns it and
   answers security reports.
 - D2 (Python): out of scope for 3.0.
-- D3 (admin methods): approved; shipped behind `ai-memory-ts/admin`.
+- D3 (admin methods): approved; shipped behind `pitstop-ts/admin`.
 - D4 (core changes): none made. The SDK uses only existing routes and tools.
 - Q1 (package name): see D1.
 - Q2 (base paths): **supported.** The server already moves every route under
@@ -858,7 +858,7 @@ fits the plan:
   URL as the control. Dot segments in page paths and scope names are refused
   before sending, so a path cannot climb out of the prefix.
 - Q3 (marker file): **scope always comes from the caller.** No helper reads
-  `.ai-memory.toml`. A library that reads files from its working directory
+  `.pitstop.toml`. A library that reads files from its working directory
   surprises callers in servers and bundles, and under the static-client rule
   the caller's code shows which project it writes to.
 - Q4 (non-project writes): **not wrapped.** `pages.write` always sends a

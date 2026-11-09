@@ -51,7 +51,7 @@ string.
 error rather than one being silently ignored. `command` keeps working
 unchanged for project-specific scorers.
 
-The eval policy is owned by the server process. `ai-memory auto-improve` and
+The eval policy is owned by the server process. `pitstop auto-improve` and
 direct HTTP requests cannot replace the configured command, targets, timeout,
 or score threshold. When a CLI talks to a remote server, configure
 `[auto_improve.eval]` in that server's config; older clients that send an
@@ -137,7 +137,7 @@ to pending evidence; reading a report cannot restore independent observations.
 - Keep scorers deterministic, fast, and side-effect-free.
 - Read only stdin and local project files that are safe to inspect.
 - Do not call LLMs, mutate files, run deploys, or depend on network services.
-- Return bounded reasons; ai-memory caps captured eval evidence.
+- Return bounded reasons; pitstop caps captured eval evidence.
 - Prefer simple checks that match the target path: heading structure for
   procedures, forbidden placeholders for `_rules`, or project-specific smoke
   assertions for critical docs.
@@ -173,4 +173,4 @@ sh docs/examples/auto-improve-eval/score_proposal.sh \
   < docs/examples/auto-improve-eval/sample-proposal.json
 ```
 
-Both print compact JSON suitable for ai-memory's eval gate.
+Both print compact JSON suitable for pitstop's eval gate.

@@ -1,0 +1,31 @@
+post_install() {
+    cat <<'EOF'
+pitstop is installed.
+
+Single user: run
+  pitstop setup
+It creates the data dir and its bearer token, installs and starts a user
+service, wires the agents it finds (it shows the plan and asks first), and
+checks the result.
+
+System service:
+  sudo systemd-sysusers /usr/lib/sysusers.d/pitstop.conf
+  sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/pitstop.conf
+  sudo -u pitstop pitstop --data-dir /var/lib/pitstop --config /etc/pitstop/config.toml init
+  sudo systemctl enable --now pitstop.service
+
+Configure LLM/API keys in ~/.config/pitstop/env for the user service, or
+/etc/pitstop/env for the system service. See docs/install.md for details.
+EOF
+}
+
+post_upgrade() {
+    cat <<'EOF'
+pitstop was upgraded.
+
+If you use lifecycle hooks, refresh the staged hook scripts: re-run
+  pitstop setup
+(it shows the plan and asks first), or, for one agent,
+  pitstop install-hooks --agent <name> --apply
+EOF
+}

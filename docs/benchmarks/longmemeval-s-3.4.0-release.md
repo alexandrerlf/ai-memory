@@ -13,25 +13,25 @@ and the eval harness), so the benchmark was re-run on the release commit.
 - hardware: AMD Ryzen 9 7950X3D (32 threads). The host was busy during the
   full runs: an unrelated process held about four cores throughout, and the
   load average ranged from about 25 to 55.
-- data dir: `TMPDIR=/mnt/data/Projects/ai-memory/.work/bench-tmp` (NVMe), for
+- data dir: `TMPDIR=/mnt/data/Projects/pitstop/.work/bench-tmp` (NVMe), for
   every run in this report.
-- commands: the same as 3.3.3, with release builds of `ai-memory` and
-  `ai-memory-eval`. The local run adds `--no-embedding-cache`, so it embeds
+- commands: the same as 3.3.3, with release builds of `pitstop` and
+  `pitstop-eval`. The local run adds `--no-embedding-cache`, so it embeds
   every document cold (#1973):
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local --no-embedding-cache \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
   ```
 
 - run dirs: `evals/runs/2026-11-04T20-37-08-306176572Z-retrieval` (FTS) and

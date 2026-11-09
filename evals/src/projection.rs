@@ -7,8 +7,8 @@
 
 use std::path::PathBuf;
 
-use ai_memory_consolidate::build_batch_request;
-use ai_memory_core::SessionId;
+use pitstop_consolidate::build_batch_request;
+use pitstop_core::SessionId;
 use anyhow::{Context, Result};
 
 use crate::ab::{describe_projection, load_fixtures, synthesise_observations};

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Sandboxed end-to-end test of the ai-memory Claude Code plugin (#1166).
+"""Sandboxed end-to-end test of the pitstop Claude Code plugin (#1166).
 
 Run with:
 
     uv run --no-project python tests/e2e/claude_plugin_smoke.py \
-      --ai-memory-bin /absolute/ai-memory \
+      --pitstop-bin /absolute/pitstop \
       --plugin-dir plugins/claude-code
 
 It needs the `claude` CLI on PATH and no Claude credentials: Claude Code runs
@@ -14,12 +14,12 @@ model and are covered one level down by the CLI suite's launcher tests.
 
 Every process runs in a scratch HOME and CLAUDE_CONFIG_DIR with a minimal,
 synthetic environment: nothing reads or writes the operator's own agent
-configuration or ai-memory install, and the server binds a free loopback
+configuration or pitstop install, and the server binds a free loopback
 port. Scenarios:
 
 1. the plugin alone delivers session-start, user-prompt and session-end for
    agent claude-code into the workspace/project the fixture marker names;
-2. with a settings-file ai-memory hook for UserPromptSubmit also installed,
+2. with a settings-file pitstop hook for UserPromptSubmit also installed,
    each event is captured once: the settings copy is kept and the plugin
    copy dropped, while events the settings file does not wire still arrive
    through the plugin;
@@ -73,7 +73,7 @@ class Sandbox:
         if claude is None:
             raise SmokeFailure("the claude CLI is not on PATH")
         # Only the claude CLI's own directory and the system tools: never a
-        # developer's ~/.local/bin, where a real ai-memory may live.
+        # developer's ~/.local/bin, where a real pitstop may live.
         self.path = os.pathsep.join(
             [str(Path(os.path.realpath(claude)).parent), str(Path(claude).parent), "/usr/bin", "/bin"]
         )
@@ -102,10 +102,10 @@ class Sandbox:
         self.server = subprocess.Popen(
             [str(self.binary), "serve", "--transport", "http", "--bind", f"127.0.0.1:{port}", "--no-watcher"],
             env=self.env(
-                AI_MEMORY_DATA_DIR=str(self.data),
-                AI_MEMORY_EMBEDDING_PROVIDER="none",
-                AI_MEMORY_BACKFILL_ON_START="false",
-                AI_MEMORY_AUTO_IMPROVE__SCHEDULER__ENABLED="false",
+                PITSTOP_DATA_DIR=str(self.data),
+                PITSTOP_EMBEDDING_PROVIDER="none",
+                PITSTOP_BACKFILL_ON_START="false",
+                PITSTOP_AUTO_IMPROVE__SCHEDULER__ENABLED="false",
                 RUST_LOG="off",
             ),
             stdin=subprocess.DEVNULL,
@@ -115,13 +115,13 @@ class Sandbox:
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             if self.server.poll() is not None:
-                raise SmokeFailure("ai-memory serve exited early; see serve.log")
+                raise SmokeFailure("pitstop serve exited early; see serve.log")
             with contextlib.suppress(OSError):
                 with urllib.request.urlopen(f"{self.url}/healthz", timeout=2) as response:
                     if response.status == 200:
                         return
             time.sleep(0.2)
-        raise SmokeFailure("ai-memory serve never answered /healthz")
+        raise SmokeFailure("pitstop serve never answered /healthz")
 
     def stop_server(self) -> None:
         if self.server is not None:
@@ -133,16 +133,16 @@ class Sandbox:
 
     def write_fixture_repo(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.repo)], check=True, env=self.env())
-        (self.repo / ".ai-memory.toml").write_text(
+        (self.repo / ".pitstop.toml").write_text(
             f'workspace = "{WORKSPACE}"\nproject = "{PROJECT}"\n', encoding="utf-8"
         )
 
     def write_settings(self, *, binary: str, settings_hook: bool) -> None:
-        # Options for a --plugin-dir plugin live under the id "ai-memory@inline".
+        # Options for a --plugin-dir plugin live under the id "pitstop@inline".
         settings: dict[str, object] = {
             "pluginConfigs": {
-                "ai-memory@inline": {
-                    "options": {"server_url": self.url, "ai_memory_bin": binary, "data_dir": str(self.data)}
+                "pitstop@inline": {
+                    "options": {"server_url": self.url, "pitstop_bin": binary, "data_dir": str(self.data)}
                 }
             }
         }
@@ -233,7 +233,7 @@ def scenario_settings_hook_wins(box: Sandbox) -> None:
 
 def scenario_missing_binary(box: Sandbox) -> None:
     before = len(box.sessions())
-    box.write_settings(binary=str(box.root / "no-such-ai-memory"), settings_hook=False)
+    box.write_settings(binary=str(box.root / "no-such-pitstop"), settings_hook=False)
     result = box.run_claude("third prompt")
     check(result.returncode is not None, "claude did not exit")
     time.sleep(3)
@@ -261,22 +261,22 @@ def scenario_catalog_loads(box: Sandbox, repo_root: Path) -> None:
         timeout=60,
         check=False,
     )
-    check("ai-memory" in listed.stdout, f"catalog not listed: {listed.stdout}{listed.stderr}")
-    print("ok: the repository catalog loads as marketplace ai-memory")
+    check("pitstop" in listed.stdout, f"catalog not listed: {listed.stdout}{listed.stderr}")
+    print("ok: the repository catalog loads as marketplace pitstop")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--ai-memory-bin", required=True, type=Path)
+    parser.add_argument("--pitstop-bin", required=True, type=Path)
     parser.add_argument("--plugin-dir", required=True, type=Path)
     parser.add_argument("--repo-root", type=Path, help="also check that the catalog at this root loads")
     parser.add_argument("--artifacts-parent", type=Path, help="keep the sandbox under this directory")
     args = parser.parse_args()
 
-    binary = args.ai_memory_bin.resolve()
+    binary = args.pitstop_bin.resolve()
     plugin_dir = args.plugin_dir.resolve()
     parent = args.artifacts_parent.resolve() if args.artifacts_parent else None
-    root = Path(tempfile.mkdtemp(prefix="ai-memory-plugin-e2e-", dir=parent))
+    root = Path(tempfile.mkdtemp(prefix="pitstop-plugin-e2e-", dir=parent))
     box = Sandbox(root, binary, plugin_dir)
     try:
         box.start_server()

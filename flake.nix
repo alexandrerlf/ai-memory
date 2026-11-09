@@ -1,7 +1,7 @@
-# Nix flake for ai-memory.
+# Nix flake for pitstop.
 #
 # Provides:
-#   nix build              # → result/bin/ai-memory  (native release binary)
+#   nix build              # → result/bin/pitstop  (native release binary)
 #   nix run . -- --version # smoke-test without installing
 #   nix develop            # dev shell with Rust 1.95 (pinned)
 #
@@ -13,10 +13,10 @@
 # Tailwind CLI (which a sandboxed Nix build cannot do).
 #
 # `doCheck = false` skips the packaging test suite. Those tests exercise
-# `bin/ai-memory`, a Docker-wrapper shell script that needs `docker` or
+# `bin/pitstop`, a Docker-wrapper shell script that needs `docker` or
 # `podman` on PATH — they are host-environment tests, not build tests,
 # and are not Nix's responsibility. Run them manually with
-# `nix develop -c cargo test -p ai-memory-cli --test packaging` if your
+# `nix develop -c cargo test -p pitstop-cli --test packaging` if your
 # machine has Docker.
 
 {
@@ -75,8 +75,8 @@
             });
             default = { };
           };
-          config.age.secrets.ai-memory-env.path = "/run/agenix/ai-memory-env";
-          config.sops.secrets."ai-memory/env".path = "/run/secrets/ai-memory/env";
+          config.age.secrets.pitstop-env.path = "/run/agenix/pitstop-env";
+          config.sops.secrets."pitstop/env".path = "/run/secrets/pitstop/env";
         };
 
       mkNixos = extra: nixpkgs.lib.nixosSystem {
@@ -92,16 +92,16 @@
       # enableWeb defaults to false, so the enabled-smoke config sets
       # it explicitly to true — this exercises the --enable-web
       # wiring, it isn't asserting what the default is.
-      enabled = mkNixos { services.ai-memory = { enable = true; enableWeb = true; }; };
-      disabled = mkNixos { services.ai-memory.enable = false; };
+      enabled = mkNixos { services.pitstop = { enable = true; enableWeb = true; }; };
+      disabled = mkNixos { services.pitstop.enable = false; };
       apiOnly = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           enableApi = true;
         };
       };
       withSettings = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           settings.allowed_hosts = [
             "localhost"
@@ -112,89 +112,89 @@
         };
       };
       withAge = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           bind = "0.0.0.0";
-          ageSecret = "ai-memory-env";
+          ageSecret = "pitstop-env";
         };
       };
       withSops = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           bind = "0.0.0.0";
-          sopsSecret = "ai-memory/env";
+          sopsSecret = "pitstop/env";
         };
       };
       loopbackEnvFile = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
-          environmentFile = "/run/ai-memory/env";
+          environmentFile = "/run/pitstop/env";
         };
       };
       nonLoopbackNoSecrets = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           bind = "0.0.0.0";
         };
       };
       localhostNoSecrets = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           bind = "localhost";
         };
       };
       withIpv6Loopback = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           bind = "::1";
         };
       };
       bothAgeAndSops = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
-          ageSecret = "ai-memory-env";
-          sopsSecret = "ai-memory/env";
+          ageSecret = "pitstop-env";
+          sopsSecret = "pitstop/env";
         };
       };
       ageAndEnvironmentFile = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
-          ageSecret = "ai-memory-env";
-          environmentFile = "/run/ai-memory/env";
+          ageSecret = "pitstop-env";
+          environmentFile = "/run/pitstop/env";
         };
       };
       secretsInSettings = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           settings.auth.bearer_token = "sekrit";
         };
       };
       headersInSettings = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           settings.llm_headers = [ "Authorization: Bearer sekrit" ];
         };
       };
       bindInSettings = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           settings.bind = "0.0.0.0";
         };
       };
       withCustomDataDir = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
-          dataDir = "/data/custom ai-memory";
+          dataDir = "/data/custom pitstop";
         };
       };
       withFirewall = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           openFirewall = true;
         };
       };
       withLimits = mkNixos {
-        services.ai-memory = {
+        services.pitstop = {
           enable = true;
           memoryMax = "2G";
           tasksMax = 512;
@@ -210,17 +210,17 @@
       headersFailing = failingAssertions headersInSettings;
       bindFailing = failingAssertions bindInSettings;
 
-      enabledSc = enabled.config.systemd.services.ai-memory.serviceConfig;
-      enabledUnit = enabled.config.systemd.services.ai-memory;
+      enabledSc = enabled.config.systemd.services.pitstop.serviceConfig;
+      enabledUnit = enabled.config.systemd.services.pitstop;
       execStart = enabledSc.ExecStart;
       settingsExec =
-        withSettings.config.systemd.services.ai-memory.serviceConfig.ExecStart;
-      ipv6Exec = withIpv6Loopback.config.systemd.services.ai-memory.serviceConfig.ExecStart;
-      apiOnlyExec = apiOnly.config.systemd.services.ai-memory.serviceConfig.ExecStart;
-      ageUnit = withAge.config.systemd.services.ai-memory;
-      customSc = withCustomDataDir.config.systemd.services.ai-memory.serviceConfig;
-      customTmpfiles = withCustomDataDir.config.systemd.tmpfiles.settings."10-ai-memory";
-      limitsSc = withLimits.config.systemd.services.ai-memory.serviceConfig;
+        withSettings.config.systemd.services.pitstop.serviceConfig.ExecStart;
+      ipv6Exec = withIpv6Loopback.config.systemd.services.pitstop.serviceConfig.ExecStart;
+      apiOnlyExec = apiOnly.config.systemd.services.pitstop.serviceConfig.ExecStart;
+      ageUnit = withAge.config.systemd.services.pitstop;
+      customSc = withCustomDataDir.config.systemd.services.pitstop.serviceConfig;
+      customTmpfiles = withCustomDataDir.config.systemd.tmpfiles.settings."10-pitstop";
+      limitsSc = withLimits.config.systemd.services.pitstop.serviceConfig;
       escapedExecArgs = args: lib.concatStringsSep " " (map builtins.toJSON args);
 
       # One NixOS system for the container smoke path. Building its
@@ -235,7 +235,7 @@
             {
               imports = [ "${modulesPath}/virtualisation/docker-image.nix" ];
               system.stateVersion = "25.05";
-              networking.hostName = "ai-memory";
+              networking.hostName = "pitstop";
               # Slim the closure: docs are useless inside the smoke image.
               documentation.enable = false;
               documentation.doc.enable = false;
@@ -245,20 +245,20 @@
               # In-container /healthz probe (docker published ports cannot
               # reach the module's default 127.0.0.1 bind).
               environment.systemPackages = [ pkgs.curl ];
-              services.ai-memory.enable = true;
+              services.pitstop.enable = true;
             }
           )
         ];
       };
 
-      nixosAiMemoryDocker =
-        linuxPkgs.runCommand "nixos-ai-memory-docker"
+      nixosPitstopDocker =
+        linuxPkgs.runCommand "nixos-pitstop-docker"
           {
-            meta.description = "NixOS rootfs tarball with services.ai-memory for systemd-in-container smoke tests";
+            meta.description = "NixOS rootfs tarball with services.pitstop for systemd-in-container smoke tests";
             passthru = {
               toplevel = containerNixos.config.system.build.toplevel;
               tarball = containerNixos.config.system.build.tarball;
-              imageName = "ai-memory-nixos-test";
+              imageName = "pitstop-nixos-test";
             };
           }
           ''
@@ -268,7 +268,7 @@
             ln -s ${containerNixos.config.system.build.tarball}/tarball/*.tar.xz \
               "$out/rootfs.tar.xz"
             ln -s ${containerNixos.config.system.build.toplevel} "$out/toplevel"
-            printf '%s\n' "ai-memory-nixos-test" > "$out/image-name"
+            printf '%s\n' "pitstop-nixos-test" > "$out/image-name"
           '';
 
       nixosChecks = {
@@ -279,10 +279,10 @@
           assert lib.hasInfix
             (escapedExecArgs [ "--bind" "127.0.0.1:49374" ]) execStart;
           assert lib.hasInfix
-            (escapedExecArgs [ "--data-dir" "/var/lib/ai-memory" ]) execStart;
+            (escapedExecArgs [ "--data-dir" "/var/lib/pitstop" ]) execStart;
           assert lib.hasInfix
             (escapedExecArgs [ "serve" "--transport" "http" ]) execStart;
-          assert !(disabled.config.systemd.services ? ai-memory);
+          assert !(disabled.config.systemd.services ? pitstop);
           assert enabledSc.MemoryDenyWriteExecute == true;
           assert enabledSc.RestrictNamespaces == true;
           assert enabledSc.UMask == "0077";
@@ -291,15 +291,15 @@
           assert enabledSc.PrivateTmp == true;
           assert enabledSc.ProtectHome == true;
           assert enabledSc.ProtectSystem == "strict";
-          assert enabledSc.StateDirectory == "ai-memory";
-          assert lib.elem "/var/lib/ai-memory" enabledSc.ReadWritePaths;
+          assert enabledSc.StateDirectory == "pitstop";
+          assert lib.elem "/var/lib/pitstop" enabledSc.ReadWritePaths;
           assert lib.hasInfix (escapedExecArgs [ "--config" ]) settingsExec;
-          assert withAge.config.systemd.services.ai-memory.serviceConfig.EnvironmentFile
-            == "/run/agenix/ai-memory-env";
-          assert withSops.config.systemd.services.ai-memory.serviceConfig.EnvironmentFile
-            == "/run/secrets/ai-memory/env";
-          assert loopbackEnvFile.config.systemd.services.ai-memory.serviceConfig.EnvironmentFile
-            == "-/run/ai-memory/env";
+          assert withAge.config.systemd.services.pitstop.serviceConfig.EnvironmentFile
+            == "/run/agenix/pitstop-env";
+          assert withSops.config.systemd.services.pitstop.serviceConfig.EnvironmentFile
+            == "/run/secrets/pitstop/env";
+          assert loopbackEnvFile.config.systemd.services.pitstop.serviceConfig.EnvironmentFile
+            == "-/run/pitstop/env";
           assert nonLoopbackFailing != [ ];
           assert lib.any (a: lib.hasInfix "non-loopback bind requires" a.message)
             nonLoopbackFailing;
@@ -316,11 +316,11 @@
           assert lib.any (a: lib.hasInfix "settings.bind is not allowed" a.message)
             bindFailing;
           assert (customSc.StateDirectory or null) == null;
-          assert lib.elem "/data/custom ai-memory" customSc.ReadWritePaths;
-          assert customTmpfiles."/data/custom ai-memory".d.mode == "0750";
-          assert customTmpfiles."/data/custom ai-memory".d.user == "ai-memory";
+          assert lib.elem "/data/custom pitstop" customSc.ReadWritePaths;
+          assert customTmpfiles."/data/custom pitstop".d.mode == "0750";
+          assert customTmpfiles."/data/custom pitstop".d.user == "pitstop";
           assert lib.hasInfix
-            (escapedExecArgs [ "--data-dir" "/data/custom ai-memory" ])
+            (escapedExecArgs [ "--data-dir" "/data/custom pitstop" ])
             customSc.ExecStart;
           assert lib.elem "network.target" enabledUnit.after;
           assert !(lib.elem "network-online.target" (enabledUnit.wants or [ ]));
@@ -329,7 +329,7 @@
           assert lib.elem 49374 withFirewall.config.networking.firewall.allowedTCPPorts;
           assert limitsSc.MemoryMax == "2G";
           assert limitsSc.TasksMax == 512;
-          linuxPkgs.runCommand "ai-memory-nixos-module-eval" { } "touch $out";
+          linuxPkgs.runCommand "pitstop-nixos-module-eval" { } "touch $out";
 
       };
     in
@@ -359,7 +359,7 @@
         packages =
           {
             default = rustPlatform.buildRustPackage {
-              pname = "ai-memory";
+              pname = "pitstop";
               version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
 
               src = ./.;
@@ -374,20 +374,20 @@
               # (SQLite bundled, libgit2 vendored, rustls with webpki-roots).
               #
               # The binary is deliberately NOT wrapped (wrapProgram renames it
-              # to `.ai-memory-wrapped`, which hides a running server from the
-              # live-process guard that matches the process name `ai-memory`).
+              # to `.pitstop-wrapped`, which hides a running server from the
+              # live-process guard that matches the process name `pitstop`).
               # Commands that shell out to `git` find it on PATH; the NixOS
               # module adds git to the service's PATH.
 
               # Skip the Tailwind CLI download in the sandbox. The build script
               # falls back to the vendored static/tailwind.css committed to the
-              # repo (see crates/ai-memory-web/build.rs).
+              # repo (see crates/pitstop-web/build.rs).
               TAILWIND_SKIP = "1";
 
               buildType = "release";
 
               # The packaging test suite (tests/packaging.rs) exercises the
-              # Docker-wrapper shell script `bin/ai-memory` and needs
+              # Docker-wrapper shell script `bin/pitstop` and needs
               # docker/podman on PATH — not available in a Nix sandbox. The
               # rest of the workspace test suite (unit tests + integration)
               # does not need them and can be run via `nix develop -c cargo
@@ -396,39 +396,39 @@
 
               # Install the bundled hook scripts alongside the binary,
               # mirroring what the AUR PKGBUILD does. Native binary users
-              # (`ai-memory serve`, `install-hooks`) look up hooks under
+              # (`pitstop serve`, `install-hooks`) look up hooks under
               # the binary's share directory at runtime.
               #
-              # `bin/ai-memory` (the Docker-wrapper shell script) is NOT
+              # `bin/pitstop` (the Docker-wrapper shell script) is NOT
               # installed — Nix users build the native binary directly and
               # have no need for a Docker wrapper.
               postInstall = ''
-                mkdir -p $out/share/ai-memory
-                cp -a hooks $out/share/ai-memory/
+                mkdir -p $out/share/pitstop
+                cp -a hooks $out/share/pitstop/
 
-                # Install the default config template so `ai-memory init`
+                # Install the default config template so `pitstop init`
                 # has a known-good starting point without a network fetch.
-                mkdir -p $out/etc/ai-memory
-                cp crates/ai-memory-cli/templates/config.default.toml \
-                   $out/etc/ai-memory/config.default.toml
+                mkdir -p $out/etc/pitstop
+                cp crates/pitstop-cli/templates/config.default.toml \
+                   $out/etc/pitstop/config.default.toml
               '';
 
               meta = {
                 description = "Long-term memory for AI coding agents";
                 homepage = "https://aimemory.sh";
                 license = pkgs.lib.licenses.mit;
-                mainProgram = "ai-memory";
+                mainProgram = "pitstop";
               };
             };
           }
           // lib.optionalAttrs (system == "x86_64-linux") {
             # Rootfs tarball derived from the same NixOS system as
             # passthru.toplevel — single closure for the container smoke.
-            nixos-ai-memory-docker = nixosAiMemoryDocker;
+            nixos-pitstop-docker = nixosPitstopDocker;
           };
 
         devShells.default = pkgs.mkShell {
-          name = "ai-memory-dev";
+          name = "pitstop-dev";
 
           buildInputs = [
             rust
@@ -441,18 +441,18 @@
 
           shellHook = ''
             echo ""
-            echo "ai-memory dev shell — Rust $(rustc --version)"
+            echo "pitstop dev shell — Rust $(rustc --version)"
             echo ""
             echo "  cargo build --workspace          # build"
             echo "  cargo test --workspace           # unit + integration tests"
-            echo "  cargo test -p ai-memory-cli --test packaging  # needs docker"
+            echo "  cargo test -p pitstop-cli --test packaging  # needs docker"
             echo ""
           '';
         };
       }
     ))
     // {
-      # Additive: a NixOS host can run `services.ai-memory.enable = true` to
+      # Additive: a NixOS host can run `services.pitstop.enable = true` to
       # get this binary as a hardened systemd service (see
       # nix/nixos-module.nix). Merged at the top level, not inside
       # eachSystem, because NixOS modules are not system-scoped.
@@ -460,7 +460,7 @@
         { pkgs, lib, ... }:
         {
           imports = [ ./nix/nixos-module.nix ];
-          config.services.ai-memory.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          config.services.pitstop.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
         };
 
       checks.x86_64-linux = nixosChecks;

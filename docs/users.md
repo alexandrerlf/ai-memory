@@ -3,7 +3,7 @@
 > **Status:** Introduced in v0.8; human password login, web sessions, and
 > native `aim_` API credentials are the current shipped contract.
 
-ai-memory is **single-tenant wiki data** with **optional multi-user
+pitstop is **single-tenant wiki data** with **optional multi-user
 attribution**. Every authenticated request sees the same wiki pages;
 there is no per-page RBAC or group permission model. Operational handoffs and
 open-session recovery are owner-scoped so one operator cannot accidentally
@@ -25,14 +25,14 @@ Authenticated clients sharing one server must emit a distinct agent-run id for
 each run and forward that same id on their MCP requests when using session-aware
 auto-scope. Legacy sessions whose stored owner is `NULL` remain shared.
 
-If you run ai-memory alone, you can skip this page; your install
+If you run pitstop alone, you can skip this page; your install
 keeps working unchanged.
 
 ## When to enable it
 
 You probably want multi-user mode when:
 
-- More than one human shares a single ai-memory server (a household,
+- More than one human shares a single pitstop server (a household,
   a small team's homelab).
 - You want the audit log to record *who* made each write (e.g. to
   trace `Codex` writes vs `Claude Code` writes vs hand-rolled CLI
@@ -44,7 +44,7 @@ You probably **don't** need it when:
 
 - You're the sole human user of your install. Single-user mode (no user rows)
   remains compatible whether or not `init` has generated `[auth].token_pepper`.
-- You need permissions / access control. v1 of ai-memory does
+- You need permissions / access control. v1 of pitstop does
   not implement RBAC by design (see
   [`design-decisions.md`](design-decisions.md) §13). Attribution
   records *who* did a write; it does not gate *whether* they
@@ -56,8 +56,8 @@ Every HTTP request is resolved to one of four authentication tiers:
 
 | Rung | Trigger | What the request gets |
 |---|---|---|
-| **0 — Anonymous** | No root bearer configured (`AI_MEMORY_AUTH_TOKEN`, `[auth].bearer_token` or `[auth].bearer_token_file`). | Allowed, no identity. Same as pre-multi-user defaults. A fresh `ai-memory init` skips this rung by minting a root bearer; an older install stays here until `ai-memory auth enable`. |
-| **1 — Root** | Bearer matches the root bearer (`AI_MEMORY_AUTH_TOKEN`, `[auth].bearer_token`, or the token in `[auth].bearer_token_file`). | Allowed as **root**. When `[auth].root_username` is set, writes attribute to that name; otherwise attribution stays anonymous. |
+| **0 — Anonymous** | No root bearer configured (`PITSTOP_AUTH_TOKEN`, `[auth].bearer_token` or `[auth].bearer_token_file`). | Allowed, no identity. Same as pre-multi-user defaults. A fresh `pitstop init` skips this rung by minting a root bearer; an older install stays here until `pitstop auth enable`. |
+| **1 — Root** | Bearer matches the root bearer (`PITSTOP_AUTH_TOKEN`, `[auth].bearer_token`, or the token in `[auth].bearer_token_file`). | Allowed as **root**. When `[auth].root_username` is set, writes attribute to that name; otherwise attribution stays anonymous. |
 | **1b — Proxy-asserted user** | Bearer matches the distinct `[auth].actor_proxy_bearer_token`. | Identity is taken from trusted `X-Memory-Actor-*` headers. The request is a **user** unless its OIDC issuer/subject pair exactly matches the configured root pair. Missing or malformed identity is rejected. |
 | **2 — DB user** | Bearer doesn't match root, matches an active `api_credentials.token_hash` (SHA-256 of the secret + `[auth].token_pepper`). Native keys use the `aim_` prefix. | Allowed as **that user** for normal read/write APIs. Native keys always resolve as `AuthLevel::User`, even when the owning identity is `role=root`. All `/admin/*` endpoints are root-only in multi-user mode. The audit log records the username/email/name. |
 | **3 — 401** | Bearer present but matches nothing. | Rejected. This closes the bypass: unknown bearers can't slip through as anonymous. |
@@ -78,7 +78,7 @@ API-key management in the browser.
 ## Human login (password + web session)
 
 The console signs in with username and password. The engine issues an
-`HttpOnly` `ai_memory_session` cookie (`ams_` secret, hash only in SQLite)
+`HttpOnly` `pitstop_session` cookie (`ams_` secret, hash only in SQLite)
 plus a separate CSRF cookie that the SPA must send on cookie-authenticated
 `POST`/`PUT`/`PATCH`/`DELETE`. Machine Bearers skip CSRF.
 
@@ -93,9 +93,9 @@ plus a separate CSRF cookie that the SPA must send on cookie-authenticated
 Passwords are Argon2id PHC strings, 12–1024 UTF-8 bytes, hashed off the writer
 actor. The last enabled root with a password cannot be disabled or demoted.
 
-Greenfield bootstrap consumes `AI_MEMORY_AUTH__INITIAL_ROOT_PASSWORD` once
+Greenfield bootstrap consumes `PITSTOP_AUTH__INITIAL_ROOT_PASSWORD` once
 (`human_auth_state.bootstrap_completed`). Later restarts ignore it, so unset the
-env var. Lost root uses `AI_MEMORY_AUTH__RECOVERY_TOKEN` (at least 32
+env var. Lost root uses `PITSTOP_AUTH__RECOVERY_TOKEN` (at least 32
 characters), compared constant-time and never stored in SQLite. Public
 recovery failures (wrong token, recovery unset, or password policy)
 share one 401 `{"error":"invalid credentials"}` body. `Config::load()`
@@ -109,7 +109,7 @@ behind auth. With human auth active and no session, a browser GET to the
 builtin wiki redirects to `{web_slug}/login` (HTML form → `POST /auth/login`);
 `must_change_password` redirects to `{web_slug}/change-password`. JSON clients
 and `/api/v1` still receive JSON 401/403. Once human auth becomes active, the
-engine expires the deprecated `ai_memory_auth` compatibility cookie.
+engine expires the deprecated `pitstop_auth` compatibility cookie.
 
 ## Trusted proxy identity
 
@@ -137,11 +137,11 @@ root_subject = "<root-subject>"
   root bearer is absent.
 - Only set it when the server is reachable *only* through that proxy.
 - `secure_cookie` is independent of proxy identity. Human auth requires it on
-  every non-loopback listener by default; ai-memory treats it as the explicit
+  every non-loopback listener by default; pitstop treats it as the explicit
   signal that a trusted reverse proxy terminates HTTPS for `/web` and never
   trusts forwarded protocol headers to infer that fact. Direct HTTP browsers
   will not send a Secure cookie. `serve --allow-insecure-human-auth` (or
-  `AI_MEMORY_ALLOW_INSECURE_HUMAN_AUTH=true`) is the explicit, dangerous
+  `PITSTOP_ALLOW_INSECURE_HUMAN_AUTH=true`) is the explicit, dangerous
   exception for a private LAN whose operator accepts that passwords,
   credentials, cookies, and memory data travel unencrypted.
 - **The proxy MUST strip client-supplied `X-Memory-Actor-*` headers before
@@ -214,7 +214,7 @@ to, and consumed by, the next session to start, whoever it belongs to.
 - `memory_handoff_list` / `memory_handoff_accept` / `memory_handoff_cancel` take `any_owner: true` to
   act on somebody else's baton; that opt-out requires admin authority in
   multi-user mode.
-- `ai-memory finalize-session --all-owners` does the same for sessions, and
+- `pitstop finalize-session --all-owners` does the same for sessions, and
   `GET /admin/open-sessions?all_owners=true` is the underlying switch.
   `--session-id <uuid>` / `session_id=<uuid>` narrows the same owner-scoped
   lookup to one exact open session; it cannot be combined with `--all` /
@@ -277,7 +277,7 @@ per-call scope. Like every `/admin/*` route, it is root-only when the deployment
 distinguishes operators.
 
 `GET /admin/metrics` exposes the same read/write split as process-lifetime
-totals in Prometheus text format (`ai_memory_mcp_tool_calls_total{kind=...}`),
+totals in Prometheus text format (`pitstop_mcp_tool_calls_total{kind=...}`),
 next to the hook counters and the `/hook` and `memory_query` latency
 histograms. It carries no client name: a client label is caller-supplied text,
 and no metric label is ever drawn from a request. It is root-only under the same
@@ -332,7 +332,7 @@ turned back off or an admin re-homes it.
 
 Before the case-insensitive namespace fix, a mixed-case username such as
 `Alice` used the readable segment `u-Alice`, and a username ending in a period
-kept that period; both now use deterministic `uh-<uuid>` segments. ai-memory
+kept that period; both now use deterministic `uh-<uuid>` segments. pitstop
 cannot safely move the old directory automatically because a case-insensitive
 filesystem may already have combined it with another identity. Administrators
 upgrading a shared deployment with `[slots] per_user = true` must inspect any
@@ -340,7 +340,7 @@ affected `u-…` slot directories and re-home confirmed content into the owning
 operator's new namespace. Preserve the old pages until ownership is
 established; do not infer it from filename casing alone.
 
-One gap is deliberate and documented rather than closed: `ai-memory bootstrap`
+One gap is deliberate and documented rather than closed: `pitstop bootstrap`
 writes pages at paths the model picks from the repository's own README, docs
 and code, with no operator to attribute them to, so a repo carrying injected
 instructions can make it write a `_slots/…` page. It is an admin-only
@@ -399,27 +399,27 @@ where `[auth].token_pepper` is absent.
 
 ## Quick start
 
-> Prerequisite: a fresh `ai-memory init`. Pre-v0.8 installs need
+> Prerequisite: a fresh `pitstop init`. Pre-v0.8 installs need
 > the [migration step](#migrating-an-existing-single-user-install)
 > below before any of these commands work.
 
 ### 1. Set the root identity
 
 Edit your `config.toml` (typically `<data_dir>/config.toml` or
-`/etc/ai-memory/config.toml`) and uncomment the `root_*` lines in
+`/etc/pitstop/config.toml`) and uncomment the `root_*` lines in
 the `[auth]` block:
 
 ```toml
 [auth]
 bearer_token = "<your-existing-token-or-a-fresh-one>"
-token_pepper = "<auto-generated-by-ai-memory-init>"
+token_pepper = "<auto-generated-by-pitstop-init>"
 
 root_username = "boss"            # required for root attribution
 root_email    = "boss@example.com" # optional, surfaced in UIs
 root_name     = "Boss"             # optional, surfaced in UIs
 ```
 
-`token_pepper` was auto-generated by `ai-memory init`; **do not
+`token_pepper` was auto-generated by `pitstop init`; **do not
 change it after issuing native API keys**, because rotating the pepper invalidates
 every `aim_` credential. The pepper makes copied
 `api_credentials.token_hash` rows useless to an offline attacker; human
@@ -432,22 +432,22 @@ the pepper is missing or blank, `serve` refuses startup before applying
 human bootstrap. Current databases also keep an Argon2id verifier and refuse
 a different pepper instead of starting with keys that can only return 401.
 Restore the original pepper from a separately protected configuration backup
-rather than deleting identities or keys: `ai-memory backup` includes only a
+rather than deleting identities or keys: `pitstop backup` includes only a
 `config.toml` inside the data dir, while packaged systemd units load one from
 outside it. A restore of a snapshot created before the verifier existed fails
 closed when keys are present. Load the original pepper and explicitly confirm
-it with `ai-memory restore --accept-legacy-api-key-pepper`; the staged database
+it with `pitstop restore --accept-legacy-api-key-pepper`; the staged database
 is sealed before it replaces live data.
 
 ### 2. Add another human
 
-Each `ai-memory user add-human` creates a person with a temporary password,
+Each `pitstop user add-human` creates a person with a temporary password,
 printed **exactly once**. The new user must change it on next login.
 This does **not** issue an API key.
 
 ```console
-$ AI_MEMORY_AUTH_TOKEN=<root-token> \
-  ai-memory user add-human --username alice --email alice@home --name "Alice Smith"
+$ PITSTOP_AUTH_TOKEN=<root-token> \
+  pitstop user add-human --username alice --email alice@home --name "Alice Smith"
 
 ✓ created user 'alice'
   name:  Alice Smith
@@ -466,7 +466,7 @@ pipe it. Use `--role root` to create a second recoverable root.
 ### 3. List users
 
 ```console
-$ AI_MEMORY_AUTH_TOKEN=<root-token> ai-memory user list
+$ PITSTOP_AUTH_TOKEN=<root-token> pitstop user list
 
 USERNAME  NAME         ROLE  STATUS
 alice     Alice Smith  user  must-change
@@ -476,25 +476,25 @@ dave      -            user  active
 ```
 
 An `active` row without a password is an API-only identity, such as a user the
-removed 1.x `user add` created. Its token is an API key now: `ai-memory api-key
+removed 1.x `user add` created. Its token is an API key now: `pitstop api-key
 list` shows it with the label `legacy-user-token`. Grant human login with
 `user reset-password`; that does not reveal or rotate the API key. The list
 never surfaces passwords, hashes, or API secrets.
 
 ### 4. Disable human login (without losing attribution history)
 
-`ai-memory user disable <username>` stamps `disabled_at` and revokes web
+`pitstop user disable <username>` stamps `disabled_at` and revokes web
 sessions. Historical `author_id` references keep resolving. Native API
 credentials stay valid; revoke those separately with `api-key revoke`.
 
 ```console
-$ ai-memory user disable alice
+$ pitstop user disable alice
 Disable human login for user 'alice'? (y/N) y
 ✓ disabled user 'alice'
 ```
 
 Pass `--yes` to skip the prompt (CI / scripts). Re-enable with
-`ai-memory user enable alice`. The last enabled root with a password
+`pitstop user enable alice`. The last enabled root with a password
 cannot be disabled or demoted.
 
 ### 5. Issue, rotate, or revoke a native API key
@@ -502,7 +502,7 @@ cannot be disabled or demoted.
 Machine clients use `aim_` credentials, not passwords:
 
 ```console
-$ ai-memory api-key add --username alice --label codex-laptop
+$ pitstop api-key add --username alice --label codex-laptop
 ✓ created API key '…' (codex-laptop)
 
 Store this token now — it will NOT be shown again.
@@ -511,8 +511,8 @@ aim_mYi3pq...<secret>
 ```
 
 ```console
-$ ai-memory api-key rotate <id>
-$ ai-memory api-key revoke <id>
+$ pitstop api-key rotate <id>
+$ pitstop api-key revoke <id>
 ```
 
 Rotation 401s the previous plaintext immediately. A revoked secret does
@@ -528,27 +528,27 @@ the data dir, both `0600` (the data dir itself is `0700`):
 
 | file | read by |
 |---|---|
-| `<data_dir>/auth-token` | the native `ai-memory hook` command, and `ai-memory mcp-bridge` when no bearer is configured (ahead of a discovered loopback root token) |
+| `<data_dir>/auth-token` | the native `pitstop hook` command, and `pitstop mcp-bridge` when no bearer is configured (ahead of a discovered loopback root token) |
 | `<data_dir>/auth-header` | the shell hooks, via `curl -H @<file>` |
 
 `install-mcp --apply --auth-token …` writes the same pair for a Claude Code
 (`--session-aware`) or Muse bridge entry and leaves the key out of that entry,
 unless a different key is already stored there or the hooks sign in with OIDC.
 
-`ai-memory uninstall` deletes both files when it removes the hooks (a full
+`pitstop uninstall` deletes both files when it removes the hooks (a full
 uninstall, or `--only hooks` while no Claude Code or Muse bridge entry
 remains); `--only mcp`, `--only instructions` and `--only skills` keep them for
 the hooks still installed.
 
 It is deliberately **not** written into the agent's own config any more. Before
 #552 it went onto the hook's command line (`--auth-token <token>` for native
-hooks, an `AI_MEMORY_AUTH_TOKEN=` shell prefix for the script hooks), which put
+hooks, an `PITSTOP_AUTH_TOKEN=` shell prefix for the script hooks), which put
 it in the agent's config file *and* in `/proc/<pid>/cmdline` for the lifetime of
 every hook and every `curl`, readable by any local user, on every tool call.
 The second file exists for exactly that reason: building the header inline
 would put the credential straight back on a command line.
 
-An explicit `--auth-token` on a hook command, or `AI_MEMORY_AUTH_TOKEN` in the
+An explicit `--auth-token` on a hook command, or `PITSTOP_AUTH_TOKEN` in the
 environment, still takes precedence, so configs written before this keep
 working unchanged. Re-run `install-hooks --apply` to move an existing install
 onto the stored form.
@@ -574,7 +574,7 @@ normal retry budget rather than blocking the rest of the spool (#493).
 
 The same re-run rotates the MCP bridge's key when the bridge reads the stored
 file, which is the case for an entry written without a key. An entry that still
-carries the old key in `AI_MEMORY_AUTH_TOKEN` (written by the print path, or by
+carries the old key in `PITSTOP_AUTH_TOKEN` (written by the print path, or by
 `install-mcp` before the key moved to the data dir) keeps sending it: re-run
 `install-mcp --apply` without `--auth-token` to drop it.
 
@@ -633,7 +633,7 @@ If you're upgrading a machine-bearer-only install:
   `user add-human` and machine credentials with `api-key add`.
 - Before any human password or completed bootstrap exists, GET-only browser
   routes continue to accept the root bearer through HTTP Basic, and an
-  HttpOnly `ai_memory_auth` cookie an older build set (a Basic sign-in no
+  HttpOnly `pitstop_auth` cookie an older build set (a Basic sign-in no
   longer sets one). Human activation disables that path
   immediately, without a restart. Machine routes remain Bearer-only.
 - Native API credentials require `[auth].token_pepper`. Human user creation,
@@ -645,12 +645,12 @@ If you're upgrading a machine-bearer-only install:
 
 ### Migrating an existing single-user install
 
-`ai-memory init` is idempotent and won't overwrite a config it
+`pitstop init` is idempotent and won't overwrite a config it
 finds. To populate `token_pepper` without losing your current
 config:
 
 1. **Back up the existing config** (`cp config.toml config.toml.bak`).
-2. **Generate a pepper**: `ai-memory generate-auth-token --bytes 32`. This
+2. **Generate a pepper**: `pitstop generate-auth-token --bytes 32`. This
    prints a hex string of the same shape `init` would have
    generated.
 3. **Add the `[auth]` block** to your `config.toml`:
@@ -664,7 +664,7 @@ config:
    root_name     = "Boss"     # optional
    ```
 
-4. Restart `ai-memory serve`. The new fields are picked up; existing
+4. Restart `pitstop serve`. The new fields are picked up; existing
    behaviour is unchanged.
 
 You can defer steps 3-4 indefinitely; `bearer_token` alone keeps
@@ -683,7 +683,7 @@ DB-only theft (a copied SQLite file) useless offline. Constant-time
 comparison on the hash avoids timing leaks on the lookup path.
 Argon2id is the wrong KDF here: 256-bit CSPRNG secrets are not
 brute-forceable, and a per-hash salt would force O(N) scans on every
-auth request. See `crates/ai-memory-store/src/api_credentials.rs`.
+auth request. See `crates/pitstop-store/src/api_credentials.rs`.
 
 **Web sessions** hash a 256-bit `ams_` secret with SHA-256 (no pepper)
 into `web_sessions`. The cookie is `HttpOnly`, `SameSite=Strict`,
@@ -701,7 +701,7 @@ hashes whatever bearer it gets, so it authenticates like any other key.
 |---|---|
 | Auth middleware injects `Extension<ActorContext>` on every request | ✓ P1.3 |
 | All `/admin/*` routes gate on `Extension<AuthLevel>::Root` in multi-user mode | ✓ P1.4 |
-| `ai-memory user add-human/list/reset-password/disable/enable/patch` and `ai-memory api-key add/list/rotate/revoke` | ✓ |
+| `pitstop user add-human/list/reset-password/disable/enable/patch` and `pitstop api-key add/list/rotate/revoke` | ✓ |
 | `pages.author_id` populated, frontmatter `last_modified_by` block | ✓ P1.6 |
 | `/api/v1` page responses include `author: { username, name?, email? }` | ✓ P1.7 |
 | ETag invalidation on author change (so caches refresh attribution) | ✓ P1.7 |
@@ -713,18 +713,18 @@ Commit ids for each milestone are recorded in `CHANGELOG.md`.
 
 ## Wiring agent hooks to a specific user
 
-After `ai-memory api-key add` prints a native secret, point that user's
+After `pitstop api-key add` prints a native secret, point that user's
 agent install at it via `install-hooks`:
 
 ```console
-$ ai-memory api-key add --username alice --label claude-hooks
+$ pitstop api-key add --username alice --label claude-hooks
 ✓ created API key '…' (claude-hooks)
 
 aim_XGq...<secret>    # stdout only
 
-$ ai-memory install-hooks --apply --agent claude-code \
+$ pitstop install-hooks --apply --agent claude-code \
     --as-user alice --auth-token aim_XGq...<secret>
-[ai-memory] hooks installing for user: alice
+[pitstop] hooks installing for user: alice
 ✓ staged 5 hook script(s) → ...
 ```
 
@@ -741,7 +741,7 @@ Without `--as-user`, hooks install the same way they always have:
 the bearer authenticates and attribution flows from the token's owner
 (root user or DB user) at write time.
 
-The MCP side needs no second copy of the key. `ai-memory install-mcp
+The MCP side needs no second copy of the key. `pitstop install-mcp
 --client claude-code --session-aware --apply` on the same data dir writes a
 bridge entry without a key, and the bridge sends the key the hooks hold, so
 MCP calls and captured events attribute to the same user.
@@ -760,8 +760,8 @@ Every existing project is `open` after upgrading, so nothing changes until an
 operator restricts one:
 
 ```sh
-ai-memory project access --workspace acme --project checkout-api --mode restricted
-ai-memory user grant --user alice --workspace acme --project checkout-api --level write
+pitstop project access --workspace acme --project checkout-api --mode restricted
+pitstop user grant --user alice --workspace acme --project checkout-api --level write
 ```
 
 Both are root-only. Restricting prints the users who have written to the
@@ -771,8 +771,8 @@ ones who should keep access; nothing is granted automatically.
 - **Grants** are `read` or `write`, per project; `write` includes `read`.
   There is no per-project administrator: granting, revoking and restricting
   are the root operator's, like every other administrative act.
-  `ai-memory user grant | revoke` manages them; `ai-memory user grants
-  [--user NAME]` and `ai-memory project grants --workspace W --project P` list
+  `pitstop user grant | revoke` manages them; `pitstop user grants
+  [--user NAME]` and `pitstop project grants --workspace W --project P` list
   them (REST: `POST /admin/users/{name}/grant|revoke`,
   `GET /admin/users/{name}/grants`, `GET /admin/projects/grants`). A user holds one level
   per project; revoking deletes the grant, and purging a project or deleting
@@ -788,7 +788,7 @@ ones who should keep access; nothing is granted automatically.
   without holding a grant. Projects created before this existed, or by the
   root token, have no recorded creator.
 - **New projects** are `open` unless `[auth] new_projects_restricted = true`
-  (`AI_MEMORY_AUTH__NEW_PROJECTS_RESTRICTED=true`), which makes every project created from then on start `restricted`. The
+  (`PITSTOP_AUTH__NEW_PROJECTS_RESTRICTED=true`), which makes every project created from then on start `restricted`. The
   reserved `scratch` project and the global preferences scope always start
   open, and the global scope can never be restricted: it is shared by
   construction.
@@ -796,7 +796,7 @@ ones who should keep access; nothing is granted automatically.
   `default/_global` by name) needs root or an explicit `write` grant on it,
   because its pages reach every user's queries. Reading it stays open, and
   having created it first grants nothing. To let a user maintain team-wide
-  preferences: `ai-memory user grant --user alice --project _global --level
+  preferences: `pitstop user grant --user alice --project _global --level
   write` (the scope must already exist; root creates it with its first write).
 - **The cross-project profile** (`docs/cross-project-profile.md`) is off on a
   multi-user server until `[profile] enabled = true`. Then each user gets a
@@ -832,19 +832,19 @@ ones who should keep access; nothing is granted automatically.
   roots operate the console with a web session after password login.
 - **OIDC is request authentication, not page authorization.** Native hooks and
   thin-client CLI commands can send a per-developer OIDC bearer for an external
-  OIDC-aware gateway/bridge. Native ai-memory server auth still uses static root
+  OIDC-aware gateway/bridge. Native pitstop server auth still uses static root
   bearer / native `aim_` keys / web sessions, and `/admin/*` stays root-only unless a gateway
-  translates accepted OIDC auth into upstream auth that ai-memory accepts.
-  ai-memory still has one shared wiki per server and no
+  translates accepted OIDC auth into upstream auth that pitstop accepts.
+  pitstop still has one shared wiki per server and no
   per-page RBAC. Per-project access applies to the database user a gateway
-  authenticates as, like any other. The Keycloak/OIDC `sid` claim is also not an ai-memory agent
+  authenticates as, like any other. The Keycloak/OIDC `sid` claim is also not an pitstop agent
   session id; session auto-scope needs the lifecycle-hook session id or explicit
   `workspace` + `project` / `scopes`.
 - **Self-issued keys outlive a password reset or a disable.** A key a user
   issued through the self-service routes is an ordinary native key. Resetting
   that user's password or disabling the account ends their browser sessions
   but leaves every key they issued active; revoke those keys separately
-  (`ai-memory api-key revoke`, or the self-service revoke route while the user
+  (`pitstop api-key revoke`, or the self-service revoke route while the user
   can still sign in).
 
 ### Opt-in browser surfaces
@@ -856,5 +856,5 @@ needs the CSRF cookie/header pair.
 
 | Flag | Environment variable | What it serves |
 |---|---|---|
-| `--enable-session-management` | `AI_MEMORY_ENABLE_SESSION_MANAGEMENT=true` | Session inspection and purging of sessions the user owns. See [session-management.md](session-management.md). |
-| `--enable-self-service-keys` | `AI_MEMORY_ENABLE_SELF_SERVICE_KEYS=true` | Each user issues, lists and revokes their own `aim_` keys, up to 20 active keys, labels of 1 to 128 characters. See [self-service-keys.md](self-service-keys.md). |
+| `--enable-session-management` | `PITSTOP_ENABLE_SESSION_MANAGEMENT=true` | Session inspection and purging of sessions the user owns. See [session-management.md](session-management.md). |
+| `--enable-self-service-keys` | `PITSTOP_ENABLE_SELF_SERVICE_KEYS=true` | Each user issues, lists and revokes their own `aim_` keys, up to 20 active keys, labels of 1 to 128 characters. See [self-service-keys.md](self-service-keys.md). |

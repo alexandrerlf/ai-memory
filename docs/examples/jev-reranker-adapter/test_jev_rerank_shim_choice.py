@@ -160,7 +160,7 @@ class JevRerankEndToEndTest(unittest.TestCase):
 
     def test_malformed_response_raises(self):
         # Old behaviour silently fabricated 0.0 for missing keys; now the
-        # exception propagates so the handler answers 500 and ai-memory
+        # exception propagates so the handler answers 500 and pitstop
         # keeps its original order.
         with self.assertRaises(ValueError):
             self.run_shim(jev_response({"c1": 0.9}))

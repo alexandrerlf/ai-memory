@@ -1,4 +1,4 @@
-//! `ai-memory-eval` — offline evaluation harnesses for ai-memory.
+//! `pitstop-eval` — offline evaluation harnesses for pitstop.
 //!
 //! Five subcommands:
 //!
@@ -8,7 +8,7 @@
 //! - `projection` — the zero-LLM half of that scoring: which fixture facts
 //!   and literal tokens the observation projection lets into the prompt.
 //! - `retrieval` — pinned retrieval benchmarks driven end-to-end
-//!   through a real `ai-memory serve` subprocess: hook-shaped ingestion,
+//!   through a real `pitstop serve` subprocess: hook-shaped ingestion,
 //!   real search stack, R@k / hit@k per question category (see
 //!   [`retrieval`] and `docs/benchmarks/`).
 //! - `retrieval-compare` — pairs two saved `retrieval` reports by question
@@ -28,8 +28,8 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "ai-memory-eval",
-    about = "Evaluation harnesses for ai-memory (LLM A/B + retrieval benchmark)"
+    name = "pitstop-eval",
+    about = "Evaluation harnesses for pitstop (LLM A/B + retrieval benchmark)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -38,7 +38,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Live A/B harness comparing two LLM providers on the ai-memory
+    /// Live A/B harness comparing two LLM providers on the pitstop
     /// consolidation prompt.
     Ab(Box<ab::AbArgs>),
     /// Zero-LLM: which facts the consolidation prompt's observation
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "ai_memory_eval=info,warn".into()),
+                .unwrap_or_else(|_| "pitstop_eval=info,warn".into()),
         )
         .init();
 

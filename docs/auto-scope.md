@@ -1,6 +1,6 @@
 # `[auto_scope]` isolation modes
 
-`ai-memory serve` publishes a process-shared "currently active project"
+`pitstop serve` publishes a process-shared "currently active project"
 pointer that MCP read tools consult when the caller omits `workspace` /
 `project`. The pointer is fed by foreground lifecycle hooks: session start,
 user prompt, and pre-tool events that resolve a `cwd` to a real project update
@@ -50,7 +50,7 @@ paths use find-only lookups so typos do not create empty scopes.
 
 ## Implementation contract
 
-Scope resolution is centralized in `ai_memory_store::ScopeResolver` and its
+Scope resolution is centralized in `pitstop_store::ScopeResolver` and its
 explicit helpers:
 
 - `lookup_existing_scope` for read, search, maintenance, retention, embed, and
@@ -87,12 +87,12 @@ max_entries = 4096        # hard cap; oldest insertions evicted first
 ```
 
 Environment-variable overrides follow the standard
-`AI_MEMORY_<SECTION>__<KEY>` shape:
+`PITSTOP_<SECTION>__<KEY>` shape:
 
 ```bash
-AI_MEMORY_AUTO_SCOPE__MODE=per_actor
-AI_MEMORY_AUTO_SCOPE__SESSION_TTL_SECS=7200
-AI_MEMORY_AUTO_SCOPE__MAX_ENTRIES=8192
+PITSTOP_AUTO_SCOPE__MODE=per_actor
+PITSTOP_AUTO_SCOPE__SESSION_TTL_SECS=7200
+PITSTOP_AUTO_SCOPE__MAX_ENTRIES=8192
 ```
 
 ## Where the actor identity comes from
@@ -111,19 +111,19 @@ AI_MEMORY_AUTO_SCOPE__MAX_ENTRIES=8192
 `X-Memory-Actor-Session-Id` means the agent-run session id from the
 lifecycle-hook payload. It is not an OIDC/Keycloak login session: the
 provider's JWT `sid` claim identifies an IdP browser/device session and
-must not be used as ai-memory's actor session key.
+must not be used as pitstop's actor session key.
 
 `per_session` reads from `session_id`; `per_actor` reads from both the
 qualified identity and `session_id`. In `per_actor`, a request that has identity but
 no session id can use that user's latest no-session slot instead of the
 process-wide single slot. A request that does carry a session id must
-match a hook-published keyed entry; if it does not, ai-memory falls back
+match a hook-published keyed entry; if it does not, pitstop falls back
 to the server's baked default rather than another session's latest
 project.
 
 The composite `(identity, session_id)` key namespaces only these active-project
 pointers. The durable `SessionId` stored for hook observations remains global:
-if another owner reuses an already-owned id, ai-memory drops that hook before it
+if another owner reuses an already-owned id, pitstop drops that hook before it
 can append observations or publish a pointer for the foreign actor.
 
 Pointers hold project ids, not names, so the default repository-path project
@@ -140,7 +140,7 @@ for how those events are attributed. The one exception is a terminal event: a
 `SessionEnd` naming a different scope than its session is not that session's
 end, so it is dropped rather than ending someone else's session, unless it
 comes from the session's own cwd. In that case the scope drifted under the same
-directory (a `.ai-memory.toml` appeared mid-session), and the end closes the
+directory (a `.pitstop.toml` appeared mid-session), and the end closes the
 session in the scope it was recorded in.
 
 The OpenCode 2 adapter reports a native `session.moved` explicitly, with the
@@ -166,10 +166,10 @@ sessions apart. It is a routing coordinate, not authentication, and takes
 precedence over the transport header. With the generated OpenCode 2 lifecycle
 adapter, no separate bridge is needed.
 
-Claude Code can opt into ai-memory's session-aware stdio bridge:
+Claude Code can opt into pitstop's session-aware stdio bridge:
 
 ```bash
-ai-memory install-mcp --client claude-code --session-aware --apply
+pitstop install-mcp --client claude-code --session-aware --apply
 ```
 
 The bridge reads the `CLAUDE_CODE_SESSION_ID` that Claude supplies to its stdio
@@ -193,7 +193,7 @@ bridge forwards that one. Each mode reads only its own variable, so a Claude
 Code started from a Muse shell (or the reverse) never forwards the outer
 harness's id, and the Muse bridge also fails closed without `MUSE_SESSION_ID`.
 
-The same binary also runs session-less, as `ai-memory mcp-bridge
+The same binary also runs session-less, as `pitstop mcp-bridge
 --no-session-id`: the stdio entry `install-mcp` writes for every other client
 when the server's token lives in `[auth].bearer_token_file`. It forwards no
 session id, not even an inherited `CLAUDE_CODE_SESSION_ID`, so those clients
@@ -205,9 +205,9 @@ per-session pointer.
 A static client sometimes omits the scope anyway, and an unscoped call then
 lands wherever the server's fallback points, which can be another repository
 the hooks made active (#1979). The session-less bridge therefore resolves a
-default scope once, from the directory it was launched in (`AI_MEMORY_HOST_CWD`
+default scope once, from the directory it was launched in (`PITSTOP_HOST_CWD`
 under the Docker wrapper), with the thin CLI's rules: the nearest
-`.ai-memory.toml` names the workspace and project, else a valid `upstream` or
+`.pitstop.toml` names the workspace and project, else a valid `upstream` or
 `origin` remote supplies the canonical path name in the `default` workspace,
 else the launch directory's folder name does. It fills that `workspace` + `project` into
 a call only when the tool's schema takes both and the call names no scope of
@@ -353,6 +353,6 @@ To restore the old behaviour exactly:
 mode = "single"
 ```
 
-or `AI_MEMORY_AUTO_SCOPE__MODE=single`. The effective mode is logged at
+or `PITSTOP_AUTO_SCOPE__MODE=single`. The effective mode is logged at
 startup (`active-project isolation mode mode=…`), which is the quickest way
 to confirm what a running server is using.

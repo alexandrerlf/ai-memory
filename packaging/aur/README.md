@@ -3,9 +3,9 @@
 This directory contains the package definitions for two Arch User Repository
 packages:
 
-- `ai-memory-bin`: installs the prebuilt Linux x86_64/aarch64 binary and bundled
+- `pitstop-bin`: installs the prebuilt Linux x86_64/aarch64 binary and bundled
   files from GitHub Releases.
-- `ai-memory`: builds from the GitHub source tag with the local Rust toolchain.
+- `pitstop`: builds from the GitHub source tag with the local Rust toolchain.
 
 The files here are the source of truth for the AUR repos, but AUR still requires
 each package to be pushed to its own Git repository with a generated `.SRCINFO`.
@@ -15,11 +15,11 @@ each package to be pushed to its own Git repository with a generated `.SRCINFO`.
 Use an AUR helper:
 
 ```bash
-yay -S ai-memory-bin    # prebuilt binary, fastest on x86_64/aarch64
-yay -S ai-memory        # builds from source, supports x86_64/aarch64
+yay -S pitstop-bin    # prebuilt binary, fastest on x86_64/aarch64
+yay -S pitstop        # builds from source, supports x86_64/aarch64
 ```
 
-Then run `ai-memory setup` on a single-user machine, or follow the system
+Then run `pitstop setup` on a single-user machine, or follow the system
 service instructions in `docs/install.md`.
 
 ## Local Integration Test
@@ -46,7 +46,7 @@ service-start smoke before publishing.
 The GitHub release workflow publishes these AUR repos automatically on `v*.*.*`
 tags when `AUR_SSH_PRIVATE_KEY` is configured. It validates that the tag version
 matches `Cargo.toml`, computes fresh checksums, generates `.SRCINFO`, and pushes
-both `ai-memory` and `ai-memory-bin`.
+both `pitstop` and `pitstop-bin`.
 
 For every new upstream release:
 
@@ -66,7 +66,7 @@ Manual fallback if the AUR job is disabled or needs repair:
    to AUR.
 3. Validate both package variants with `makepkg --verifysource` and `makepkg -Ccf`.
 4. Generate `.SRCINFO` in each AUR checkout with `makepkg --printsrcinfo > .SRCINFO`.
-5. Commit and push to the separate AUR repos: `ai-memory` and `ai-memory-bin`.
+5. Commit and push to the separate AUR repos: `pitstop` and `pitstop-bin`.
 
 Checksum helpers for version `X.Y.Z`:
 
@@ -77,6 +77,6 @@ version=X.Y.Z
 curl -fsSL "https://github.com/akitaonrails/ai-memory/archive/refs/tags/v${version}.tar.gz" | sha256sum
 
 # Binary package release artifacts
-curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${version}/ai-memory-linux-x86_64.tar.gz.sha256"
-curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${version}/ai-memory-linux-aarch64.tar.gz.sha256"
+curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${version}/pitstop-linux-x86_64.tar.gz.sha256"
+curl -fsSL "https://github.com/akitaonrails/ai-memory/releases/download/v${version}/pitstop-linux-aarch64.tar.gz.sha256"
 ```

@@ -23,7 +23,7 @@ projection left out. With the switch off, the prompt is byte-identical to
 today's. Nothing stored changes; only what the model is shown.
 
 The idea is borrowed from compaction tools that decide per item what to keep,
-keep it verbatim, and leave a trace of what they drop. ai-memory already does
+keep it verbatim, and leave a trace of what they drop. pitstop already does
 the first two for the consolidation prompt. This is the third piece, done with
 the miner the repository already has (`keep_tokens.rs`), no model and no new
 dependency.
@@ -32,7 +32,7 @@ dependency.
 
 ### 1.1 What happens today
 
-`crates/ai-memory-consolidate/src/projection.rs` `project_observations`
+`crates/pitstop-consolidate/src/projection.rs` `project_observations`
 selects at most `MAX_PROJECTED_OBSERVATIONS` (256) observations per session
 and renders each with at most `MAX_PROJECTED_OBSERVATION_BODY_CHARS` (3,000)
 characters of body (both constants in `consolidator.rs`). What is omitted
@@ -61,7 +61,7 @@ cited here only because the fidelity metric in §4.1 counts it.
 
 ### 1.2 Measured on one installation
 
-Numbers below come from one ai-memory 2.6.3 store (three agent harnesses,
+Numbers below come from one pitstop 2.6.3 store (three agent harnesses,
 1,679 sessions, 2026-10-11), read-only, by replaying the projection's
 selection rules and the proposed miner over the stored observations. They set
 a baseline for this document; the harness in §4 is what the pull requests
@@ -118,7 +118,7 @@ diagnostic material and nothing like the whole session.
   `notification` 25, `session-start` 20, `other` 15, `pre-tool-use` 5), a
   recency term of 0 to 80 (#126), +100 for the first and last observation,
   +45 for `has_high_signal_terms` (`error`, `fix`, `test`, `rule`, ...), +45
-  for importance 9 or more, +8 for a code fence, and -80 for ai-memory's own
+  for importance 9 or more, +8 for a code fence, and -80 for pitstop's own
   routing text. `select_observation_indices` keeps the two anchors, adds +20
   to an even sample, then takes the top scores up to the count cap;
   `lowest_prunable_index` removes the lowest score (never an anchor) until
@@ -134,7 +134,7 @@ diagnostic material and nothing like the whole session.
   punctuation including backticks. Its only caller is `compaction.rs` (A2
   tier-down, the `## Retained facts` section). It is re-exported from the
   crate root.
-- **Capture shapes.** `ai-memory-hooks/src/payload.rs` stores a tool result
+- **Capture shapes.** `pitstop-hooks/src/payload.rs` stores a tool result
   as `tool_family: <f>\ntool_call_id: <id>\noutcome: <o>\n---\n<excerpt>` or,
   for the legacy path, `tool: <name>\n---\n<result>`. The whole tool body,
   header included, is capped at `TOOL_EXCERPT_MAX_BYTES` (2,000 bytes;
@@ -143,14 +143,14 @@ diagnostic material and nothing like the whole session.
   (16 KiB), after sanitizing. PreToolUse and the `unknown` family stop before
   the `---`, and so does every metadata-only body the capture policy writes
   through `router.rs` `metadata_summary_with_outcome`: a file tool under an
-  active `.ai-memory.toml` marker whose paths are missing, cannot be
+  active `.pitstop.toml` marker whose paths are missing, cannot be
   normalised or fail to match; every file or shell tool under an invalid
   marker; and a file tool whose client-side capture protocol contradicts the
   server's own inspection. A shell tool under an active marker is kept or
   dropped whole, never reduced to metadata. Claude Code's Bash output arrives
   as one-line JSON, so a path inside it reads `\\nsrc/x.ts` in the stored
   body. Codex ids look like `exec-<uuid>`, Grok ids like `call-<uuid>-N`. The
-  sanitizer (`ai-memory-core/src/sanitize.rs` `BUILTIN_PATTERNS`) has no
+  sanitizer (`pitstop-core/src/sanitize.rs` `BUILTIN_PATTERNS`) has no
   rule for a bare hex string or UUID.
 - **Prompts.** Both system prompts open with a SECURITY BOUNDARY that names
   observations as untrusted data, and both already say "Keep code,
@@ -167,9 +167,9 @@ diagnostic material and nothing like the whole session.
   grew the batch system prompt from 5,888 to 7,384 bytes, and the fixed part
   of a batch request (system prompt, scaffold, output schema, envelope
   reserve) is now 18,991 characters.
-- **Config and wiring.** `ai-memory-cli/src/config.rs` `ConsolidationSettings`
+- **Config and wiring.** `pitstop-cli/src/config.rs` `ConsolidationSettings`
   (`#[serde(default)]`, `max_input_tokens`, `max_output_tokens`,
-  `input_token_safety_margin`); `ai-memory-cli/src/commands/serve.rs`
+  `input_token_safety_margin`); `pitstop-cli/src/commands/serve.rs`
   (`configure_consolidator`) logs one startup line with the resolved limits
   (`memory_consolidate + PreCompact LLM checkpointing enabled`), builds the
   one `Consolidator` with `.with_per_user_slots(..).with_prompt_limits(..)`
@@ -182,7 +182,7 @@ diagnostic material and nothing like the whole session.
 ### 3.1 Switch and guarantees
 
 `[consolidation] verbatim_residue = false` (env
-`AI_MEMORY_CONSOLIDATION__VERBATIM_RESIDUE`). Off is the default, so an
+`PITSTOP_CONSOLIDATION__VERBATIM_RESIDUE`). Off is the default, so an
 upgrade changes nothing until an operator opts in. The key is documented in
 the `[consolidation]` block of `docs/ARCHITECTURE.md` and not added to
 `config.default.toml`, which carries neither `input_token_safety_margin` nor
@@ -289,7 +289,7 @@ Codex sessions were `exec-<uuid>` call ids.
    selected observation: title, `extension`, `source_event` and the
    3,000-character excerpt, uncapped. What the model already sees is not
    repeated.
-2. An observation that carries ai-memory's routing text (the existing -80
+2. An observation that carries pitstop's routing text (the existing -80
    substring test in `observation_score`, extracted into a predicate the
    score keeps using) is excluded from every pass. Candidates:
    - **pass 0**: selected observations whose body was truncated, mined from
@@ -300,7 +300,7 @@ Codex sessions were `exec-<uuid>` call ids.
      `pub(crate)`) returns non-empty text for it, and that returned text is
      the slice pass 1 mines. The predicate returns nothing for a harness
      block delivered as a user turn or for a Codex-injected instruction file,
-     and cuts out ai-memory's fenced routing snippet and untrusted-history
+     and cuts out pitstop's fenced routing snippet and untrusted-history
      block before returning the rest. Passes 0 and 1 together take at most
      half of the block budget: in three of the eight largest sessions,
      omitted prompts alone would have filled it;
@@ -390,8 +390,8 @@ counts headers.
 
 ## 4. Measuring it before it ships
 
-ai-memory gates a changed default on a measured delta (the R2 rule in
-`docs/ARCHITECTURE.md`). Before PR 1, `evals/` (`ai-memory-eval ab`) reported
+pitstop gates a changed default on a measured delta (the R2 rule in
+`docs/ARCHITECTURE.md`). Before PR 1, `evals/` (`pitstop-eval ab`) reported
 latency, update counts and parse status only.
 
 **Measurement scope.** Today the harness builds the batch request only
@@ -614,14 +614,14 @@ runs, not after.
     the harness.
 12. Config: TOML in the shape of the `input_token_safety_margin` tests in
     `config.rs`. The env form goes through the same generic
-    `AI_MEMORY_<SECTION>__<KEY>` loader as every other key and gets no test of
+    `PITSTOP_<SECTION>__<KEY>` loader as every other key and gets no test of
     its own, as `max_input_tokens` has none.
 13. `keep_tokens`: `mine_keep_tokens` over the existing test bodies and every
     fixture body is byte-identical to today's; `ERROR_LINE` positives and
     negatives above, a 125-character accented line kept within 128 bytes, a
     closing backtick preserved, a 200-byte error line cut rather than
     dropped; `VERSION` matches IPv4 and semver only.
-14. Integration (`crates/ai-memory-consolidate/tests/suite/verbatim_residue_consolidation.rs`,
+14. Integration (`crates/pitstop-consolidate/tests/suite/verbatim_residue_consolidation.rs`,
     registered in that suite's `mod.rs`; a provider that captures the
     `ChatRequest` and returns a fixed page, as `CapturingLlm` in
     `entropy_experience.rs` does; public API only). The captured prompt
@@ -823,7 +823,7 @@ Answered by the maintainer in #1215 (2026-10-12):
   second prompt, not a residue). Raising the constant later is a one-line,
   measured change.
 - **Q3.** The rule-based page follow-up (`## Retained facts (verbatim)` in
-  `ai-memory-hooks/src/synth.rs`, the only path for sessions that never reach
+  `pitstop-hooks/src/synth.rs`, the only path for sessions that never reach
   a model) gets its own design document after this series, built on the
   existing rule-based path rather than a new writer, and R2-gated. It starts
   from `synth.rs` as #1221 left it (`321b7cef`, which added a deterministic

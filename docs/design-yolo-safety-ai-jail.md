@@ -1,7 +1,7 @@
 # Design: safer `--yolo` and ai-jail integration
 
 Status: accepted (release/2.5). Tracks the 2.5 feature that makes
-`ai-memory run … --yolo` warn before it disarms an agent's safety prompts,
+`pitstop run … --yolo` warn before it disarms an agent's safety prompts,
 offers to run the session inside [ai-jail](https://github.com/akitaonrails/ai-jail)
 when it is usable, and, for Claude Code, also forces `bypassPermissions` over
 a settings `defaultMode` (through 3.4.2 a separate opt-in "true yolo").
@@ -16,7 +16,7 @@ every tool call with no confirmation. Three gaps:
    unsupervised, with no reminder of what that means or a way to back out.
 2. **No sandbox nudge.** ai-jail exists precisely to contain an unsupervised
    agent, but nothing connects the two: the user must remember to type
-   `ai-jail ai-memory run …` themselves.
+   `ai-jail pitstop run …` themselves.
 3. **Claude still pauses.** Even with `--dangerously-skip-permissions`, Claude
    Code still prompts on explicit `permissions.ask` rules and on its own
    command-safety checks (e.g. "Contains brace with quote character (expansion
@@ -74,12 +74,12 @@ When usable and we are not already jailed, the prompt gains a second question:
 ai-jail is installed. Re-run this session inside it? [Y/n]
 ```
 
-On yes, ai-memory re-execs itself under ai-jail instead of spawning the agent
+On yes, pitstop re-execs itself under ai-jail instead of spawning the agent
 directly:
 
 ```
 ai-jail --network --agent-state --no-save-config \
-        --env AI_MEMORY_SERVER_URL --env AI_MEMORY_HOOK_URL \
+        --env PITSTOP_SERVER_URL --env PITSTOP_HOOK_URL \
         --env ANTHROPIC_API_KEY --env CLAUDE_CODE_OAUTH_TOKEN \
         --env CLAUDE_CONFIG_DIR --env … \
         -- <current_exe> run <harness> … --yolo
@@ -87,21 +87,21 @@ ai-jail --network --agent-state --no-save-config \
 
 - **`--` before the wrapped command.** ai-jail refuses one of its own flags
   appearing after the command, because it cannot tell whether
-  `ai-jail cmd --network` means the sandbox or the child. `ai-memory run`
+  `ai-jail cmd --network` means the sandbox or the child. `pitstop run`
   shares flag names with ai-jail (`--env`, …), so without the separator a
   forwarded `run claude --env GH_TOKEN=…` aborted the launch. After `--`
   ai-jail passes everything to the wrapped command verbatim, starting with ai-jail
   2.4.2. Earlier releases' guard ignores `--` (despite its error text
-  suggesting it), so a colliding forwarded flag still fails there. ai-memory
+  suggesting it), so a colliding forwarded flag still fails there. pitstop
   emits the separator regardless, as the documented contract.
 
 - **Re-exec**, not a nested spawn: `std::env::current_exe()` + the original
   `args_os()`. ai-jail forwards the wrapped argv verbatim and already parses
-  `ai-memory run <harness>` (it keeps both the `ai-memory` binary and the
+  `pitstop run <harness>` (it keeps both the `pitstop` binary and the
   native harness visible under its private home), so the nested launch works.
 - **`--network` (not `--allow-host`).** ai-jail only adds `--unshare-net` when
   network is *off* (`bwrap.rs`: `if !network_enabled { push("--unshare-net") }`),
-  so `--network` shares the host network namespace and the host-side ai-memory
+  so `--network` shares the host network namespace and the host-side pitstop
   server on `127.0.0.1:49374`, which the managed run and the agent's hooks
   both need, is reachable. Filtered `--allow-host` uses a private netns with a
   CONNECT proxy for *external* hosts only, so it would cut the loopback server
@@ -109,15 +109,15 @@ ai-jail --network --agent-state --no-save-config \
   which is acceptable: the agent needs outbound network for its own model API
   regardless, and an agent with no access is useless.
 - **Env passthrough.** ai-jail clears the environment by default and re-adds a
-  minimal allowlist, so `AI_MEMORY_*`, `CLAUDE_CONFIG_DIR`, and provider tokens
-  are **not** inherited. ai-memory forwards the ones it set (server/hook URL,
+  minimal allowlist, so `PITSTOP_*`, `CLAUDE_CONFIG_DIR`, and provider tokens
+  are **not** inherited. pitstop forwards the ones it set (server/hook URL,
   the token vars it already threads) with `--env NAME`. Only names that are
   actually set in the current environment are forwarded, plus routing values
   the outer run resolved from config: an explicit or bind-derived `server_url`
   and a non-empty `base_path`. A bearer read from `config.toml` or
   `[auth].bearer_token_file` is different: copying it into the environment
   would expose server-root authority to the harness. The jailed launch refuses
-  that case and asks for a least-privilege `AI_MEMORY_AUTH_TOKEN` or an
+  that case and asks for a least-privilege `PITSTOP_AUTH_TOKEN` or an
   unjailed run. An operator-supplied environment token was already inside the
   child-process boundary and is forwarded unchanged.
 - **`--no-save-config`** so ai-jail never writes these flags into the
@@ -142,14 +142,14 @@ observable surface, per OS:
   is the available signal. Weaker (a shell can overwrite `PS1`), but it only
   ever *suppresses* the warning: a false negative just shows the warning
   again inside the jail, which is safe; a false positive is unlikely because
-  ai-memory is exec'd directly by ai-jail, not through an interactive shell
+  pitstop is exec'd directly by ai-jail, not through an interactive shell
   that would reset `PS1`.
 - **Windows:** ai-jail is unsupported, so this always returns "not jailed";
   the ai-jail offer is never shown.
 
 When detected as already jailed, both the warning and the ai-jail offer are
 skipped and the run proceeds directly, so a user who typed
-`ai-jail ai-memory run … --yolo` sees no extra friction.
+`ai-jail pitstop run … --yolo` sees no extra friction.
 
 ### 4. Claude's `--yolo` forces `bypassPermissions` (all OSes)
 
@@ -191,10 +191,10 @@ break:
   and `resume`, recognized anywhere after `run` (including after native
   arguments, where clap leaves it in the native argv) and never forwarded to
   the harness. A jailed re-exec receives the original argv, so it parses there
-  too. In a terminal, `ai-memory run` prints one line saying it is the same as
+  too. In a terminal, `pitstop run` prints one line saying it is the same as
   `--yolo` now.
-- The `claude_true_yolo` config key (and `AI_MEMORY_CLAUDE_TRUE_YOLO`) still
-  loads and is ignored. When it is true, `ai-memory run` prints one terminal
+- The `claude_true_yolo` config key (and `PITSTOP_CLAUDE_TRUE_YOLO`) still
+  loads and is ignored. When it is true, `pitstop run` prints one terminal
   line asking to remove it. Removing the key outright would have been silent
   (top-level keys are not strict), which hides a behavior change from the one
   operator who set it.
@@ -207,7 +207,7 @@ through a boolean toggle (`--X` / `--no-X`). A jailed agent that cannot reach
 picks what the jail mounts, from the CLI or an interactive checklist, and
 pressing Enter does the friendly thing.
 
-**CLI.** Two wrapper flags on `ai-memory run` (and recognized after native
+**CLI.** Two wrapper flags on `pitstop run` (and recognized after native
 arguments too, like `--yolo`; neither ever reaches the harness):
 
 | Form | Meaning |
@@ -217,7 +217,7 @@ arguments too, like `--yolo`; neither ever reaches the harness):
 | `--jail=all` / `--jail=none` | Every checklist row this host shows on / every one of them off. Lists are applied left to right, so `all,no-docker` works. |
 | `--no-jail` | Never re-run inside ai-jail; the `--yolo` warning still shows. Conflicts with `--jail`. |
 
-`--jail` needs `=` for its list (`require_equals`), so `ai-memory run --jail
+`--jail` needs `=` for its list (`require_equals`), so `pitstop run --jail
 claude` keeps `claude` as the harness. It works with or without `--yolo` and
 in non-interactive runs too; that is how a script gets a jailed run. When
 ai-jail is not usable on the host (§2) it fails with an error instead of
@@ -225,14 +225,14 @@ silently running unjailed. An explicit `--jail` re-execs *before* the managed
 run is prepared, so no lease is opened and cancelled outside the jail. Inside
 ai-jail (§3) both flags are ignored: no nesting, no error.
 
-There are deliberately **no bare `--github`-style flags** on `ai-memory run`.
+There are deliberately **no bare `--github`-style flags** on `pitstop run`.
 They would collide with harness-native flags of the same name (Claude Code
 has its own `--worktree`), and wrapper flags after the harness name are
 stripped from the native argv: a bare `--worktree` meant for Claude would be
 silently taken away from it. The single namespaced `--jail=` list has no such
 collision.
 
-**Toggles.** The table (`JAIL_TOGGLES` in `ai-memory-workstream/src/jail.rs`):
+**Toggles.** The table (`JAIL_TOGGLES` in `pitstop-workstream/src/jail.rs`):
 
 | Toggle | Kind | Checklist | Smart default (Enter / bare `--jail`) |
 |---|---|---|---|
@@ -261,7 +261,7 @@ usual task.
 
 **Semantics: an explicit selection is exact.** ai-jail's own config can
 enable toggles too: the trusted global `~/.ai-jail` may turn on, say,
-`docker`. So whenever the user makes a selection, ai-memory states every
+`docker`. So whenever the user makes a selection, pitstop states every
 visible row explicitly, and ai-jail's CLI flags override its config:
 
 - **Interactive checklist:** every row the user saw is passed as marked:
@@ -284,7 +284,7 @@ separator.
 
 **A project `.ai-jail` replaces the checklist.** ai-jail reads its project
 config only from the invocation directory, which the re-exec inherits from
-ai-memory. When a regular file `.ai-jail` exists there:
+pitstop. When a regular file `.ai-jail` exists there:
 
 | | no project `.ai-jail` | project `.ai-jail` present |
 |---|---|---|
@@ -294,7 +294,7 @@ ai-memory. When a regular file `.ai-jail` exists there:
 
 A project file is untrusted because it lives in the repository the agent works on.
 ai-jail lets it disable capabilities but never enable credentials, `docker`,
-`agent_state`, and the like, so ai-memory must not pre-check anything on its
+`agent_state`, and the like, so pitstop must not pre-check anything on its
 behalf either, and an untrusted repository must not be able to steer the
 checklist. Only the file's presence is probed (`JailHostFacts::project_config`);
 its contents are never read or parsed. The global `~/.ai-jail` is not
@@ -306,7 +306,7 @@ because the project file cannot enable them.
 **Why every re-exec passes `--no-save-config`.** On every ordinary run (not
 `--dry-run`, not lockdown, saving not disabled) ai-jail merges its CLI flags
 into the project config and writes `.ai-jail` back. Without the flag, the
-first jailed run would persist ai-memory's transient flags (`--network`,
+first jailed run would persist pitstop's transient flags (`--network`,
 `--agent-state`, the checked credentials) into the user's repository; every
 later run would then find a project file, skip the checklist, and silently
 lose the credential mounts a project file cannot enable, and ai-jail would
@@ -355,8 +355,8 @@ they were saved. A row the saved answers never covered (a newer ai-jail, a
 credential that appeared since) keeps its recommendation and is marked `new`.
 A saved toggle that is no longer offered, or a saved folder that is gone or no
 longer passes the folder rules, is named under "no longer offered" instead of
-being dropped silently. The file lives in ai-memory's data directory, never in
-the repository, for the same reason ai-memory passes `--no-save-config`: a
+being dropped silently. The file lives in pitstop's data directory, never in
+the repository, for the same reason pitstop passes `--no-save-config`: a
 project `.ai-jail` may only close what ai-jail opens, so answers saved there
 would be ignored or skip the checklist, and a repository must not be able to
 grant itself a credential or a mount. A failed save is reported and the
@@ -382,7 +382,7 @@ and `~/` against the home. Refused, with the reason shown:
 - `/` and the home;
 - any folder that is, sits inside, or contains `~/.ssh`, `~/.gnupg`, `~/.aws`,
   `~/.kube`, `~/.config/gh`, `~/.config/gcloud`, `~/.docker`,
-  `~/.local/share/ai-memory`, or the configured data directory, where a
+  `~/.local/share/pitstop`, or the configured data directory, where a
   jailed agent could rewrite its own memory and tokens.
 
 The rules are checked on the lexical path and again on the resolved one, so a
@@ -396,13 +396,13 @@ ai-jail the flags are ignored like `--jail`: the forwarded argv still carries
 them, and the folders are already mounted.
 
 **The next-run line.** After an interactive checklist, the launcher hands the
-jailed run (`AI_MEMORY_JAIL_NEXT_RUN`, forwarded with `--env`) the
-`ai-memory run` line that repeats its choices exactly, and the jailed run
+jailed run (`PITSTOP_JAIL_NEXT_RUN`, forwarded with `--env`) the
+`pitstop run` line that repeats its choices exactly, and the jailed run
 prints it when it quits:
 
 ```
 Next time, start with the same jail choices:
-  ai-memory run --yolo --jail=github,ssh --jail-map /home/u/Projects/ai-jail claude
+  pitstop run --yolo --jail=github,ssh --jail-map /home/u/Projects/ai-jail claude
 ```
 
 It names `--yolo` (also for a launch typed with the retired `--true-yolo`), `--no-autowire`, `--workspace`, `--project`,
@@ -420,7 +420,7 @@ harness: it runs inside the same jail.
 | `--yolo` warning (interactive only) | no | yes | yes | yes |
 | ai-jail | no (no nesting) | never | re-exec now; error if not usable | offer + checklist when interactive and usable (no checklist with a project `.ai-jail`) |
 
-**Version requirements.** ai-jail rejects an unknown flag, so ai-memory only
+**Version requirements.** ai-jail rejects an unknown flag, so pitstop only
 passes flags the *installed* ai-jail supports. It runs `<ai-jail> --help` once
 and treats a toggle as supported only when the exact token `--X` appears
 (tokens split on whitespace and `/`; never a substring match, so `--docker`
@@ -431,11 +431,11 @@ that has it. The credential mounts (`github`, `aws`, `kube`, `gcloud`,
 2.4.1.
 
 **Never offered.** `--jail=` refuses the security switches and the flags
-ai-memory owns, with "not available through ai-memory; run ai-jail directly":
+pitstop owns, with "not available through pitstop; run ai-jail directly":
 `private-home`, `lockdown`, `landlock`, `seccomp`, `rlimits`, `systemd-user`,
 `inherit-env`, `macos-host-ipc`, `browser`, the audit-log flags (each weakens
 or reconfigures the sandbox itself), and `network` / `agent-state` /
-`save-config` (set by ai-memory, §2). Someone who needs one runs ai-jail
+`save-config` (set by pitstop, §2). Someone who needs one runs ai-jail
 directly.
 
 **Security notes.**
@@ -455,12 +455,12 @@ directly.
 
 ai-jail 3.0.0 moved its policy out of the checkout (`~/.config/ai-jail`), runs
 its own first-run review for known harnesses, and treats unrestricted network
-as OPEN. ai-memory's flag-based launch still works there, but the user saw two
-checklists, ai-memory opened the full network, and ai-jail had to guess the
-harness from ai-memory's argv (a wrapper flag it did not know, such as
+as OPEN. pitstop's flag-based launch still works there, but the user saw two
+checklists, pitstop opened the full network, and ai-jail had to guess the
+harness from pitstop's argv (a wrapper flag it did not know, such as
 `--jail-map`, made it give up). ai-jail 3.0.1 added a wrapper contract
 ([WRAPPER_INTEGRATION.md](https://github.com/akitaonrails/ai-jail/blob/v3.0.1/docs/WRAPPER_INTEGRATION.md)),
-and ai-memory uses part of it (#2020).
+and pitstop uses part of it (#2020).
 
 **When.** The installed ai-jail's `--help` lists `--harness`,
 `ai-jail capabilities --json` reports schema 1 with `harness_flag` and
@@ -471,7 +471,7 @@ with an automatic harness keeps the flag launch, because the server picks the
 harness after the re-exec decision. Otherwise the launch is the §2/§5 one.
 
 **Launch.** `ai-jail --harness H <reach> --agent-state --no-save-config
---env NAME… <toggles> <folders> -- ai-memory run …`. Every part is a
+--env NAME… <toggles> <folders> -- pitstop run …`. Every part is a
 command-line grant, which ai-jail applies without a prompt:
 
 - *No request file.* The contract's `--request-file` was tried first and
@@ -479,11 +479,11 @@ command-line grant, which ai-jail applies without a prompt:
   forwarded variables meant eight prompts before the agent started. The same
   names passed as `--env NAME` need none. ai-jail's own first-run review
   (network, credentials, SSH) stays the one place the user decides.
-- *Only the harness's own keys.* `harness_env_names` passes every ai-memory
+- *Only the harness's own keys.* `harness_env_names` passes every pitstop
   routing name that is set, `CLAUDE_CONFIG_DIR` for Claude only, and the
   provider keys that harness reads: Claude gets the Anthropic ones, Codex the
   OpenAI one, Antigravity the Gemini/Google ones. Grok and Kimi get none from
-  ai-memory, because ai-jail forwards `XAI_API_KEY` and `MOONSHOT_API_KEY` itself
+  pitstop, because ai-jail forwards `XAI_API_KEY` and `MOONSHOT_API_KEY` itself
   with `--agent-state`. Multi-provider harnesses (OpenCode, Pi, Crush, Omp,
   Kiro) keep every key that is set. A test fails when a new provider key is
   added to `FORWARDED_ENV_NAMES` without being classified.
@@ -491,7 +491,7 @@ command-line grant, which ai-jail applies without a prompt:
   `--forward-port PORT`: that one host port on the jail's loopback, and the
   network stays filtered. Any other server keeps `--network`, labelled OPEN
   in ai-jail's review: ai-jail's filter reaches LAN and remote services only
-  through its HTTP proxy, and ai-memory's hook clients bypass proxies on
+  through its HTTP proxy, and pitstop's hook clients bypass proxies on
   purpose (§2). `[::1]` is not bridged by `--forward-port`, so it also keeps
   `--network`.
 - *`--no-save-config` stays.* Without it ai-jail saves the launch's
@@ -509,7 +509,7 @@ its guide asks of automation. An unreadable status also launches and leaves
 any refusal to ai-jail.
 
 **Checklist.** ai-jail's review owns credentials, SSH and network, so
-ai-memory's screen shows only the extra folders (`f`, `reset`, Enter). The
+pitstop's screen shows only the extra folders (`f`, `reset`, Enter). The
 remembered toggle answers are kept for a later launch that falls back to
 flags, and the next-run line is a bare `--jail` plus the folders.
 
@@ -535,22 +535,22 @@ the preset fallback.
 
 ## Code shape
 
-- `ai-memory-workstream/src/jail.rs` (new): pure, OS-aware, dependency-injected
+- `pitstop-workstream/src/jail.rs` (new): pure, OS-aware, dependency-injected
   detection + command construction: `usable_ai_jail(os, lookup)`,
   `inside_ai_jail(env, hostname)`, `build_ai_jail_invocation(exe, args, env_names)`.
   Pure functions so the OS branches and the argv/env assembly are unit-tested
   without a sandbox.
-- `ai-memory-cli/src/commands/run.rs`: the interactive prompt + orchestration
+- `pitstop-cli/src/commands/run.rs`: the interactive prompt + orchestration
   (gate → warn → offer → re-exec or proceed), reusing the existing
   `is_terminal` gate and a `confirm`-style reader.
-- `ai-memory-cli/src/config.rs`: `claude_true_yolo: bool`, deprecated and
+- `pitstop-cli/src/config.rs`: `claude_true_yolo: bool`, deprecated and
   ignored since 3.4.3 (§4).
 - §5: the toggle table, `--help` support detection (`JailSupport`), host facts
   (`JailHostFacts`, fed by `inspect_repository`'s `origin_push_url` /
   `linked_worktree`), `jail_checklist`, and `parse_jail_toggles` live in
   `jail.rs`; `run.rs` owns `--jail`/`--no-jail` parsing, the `jail_decision`
   table, and the checklist reader.
-- `ai-memory-workstream/src/harness.rs`: `apply_yolo` adds Claude's
+- `pitstop-workstream/src/harness.rs`: `apply_yolo` adds Claude's
   `--settings` next to `--dangerously-skip-permissions`.
 
 ## Security considerations

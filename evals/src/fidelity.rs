@@ -17,11 +17,11 @@
 
 use std::collections::BTreeSet;
 
-use ai_memory_consolidate::{
+use pitstop_consolidate::{
     ConsolidatedBatch, build_batch_request, mine_keep_tokens, mine_residue_tokens,
 };
-use ai_memory_core::{Observation, SessionId};
-use ai_memory_llm::ChatRequest;
+use pitstop_core::{Observation, SessionId};
+use pitstop_llm::ChatRequest;
 use serde::Serialize;
 
 /// What the projection let through to the user message.
@@ -305,8 +305,8 @@ fn invented_wikilinks(page_text: &str, own_paths: &[&str]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ai_memory_consolidate::ConsolidatedPageUpdate;
-    use ai_memory_core::{ObservationId, ObservationKind, ProjectId, WorkspaceId};
+    use pitstop_consolidate::ConsolidatedPageUpdate;
+    use pitstop_core::{ObservationId, ObservationKind, ProjectId, WorkspaceId};
     use jiff::Timestamp;
 
     fn obs(session_id: SessionId, body: &str) -> Observation {

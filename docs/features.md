@@ -3,7 +3,7 @@
 This guide covers prerequisites, activation and verification for shipped
 features. Follow the linked guides for the full options.
 Configuration examples belong in `<data_dir>/config.toml` unless a section names
-`.ai-memory.toml`. Restart the server after changing server configuration.
+`.pitstop.toml`. Restart the server after changing server configuration.
 
 ## Start here
 
@@ -21,7 +21,7 @@ matches the build, not a live configuration dump.
 The built-in dashboard and this documentation need the web surface enabled:
 
 ```bash
-ai-memory serve --transport http --enable-web
+pitstop serve --transport http --enable-web
 ```
 
 Open `/web/docs`, or the corresponding path under your configured base path and
@@ -42,16 +42,16 @@ require a reachable server and a supported harness installed locally.
 The managed launcher can wire supported integrations on first launch:
 
 ```bash
-ai-memory run codex
+pitstop run codex
 ```
 
 To wire a client you launch directly, preview and then apply its integration:
 
 ```bash
-ai-memory install-mcp --client codex
-ai-memory install-mcp --client codex --apply
-ai-memory install-hooks --agent codex
-ai-memory install-hooks --agent codex --apply
+pitstop install-mcp --client codex
+pitstop install-mcp --client codex --apply
+pitstop install-hooks --agent codex
+pitstop install-hooks --agent codex --apply
 ```
 
 Use `claude-code` for Claude Code, or the exact supported name from the
@@ -165,7 +165,7 @@ scope names. Session-aware clients can use their recorded identity. A terminal
 client can receive the same request:
 
 ```bash
-ai-memory message pop --workspace team --project app --agent codex
+pitstop message pop --workspace team --project app --agent codex
 ```
 
 Messages are claimed once. Read the [messaging guide](agent-messaging.md) for
@@ -176,7 +176,7 @@ shared queues, cancellation, sender provenance and untrusted-message handling.
 Install lifecycle hooks to carry useful context into the next session or
 harness. Handoff capture and recovery follow the
 configured lifecycle policy; no LLM is required for the deterministic path.
-Use `ai-memory run` for managed cross-harness continuity.
+Use `pitstop run` for managed cross-harness continuity.
 
 Verify: inspect the next session's startup context and handoff state.
 An interrupted session may remain open without a session-end event; that alone
@@ -184,7 +184,7 @@ is not evidence of a running process. See [handoffs and recovery](usage.md).
 
 ## Managed sessions and workstreams
 
-Launch a supported harness with `ai-memory run <harness>` to enable managed
+Launch a supported harness with `pitstop run <harness>` to enable managed
 sessions for that launch. Direct launches remain unmanaged; this setting does
 not change the global mode.
 Use the documented resume and launch-profile options for account-specific
@@ -222,7 +222,7 @@ Default: lexical retrieval and rule-based summaries work without an LLM.
 Connect MCP, then use the installed retrieval skills and `memory_query`.
 Project memory is separate from this product documentation.
 
-For explicit project identity, use the registered names in `.ai-memory.toml`:
+For explicit project identity, use the registered names in `.pitstop.toml`:
 
 ```toml
 workspace = "team"
@@ -243,7 +243,7 @@ For semantic retrieval and optional candidate reranking, configure the
 embedding provider, model and credentials described in
 [LLM providers](llm-providers.md) and the [configuration reference](ARCHITECTURE.md#configuration-configtoml).
 Availability and defaults depend on the provider configuration and build.
-LLM reranking is separately opt-in through `AI_MEMORY_RERANKER=llm` and requires
+LLM reranking is separately opt-in through `PITSTOP_RERANKER=llm` and requires
 an appropriate configured LLM provider.
 
 Verify: use query explanations and diagnostics to inspect the active ranking
@@ -260,7 +260,7 @@ credential types are documented there; do not paste credentials into pages.
 Without an LLM, capture, lexical recall and deterministic summaries still work.
 Provider calls are separate from the agent harness's own model calls.
 Session-end provider consolidation is opt-in; see the provider guide for
-`AI_MEMORY_CONSOLIDATE_ON_SESSION_END` and checkpoint behavior.
+`PITSTOP_CONSOLIDATE_ON_SESSION_END` and checkpoint behavior.
 
 Verify: inspect compiled pages, jobs and diagnostics after a documented
 consolidation trigger. Configure ordered fallback only if needed; the
@@ -314,12 +314,12 @@ The management console additionally requires a feature-enabled build and a
 runtime flag:
 
 ```bash
-cargo build --locked --release -p ai-memory-cli --features management-ui
-./target/release/ai-memory serve --transport http --enable-management-ui
+cargo build --locked --release -p pitstop-cli --features management-ui
+./target/release/pitstop serve --transport http --enable-management-ui
 ```
 
 The standard image does not include this optional console. For a source-built
-Docker image, use `--build-arg AI_MEMORY_FEATURES=management-ui` and enable the
+Docker image, use `--build-arg PITSTOP_FEATURES=management-ui` and enable the
 runtime setting described in [management console](management-ui.md).
 Session-management and self-service-key APIs also have independent build/runtime
 switches; follow that guide's links for those options.
@@ -347,7 +347,7 @@ installation. Backups are explicit online operations; restore and destructive
 commands have different live-process and confirmation requirements.
 
 ```bash
-ai-memory backup --to /path/to/private-backups/memory.tar.gz
+pitstop backup --to /path/to/private-backups/memory.tar.gz
 ```
 
 Verify: retain the archive outside disposable container layers and follow

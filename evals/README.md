@@ -1,8 +1,8 @@
 # `evals/` — evaluation harnesses
 
-One Rust binary (`ai-memory-eval`) with four subcommands:
+One Rust binary (`pitstop-eval`) with four subcommands:
 
-- **`ab`** — runs the EXACT consolidation prompt ai-memory uses in
+- **`ab`** — runs the EXACT consolidation prompt pitstop uses in
   production against two LLM providers side by side, saves both
   outputs to disk for human comparison, and scores literal fidelity
   (see [Literal fidelity](#literal-fidelity)).
@@ -10,7 +10,7 @@ One Rust binary (`ai-memory-eval`) with four subcommands:
   facts the observation projection lets into the prompt at all. No
   provider, no network.
 - **`retrieval`** — LongMemEval and bundled coding-session retrieval checks,
-  driven through a real `ai-memory serve` subprocess. Published baselines
+  driven through a real `pitstop serve` subprocess. Published baselines
   live in `docs/benchmarks/`.
 - **`abstention`** — offline evidence-sufficiency signals and threshold sweeps
   over versioned answerable, hard-negative, conflicting, partial, and
@@ -28,7 +28,7 @@ docker image. CI builds it and runs its unit tests
 The default run is deterministic, offline, and keyless:
 
 ```bash
-cargo run -p ai-memory-eval -- abstention
+cargo run -p pitstop-eval -- abstention
 ```
 
 It reads `evals/fixtures/abstention/v1.json`, validates the version, unique
@@ -51,8 +51,8 @@ LongMemEval-S `*_abs` questions as unanswerable cases, first fetch that dataset
 through the retrieval command, then opt in without any network access:
 
 ```bash
-cargo run -p ai-memory-eval -- retrieval --fetch --sample 1
-cargo run -p ai-memory-eval -- abstention --longmemeval-abs
+cargo run -p pitstop-eval -- retrieval --fetch --sample 1
+cargo run -p pitstop-eval -- abstention --longmemeval-abs
 ```
 
 Those cases use the evaluator's existing whole-session grep baseline, not the
@@ -98,12 +98,12 @@ distinction).
 For each `*.json` under `evals/fixtures/`:
 
 1. Builds the request via
-   [`ai_memory_consolidate::build_batch_request`] — same code path
+   [`pitstop_consolidate::build_batch_request`] — same code path
    the live consolidator uses.
 2. Sends it to a **baseline** and a **candidate** provider, *in
    parallel*.
 3. Runs the result through
-   [`ai_memory_llm::complete_structured`] — same JSON-schema
+   [`pitstop_llm::complete_structured`] — same JSON-schema
    validation the live system applies. Schema-parse failure is
    recorded (not fatal).
 4. Persists to `evals/runs/<timestamp>/{baseline,candidate}/<fixture>.{json,md,meta.json}`.
@@ -124,7 +124,7 @@ still **for you to read**: open the markdown files in
 # string for the candidate (Ollama doesn't validate).
 export OPENROUTER_API_KEY="sk-or-v1-..."
 
-cargo run -p ai-memory-eval -- ab \
+cargo run -p pitstop-eval -- ab \
     --baseline-provider openai-compat \
     --baseline-base-url https://openrouter.ai/api/v1 \
     --baseline-model moonshotai/kimi-k2.6 \
@@ -138,7 +138,7 @@ cargo run -p ai-memory-eval -- ab \
 ### Two Ollama models against each other
 
 ```bash
-cargo run -p ai-memory-eval -- ab \
+cargo run -p pitstop-eval -- ab \
     --baseline-provider openai-compat \
     --baseline-base-url http://192.168.0.90:11434/v1 \
     --baseline-model qwen3:32b \
@@ -151,13 +151,13 @@ cargo run -p ai-memory-eval -- ab \
 
 ### ChatGPT/Codex OAuth as one side
 
-Run `ai-memory auth login openai-oauth` first, then point the eval harness at
+Run `pitstop auth login openai-oauth` first, then point the eval harness at
 the same token file:
 
 ```bash
-cargo run -p ai-memory-eval -- ab \
+cargo run -p pitstop-eval -- ab \
     --baseline-provider openai-oauth \
-    --baseline-token-file ~/.local/share/ai-memory/auth.json \
+    --baseline-token-file ~/.local/share/pitstop/auth.json \
     --baseline-model gpt-5.5 \
     --candidate-provider openai-compat \
     --candidate-base-url http://192.168.0.90:11434/v1 \
@@ -167,13 +167,13 @@ cargo run -p ai-memory-eval -- ab \
 
 ### GitHub Copilot as one side
 
-Run `ai-memory auth login copilot` first, then point the eval harness at the
+Run `pitstop auth login copilot` first, then point the eval harness at the
 same auth file:
 
 ```bash
-cargo run -p ai-memory-eval -- ab \
+cargo run -p pitstop-eval -- ab \
     --baseline-provider copilot \
-    --baseline-token-file ~/.local/share/ai-memory/auth.json \
+    --baseline-token-file ~/.local/share/pitstop/auth.json \
     --baseline-model gpt-5.5 \
     --candidate-provider openai-compat \
     --candidate-base-url http://192.168.0.90:11434/v1 \
@@ -260,11 +260,11 @@ server's prompts.
 Zero-LLM, no provider:
 
 ```bash
-cargo run -p ai-memory-eval -- projection --generated-seed 1215
+cargo run -p pitstop-eval -- projection --generated-seed 1215
 # compare the default projection with the opt-in residue, without a provider:
-cargo run -p ai-memory-eval -- projection --generated-seed 1215 --residue
+cargo run -p pitstop-eval -- projection --generated-seed 1215 --residue
 # also write every request and the generated session to a directory:
-cargo run -p ai-memory-eval -- projection --generated-seed 1215 --dump evals/runs/projection
+cargo run -p pitstop-eval -- projection --generated-seed 1215 --dump evals/runs/projection
 ```
 
 Point `--dump` and the fixtures at synthetic sessions only. A request
@@ -301,7 +301,7 @@ Both lists are optional.
 
 `kind` values: `session-start`, `user-prompt`, `pre-tool-use`,
 `post-tool-use`, `pre-compact`, `notification`, `stop`,
-`session-end`, `other` (see `ObservationKind` in `ai-memory-core`).
+`session-end`, `other` (see `ObservationKind` in `pitstop-core`).
 
 The `description` field isn't read by the runner — it's a comment
 for the next human who opens the file.
@@ -329,7 +329,7 @@ Measures the real retrieval stack against
 (v1, S variant, MIT license, 500 questions over ~50-session chat
 haystacks). Nothing is mocked:
 
-1. a real `ai-memory serve` subprocess starts on a fresh temp data dir
+1. a real `pitstop serve` subprocess starts on a fresh temp data dir
    (zero-LLM: no consolidation LLM, no embedder, no reranker — fully
    deterministic and offline);
 2. each question's haystack replays through `POST /hook/batch` at the
@@ -349,10 +349,10 @@ The dataset (278 MB) is NOT committed; it downloads to
 on upstream drift.
 
 ```bash
-cargo build --release -p ai-memory-cli   # the server under test
-cargo run --release -p ai-memory-eval -- retrieval --fetch   # full 500
-cargo run -p ai-memory-eval -- retrieval --sample 10         # smoke
-cargo run -p ai-memory-eval -- retrieval --question-id 07741c44,07741c45  # chosen questions
+cargo build --release -p pitstop-cli   # the server under test
+cargo run --release -p pitstop-eval -- retrieval --fetch   # full 500
+cargo run -p pitstop-eval -- retrieval --sample 10         # smoke
+cargo run -p pitstop-eval -- retrieval --question-id 07741c44,07741c45  # chosen questions
 ```
 
 Output: a per-slice table on stdout plus
@@ -374,10 +374,10 @@ SHA-256, so a zero-LLM run needs neither a dataset download nor a provider.
 Use the existing server or grep engine and A/B reporting:
 
 ```bash
-cargo build -p ai-memory-cli -p ai-memory-eval
-cargo run -p ai-memory-eval -- retrieval --dataset-variant coding-v1 \
-    --server-bin target/debug/ai-memory --candidate --concurrency 1
-cargo run -p ai-memory-eval -- retrieval --dataset-variant coding-v1 --engine grep
+cargo build -p pitstop-cli -p pitstop-eval
+cargo run -p pitstop-eval -- retrieval --dataset-variant coding-v1 \
+    --server-bin target/debug/pitstop --candidate --concurrency 1
+cargo run -p pitstop-eval -- retrieval --dataset-variant coding-v1 --engine grep
 ```
 
 | Case | Expected evidence | Incorrect alternative |
@@ -458,7 +458,7 @@ fields are evaluator placeholders and are not server measurements.
 Reproduce with the `coding-v1 --candidate --concurrency 1` command above, three
 times. The ignored `coding_corpus_replays_offline_with_identical_ab_results`
 smoke test also asserts full evidence recall@10 and identical A/B scores/context;
-it needs a server binary at `target/release/ai-memory`.
+it needs a server binary at `target/release/pitstop`.
 
 ### The triple: accuracy + latency + context-tokens
 
@@ -479,7 +479,7 @@ table (markdown + JSON). A/B mode turns on with `--candidate` or any
 `--candidate-*` knob; without one, the single-config path is unchanged.
 
 Baseline knobs: `--embeddings none|local` (also = vectors off/on),
-`--reranker` (sets `AI_MEMORY_RERANKER=llm`; needs a provider via
+`--reranker` (sets `PITSTOP_RERANKER=llm`; needs a provider via
 `--server-env`), `--server-env KEY=VALUE` (any server env, repeatable),
 `--query-arg KEY=JSON` (extra `memory_query` args, repeatable — so future
 knobs like `pin_first` / `include_superseded` can be A/B'd;
@@ -490,14 +490,14 @@ unset mirrors the baseline.
 
 ```bash
 # Determinism check — baseline == candidate ⇒ accuracy/context delta = 0:
-cargo run --release -p ai-memory-eval -- retrieval --candidate --sample 2
+cargo run --release -p pitstop-eval -- retrieval --candidate --sample 2
 
 # Vectors off vs on, full run:
-cargo run --release -p ai-memory-eval -- retrieval --fetch \
+cargo run --release -p pitstop-eval -- retrieval --fetch \
     --candidate-embeddings local
 
 # A future memory_query knob, baseline off vs candidate on:
-cargo run --release -p ai-memory-eval -- retrieval --fetch \
+cargo run --release -p pitstop-eval -- retrieval --fetch \
     --candidate-query-arg include_expired=true
 ```
 
@@ -522,7 +522,7 @@ run directory or the file), pairs questions by id, and prints:
 - per question type, how many moved earlier and how many later.
 
 ```bash
-cargo run --release -p ai-memory-eval -- retrieval-compare \
+cargo run --release -p pitstop-eval -- retrieval-compare \
     --baseline evals/runs/<previous release local run> \
     --candidate evals/runs/<release candidate local run> \
     --fts evals/runs/<release candidate FTS run>
@@ -575,7 +575,7 @@ zero-LLM and deterministic.
 ```bash
 # Keep keys in the process env only for the run; never echo a key.
 set -a; source ~/.config/zsh/secrets; set +a   # or export GEMINI_API_KEY=...
-cargo run -p ai-memory-eval -- retrieval --sample 3 \
+cargo run -p pitstop-eval -- retrieval --sample 3 \
     --qa --qa-provider gemini --qa-model gemini-2.5-flash
 ```
 
@@ -587,7 +587,7 @@ published baselines. The results are in
 [`docs/benchmarks/longmemeval-s-decomposition-2026-10-12.md`](../docs/benchmarks/longmemeval-s-decomposition-2026-10-12.md).
 On a 3.0 server the observation stream is on by default, so reproducing a
 2.6-era baseline also needs
-`--server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false`.
+`--server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false`.
 
 - `--reachability` reads every evidence session back after the query and
   reports, per slice, how many answer-bearing turns (the dataset's
@@ -619,10 +619,10 @@ which shows whether a net delta is many changes cancelling out or a few in
 one direction.
 
 ```bash
-cargo run --release -p ai-memory-eval -- retrieval --engine grep
-cargo run --release -p ai-memory-eval -- retrieval --reachability \
+cargo run --release -p pitstop-eval -- retrieval --engine grep
+cargo run --release -p pitstop-eval -- retrieval --reachability \
     --ingest hooks --candidate-ingest whole-session
-cargo run --release -p ai-memory-eval -- retrieval --stratify 5 \
+cargo run --release -p pitstop-eval -- retrieval --stratify 5 \
     --date-prefix turn --candidate-date-prefix session-start
 ```
 

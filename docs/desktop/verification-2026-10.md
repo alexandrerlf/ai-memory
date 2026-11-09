@@ -49,7 +49,7 @@ matcher and handler (`codex-rs/hooks/src/engine/discovery.rs` `hook_hash`);
 the path only names the state entry. Loading the operator's restored
 `~/.codex/hooks.json` content into a scratch home and comparing the reported
 `currentHash` values with the operator's stored `trusted_hash` values showed
-all seven ai-memory hooks as trusted. Any change to a hook command (a new
+all seven pitstop hooks as trusted. Any change to a hook command (a new
 binary path, data dir or server URL) makes it `modified`, and Codex then
 skips it without telling the user until it is trusted again.
 
@@ -70,18 +70,18 @@ recorder, `agy -p` and the documented stream-json input
   and no session start or end event, as the docs say.
 - **`invocationNum` restarts at 0 on every user turn** within one
   conversation, and `executionNum` was 0 on both turns. `invocationNum == 0`
-  therefore marks a user turn, not a new conversation. ai-memory maps that
+  therefore marks a user turn, not a new conversation. pitstop maps that
   event to SessionStart (`should_process_hook_event` in
-  `crates/ai-memory-cli/src/commands/hook.rs`), so it posts session-start
+  `crates/pitstop-cli/src/commands/hook.rs`), so it posts session-start
   and fetches the handoff on every turn. The brief and the profile digest
   have their own once-per-session markers. Resolved in #1306: only the
   first turn of a conversation (by `conversationId`) maps to SessionStart.
 - **A `PreToolUse` reply without a `decision` denies the tool.** A recorder
   that printed `{}` made the transcript record `tool call denied by
-  pre-tool hook` and `PostToolUse` never fired. ai-memory's shell and native
+  pre-tool hook` and `PostToolUse` never fired. pitstop's shell and native
   hooks both print `{"decision": "allow"}` and are unaffected.
 - `PostToolUse` carries `toolCall {name, args}`, `stepIdx` and `error`, not
-  the tool's output (ai-memory reads it from
+  the tool's output (pitstop reads it from
   `.system_generated/steps/<stepIdx>/output.txt`, #966).
 - `transcriptPath` points at
   `~/.gemini/antigravity-cli/brain/<conversationId>/.system_generated/logs/transcript_full.jsonl`;
@@ -116,8 +116,8 @@ only. (<https://code.claude.com/docs/en/desktop-linux>,
 under `~/.claude/projects` was classified by `entrypoint`. The three with
 `entrypoint: claude-desktop` (Claude Code 2.1.280, 2026-10-02 to 10-04)
 carry `hook_success` attachments for `SessionStart:startup` and
-`PreToolUse:Bash` from the ai-memory hooks in `~/.claude/settings.json`, and
-an `mcp_instructions_delta` adding the `ai-memory` server.
+`PreToolUse:Bash` from the pitstop hooks in `~/.claude/settings.json`, and
+an `mcp_instructions_delta` adding the `pitstop` server.
 
 **Scratch workspaces are Code-tab sessions, not Cowork.** Those three
 sessions ran in `~/.config/Claude/scratch-workspaces/<account>/<org>/scratch-<date>-<hex>/`.
@@ -145,7 +145,7 @@ needs `--config-file ~/.config/Claude/claude_desktop_config.json`.
 ## Cursor (added the same day; details in `cursor.md`)
 
 - The running desktop app executed the operator's `~/.claude/settings.json`
-  ai-memory `SessionStart` hook at launch, before any conversation, with
+  pitstop `SessionStart` hook at launch, before any conversation, with
   Cursor's payload: `conversation_id` = `session_id` = `"empty-state-draft"`,
   `cursor_version`, `composer_mode`, `is_background_agent`, empty
   `workspace_roots`, null `transcript_path`. Cursor's docs say Claude Code
@@ -155,7 +155,7 @@ needs `--config-file ~/.config/Claude/claude_desktop_config.json`.
   session with no `cwd` in `default/scratch`; each later launch adds another
   `session-start` observation to the same placeholder session.
 - The empty window loaded only Cursor's built-in MCP servers, not the
-  Claude config's `ai-memory`.
+  Claude config's `pitstop`.
 - Two real conversations in the empty window arrived through the Claude
   hooks with `session_id`, `prompt`, `tool_name`, `tool_input` and
   `tool_output` alongside Cursor's fields; the transcript lands under
@@ -170,7 +170,7 @@ needs `--config-file ~/.config/Claude/claude_desktop_config.json`.
 
 | Question | What would settle it |
 | --- | --- |
-| Does the Codex desktop app pass anything at `thread/start` that disables hooks? | One prompt in the desktop app with the trusted ai-memory hooks in place, then check the hook spool or server for a `codex` session whose rollout originator is the desktop's |
+| Does the Codex desktop app pass anything at `thread/start` that disables hooks? | One prompt in the desktop app with the trusted pitstop hooks in place, then check the hook spool or server for a `codex` session whose rollout originator is the desktop's |
 | Does the Antigravity IDE run `.agents/hooks.json` / `~/.gemini/config/hooks.json`, with the same payload as the CLI? | One IDE prompt in a scratch workspace carrying a recorder `.agents/hooks.json` |
 | Do host hooks and MCP servers reach Cowork's VM on Linux (and on macOS/Windows)? | One Cowork task after the VM images download, then look for hook output in its transcript |
 | Cursor: the native `.cursor/hooks.json` payloads and the `cwd` inside an open folder | One prompt in the probe workspace, which carries recorder `.cursor/hooks.json` and `.claude/settings.json` files |

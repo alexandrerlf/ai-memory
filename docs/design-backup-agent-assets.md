@@ -1,16 +1,16 @@
 # Backup and Restore of AI Agent Assets (Skills, MCP, Plugins)
 
-**Status: implemented.** The shipped commands are `ai-memory backup-agents`
-and `ai-memory restore-agents`; the README is the current operator guide. This
+**Status: implemented.** The shipped commands are `pitstop backup-agents`
+and `pitstop restore-agents`; the README is the current operator guide. This
 document retains the design and threat-model rationale.
 
 ## 1. Context and Motivation
 
-`ai-memory` coordinates memory and context across AI coding agents (Claude Code, OpenAI Codex, Antigravity CLI, Gemini CLI, Cursor, OpenCode, Devin, Grok, Kiro, etc.).
+`pitstop` coordinates memory and context across AI coding agents (Claude Code, OpenAI Codex, Antigravity CLI, Gemini CLI, Cursor, OpenCode, Devin, Grok, Kiro, etc.).
 
 Before these commands were added:
-- **Server Backup:** `ai-memory backup` takes a snapshot of the server's SQLite database (`memory.sqlite`), git wiki (`wiki/`), and `config.toml` via `POST /admin/backup`.
-- **Client Configuration Knowledge:** `ai-memory` installers (`install_mcp.rs`, `install_skills.rs`, `install_hooks.rs`, `uninstall.rs`) already have detailed definitions of where each supported AI harness stores MCP servers, skills, plugins, and project instructions.
+- **Server Backup:** `pitstop backup` takes a snapshot of the server's SQLite database (`memory.sqlite`), git wiki (`wiki/`), and `config.toml` via `POST /admin/backup`.
+- **Client Configuration Knowledge:** `pitstop` installers (`install_mcp.rs`, `install_skills.rs`, `install_hooks.rs`, `uninstall.rs`) already have detailed definitions of where each supported AI harness stores MCP servers, skills, plugins, and project instructions.
 - **Gap:** There was no command to snapshot, export, backup, or restore host
   agent configurations (MCP servers, agent skills, plugins, instructions).
   Moving to a new machine required reconfiguring every agent manually.
@@ -46,25 +46,25 @@ documents.
 
 ### Dedicated Host CLI Subcommands: `backup-agents` and `restore-agents`
 
-Host configurations live on the client filesystem, independent of whether the `ai-memory serve` daemon is running. Therefore, backup and restore of agent assets execute as client-side commands.
+Host configurations live on the client filesystem, independent of whether the `pitstop serve` daemon is running. Therefore, backup and restore of agent assets execute as client-side commands.
 
 #### CLI Command Specification
 
 ```bash
 # Backup all detected agents into an archive
-ai-memory backup-agents -o agent-assets.tar.gz
+pitstop backup-agents -o agent-assets.tar.gz
 
 # Filter specific agents or scopes
-ai-memory backup-agents --agents claude,codex,antigravity --scope both -o backup.tar.gz
+pitstop backup-agents --agents claude,codex,antigravity --scope both -o backup.tar.gz
 
 # Include raw MCP-config secrets (warns loudly; every archive is 0600 on Unix)
-ai-memory backup-agents -o backup.tar.gz --include-secrets
+pitstop backup-agents -o backup.tar.gz --include-secrets
 
 # Dry-run inspection of an archive before restoring
-ai-memory restore-agents -i backup.tar.gz
+pitstop restore-agents -i backup.tar.gz
 
 # Apply the reviewed restoration plan
-ai-memory restore-agents -i backup.tar.gz --apply
+pitstop restore-agents -i backup.tar.gz --apply
 ```
 
 ---
@@ -75,7 +75,7 @@ Stored in the root of the generated tarball:
 
 ```json
 {
-  "$schema": "https://ai-memory.dev/schemas/agent-backup-v1.json",
+  "$schema": "https://pitstop.dev/schemas/agent-backup-v1.json",
   "version": 1,
   "created_at": "2026-09-28T14:30:00Z",
   "host": {
@@ -115,7 +115,7 @@ Stored in the root of the generated tarball:
 ## 5. Security & Invariants
 
 1. **Secret Redaction:**
-   - By default, known tokens, bearer headers, and environment keys (`*_TOKEN`, `*_KEY`, `*_SECRET`) in UTF-8 MCP config files are sanitized using `ai-memory-hooks::sanitizer`.
+   - By default, known tokens, bearer headers, and environment keys (`*_TOKEN`, `*_KEY`, `*_SECRET`) in UTF-8 MCP config files are sanitized using `pitstop-hooks::sanitizer`.
    - Skills, plugins, and instruction files are copied verbatim and may contain secrets.
    - Passing `--include-secrets` bypasses MCP redaction. Every archive is set
      to mode `0600` on Unix because verbatim instructions and plugins may also
@@ -136,7 +136,7 @@ Stored in the root of the generated tarball:
    - The output archive is completed and synced in a private sibling tempfile
      before it replaces the requested destination.
    - Target files use temporary file + rename + sync
-     (`ai_memory_wiki::write_atomic`). If a later write fails, earlier writes
+     (`pitstop_wiki::write_atomic`). If a later write fails, earlier writes
      are rolled back; timestamped copies of overwritten files remain available.
    - Non-managed custom files are never overwritten without explicit `--force`.
    - Portable Unix execute/read/write bits are restored; set-id and sticky bits
@@ -154,9 +154,9 @@ Stored in the root of the generated tarball:
 
 ## 6. Implementation Map
 
-1. **`crates/ai-memory-core`**:
+1. **`crates/pitstop-core`**:
    - Add `agent_backup` module containing `AgentAssetKind`, `AgentAssetScope`, `AgentBackupEntry`, and `AgentBackupManifest`.
-2. **`crates/ai-memory-cli`**:
+2. **`crates/pitstop-cli`**:
    - `src/cli.rs`: Register `BackupAgents(BackupAgentsArgs)` and `RestoreAgents(RestoreAgentsArgs)`.
    - `src/commands/backup_agents.rs`: Scan host configs, package archive.
    - `src/commands/restore_agents.rs`: Validate manifest, present diffs, write files.

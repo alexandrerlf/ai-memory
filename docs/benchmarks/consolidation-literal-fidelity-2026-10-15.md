@@ -60,7 +60,7 @@ prompt experiment specified in the design.
 Reproduction shape (credential arguments omitted):
 
 ```bash
-cargo run -p ai-memory-eval -- ab \
+cargo run -p pitstop-eval -- ab \
   --fixtures <directory-containing-fixture-06> \
   --baseline-provider codex --baseline-model gpt-6-sol \
   --candidate-provider codex --candidate-model gpt-6-sol \

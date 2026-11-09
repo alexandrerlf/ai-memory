@@ -1,4 +1,4 @@
-# NixOS module for the ai-memory MCP server.
+# NixOS module for the pitstop MCP server.
 #
 # Standalone: no reference to `self` or anything flake-specific, so it stays
 # importable outside this flake. `flake.nix`'s `nixosModules.default` wraps
@@ -6,10 +6,10 @@
 { config, lib, pkgs, utils, ... }:
 
 let
-  cfg = config.services.ai-memory;
+  cfg = config.services.pitstop;
   sandbox = import ./systemd-sandbox.nix { inherit lib; };
 
-  defaultDataDir = "/var/lib/ai-memory";
+  defaultDataDir = "/var/lib/pitstop";
   usesDefaultDataDir = cfg.dataDir == defaultDataDir;
 
   isLoopback = lib.elem cfg.bind [ "127.0.0.1" "::1" ];
@@ -35,7 +35,7 @@ let
     if stripped == { } then
       null
     else
-      tomlFormat.generate "ai-memory-config.toml" stripped;
+      tomlFormat.generate "pitstop-config.toml" stripped;
 
   ageSecretPath =
     if cfg.ageSecret == null then
@@ -96,16 +96,16 @@ let
     ++ lib.optionals cfg.enableWeb [ "--enable-web" ];
 in
 {
-  options.services.ai-memory = {
-    enable = lib.mkEnableOption "the ai-memory MCP server as a systemd service";
+  options.services.pitstop = {
+    enable = lib.mkEnableOption "the pitstop MCP server as a systemd service";
 
     package = lib.mkOption {
       type = lib.types.package;
       description = ''
-        The ai-memory package to run. No default here, so this module stays
+        The pitstop package to run. No default here, so this module stays
         usable standalone. This repo's `flake.nix` supplies a default via
         `nixosModules.default`, which sets
-        `services.ai-memory.package = lib.mkDefault
+        `services.pitstop.package = lib.mkDefault
         self.packages.${pkgs.stdenv.hostPlatform.system}.default`.
         A consumer importing this file directly (bypassing that wrapper)
         must set this option themselves.
@@ -121,13 +121,13 @@ in
     bind = lib.mkOption {
       type = lib.types.str;
       default = "127.0.0.1";
-      description = "Host ai-memory's HTTP transport binds to.";
+      description = "Host pitstop's HTTP transport binds to.";
     };
 
     port = lib.mkOption {
       type = lib.types.port;
       default = 49374;
-      description = "Port ai-memory's HTTP transport binds to.";
+      description = "Port pitstop's HTTP transport binds to.";
     };
 
     enableWeb = lib.mkOption {
@@ -173,7 +173,7 @@ in
     ageSecret = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "ai-memory-env";
+      example = "pitstop-env";
       description = ''
         Name of a `config.age.secrets.<name>` entry (agenix). Mutually
         exclusive with `sopsSecret` and `environmentFile`. The host must import
@@ -184,7 +184,7 @@ in
     sopsSecret = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "ai-memory/env";
+      example = "pitstop/env";
       description = ''
         Name of a `config.sops.secrets.<name>` entry (sops-nix). Mutually
         exclusive with `ageSecret` and `environmentFile`. The host must import
@@ -197,7 +197,7 @@ in
       default = null;
       description = ''
         Escape hatch: explicit systemd EnvironmentFile path for secrets such as
-        `AI_MEMORY_AUTH_TOKEN` (required once `bind` is non-loopback). On
+        `PITSTOP_AUTH_TOKEN` (required once `bind` is non-loopback). On
         loopback, a missing file does not fail service start (leading `-`).
         On non-loopback the file must exist. Mutually exclusive with
         `ageSecret` and `sopsSecret`; prefer those when using agenix or
@@ -207,13 +207,13 @@ in
 
     user = lib.mkOption {
       type = lib.types.str;
-      default = "ai-memory";
+      default = "pitstop";
       description = "System user the service runs as.";
     };
 
     group = lib.mkOption {
       type = lib.types.str;
-      default = "ai-memory";
+      default = "pitstop";
       description = "System group the service runs as.";
     };
 
@@ -222,7 +222,7 @@ in
       default = true;
       description = ''
         Create the dedicated system user and group. Defaults to true when
-        `user` is `ai-memory`; set false when `user` names an existing
+        `user` is `pitstop`; set false when `user` names an existing
         account you manage elsewhere.
       '';
     };
@@ -253,30 +253,30 @@ in
         assertions = [
           {
             assertion = secretSourceCount <= 1;
-            message = "services.ai-memory: ageSecret, sopsSecret, and environmentFile are mutually exclusive";
+            message = "services.pitstop: ageSecret, sopsSecret, and environmentFile are mutually exclusive";
           }
           {
             assertion = isLoopback || secretsFile != null;
             message =
-              "services.ai-memory: non-loopback bind requires ageSecret, sopsSecret, or environmentFile (for AI_MEMORY_AUTH_TOKEN and related secrets)";
+              "services.pitstop: non-loopback bind requires ageSecret, sopsSecret, or environmentFile (for PITSTOP_AUTH_TOKEN and related secrets)";
           }
           {
             assertion = secretKeysInSettings == [ ];
             message =
-              "services.ai-memory.settings.auth must not contain secrets (${lib.concatStringsSep ", " secretKeysInSettings}); use ageSecret/sopsSecret/environmentFile";
+              "services.pitstop.settings.auth must not contain secrets (${lib.concatStringsSep ", " secretKeysInSettings}); use ageSecret/sopsSecret/environmentFile";
           }
           {
             assertion = (cfg.settings.llm_headers or null) == null;
             message =
-              "services.ai-memory.settings.llm_headers may contain credentials and must not enter the Nix store; use AI_MEMORY_LLM_HEADERS in ageSecret/sopsSecret/environmentFile";
+              "services.pitstop.settings.llm_headers may contain credentials and must not enter the Nix store; use PITSTOP_LLM_HEADERS in ageSecret/sopsSecret/environmentFile";
           }
           {
             assertion = (cfg.settings.bind or null) == null;
-            message = "services.ai-memory.settings.bind is not allowed; use the top-level bind/port options";
+            message = "services.pitstop.settings.bind is not allowed; use the top-level bind/port options";
           }
         ];
 
-        services.ai-memory.createUser = lib.mkDefault (cfg.user == "ai-memory");
+        services.pitstop.createUser = lib.mkDefault (cfg.user == "pitstop");
 
         environment.systemPackages = [ cfg.package ];
 
@@ -287,7 +287,7 @@ in
         users.users.${cfg.user} = {
           isSystemUser = true;
           group = cfg.group;
-          description = "ai-memory MCP server";
+          description = "pitstop MCP server";
           home = cfg.dataDir;
           createHome = false;
           shell = "${pkgs.util-linuxMinimal}/bin/nologin";
@@ -296,7 +296,7 @@ in
       })
 
       (lib.mkIf (!usesDefaultDataDir && cfg.createUser) {
-        systemd.tmpfiles.settings."10-ai-memory"."${cfg.dataDir}".d = {
+        systemd.tmpfiles.settings."10-pitstop"."${cfg.dataDir}".d = {
           mode = "0750";
           user = cfg.user;
           group = cfg.group;
@@ -304,8 +304,8 @@ in
       })
 
       {
-        systemd.services.ai-memory = {
-          description = "ai-memory MCP server";
+        systemd.services.pitstop = {
+          description = "pitstop MCP server";
           documentation = [ "https://github.com/akitaonrails/ai-memory" ];
           after = if isLoopback then [ "network.target" ] else [ "network-online.target" ];
           wants = lib.optionals (!isLoopback) [ "network-online.target" ];
@@ -329,10 +329,10 @@ in
               ReadWritePaths = [ cfg.dataDir ];
             }
             (lib.optionalAttrs usesDefaultDataDir {
-              StateDirectory = "ai-memory";
+              StateDirectory = "pitstop";
               StateDirectoryMode = "0750";
             })
-            sandbox.aiMemorySystemSandbox
+            sandbox.pitstopSystemSandbox
             (if secretsFile != null then
               if isLoopback then
                 { EnvironmentFile = "-${secretsFile}"; }

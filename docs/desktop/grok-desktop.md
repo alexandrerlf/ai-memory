@@ -54,7 +54,7 @@ package `grok-bot-bin 0.66.0-1` (AUR; local install). Verified facts:
 ## 3. xAI official desktop app
 
 Not verified. No local install; no official docs fetched. Grok Build CLI
-(xAI's coding CLI) is a *different* product, and ai-memory already supports it
+(xAI's coding CLI) is a *different* product, and pitstop already supports it
 (`install-mcp --client grok`, `install-hooks --agent grok`, repo
 `docs/mcp-install.md`). Keep the two separate in any plan.
 
@@ -69,5 +69,5 @@ inspected: the AUR PKGBUILD + local binary/asar strings.
   download URL, comments)
 - Local: `/opt/Grok Bot/resources/app.asar` (strings), `~/.grokbot/`,
   `~/.config/Grok Bot/`, `/usr/share/applications/grok-bot.desktop`
-- ai-memory repo: `docs/mcp-install.md` (Grok Build CLI section, a separate
+- pitstop repo: `docs/mcp-install.md` (Grok Build CLI section, a separate
   product)

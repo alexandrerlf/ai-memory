@@ -1,11 +1,11 @@
 # Installer & CLI coexistence for a desktop companion (research)
 
-> Research for RFC #878. What it takes to ship an `ai-memory` tray app that
+> Research for RFC #878. What it takes to ship an `pitstop` tray app that
 > a non-developer can install, and how it coexists with an existing
-> `ai-memory` CLI install without breaking it. Verified sources: Tauri v2
+> `pitstop` CLI install without breaking it. Verified sources: Tauri v2
 > docs (fetched 2026-10), the existing Swift companion
-> (`companions/ai-memory-macos/README.md`), ai-memory repo layout
-> (`packaging/`, `crates/ai-memory-cli/src/server_profiles*`, hook runner
+> (`companions/pitstop-macos/README.md`), pitstop repo layout
+> (`packaging/`, `crates/pitstop-cli/src/server_profiles*`, hook runner
 > layout observed locally), and well-known behavior of Docker Desktop /
 > Tailscale (pattern references; deep docs not fetched, so treat as
 > directional).
@@ -19,10 +19,10 @@
   context menu work (<https://v2.tauri.app/learn/system-tray/>).
 - **Bundling the Rust binary**: sidecar/external-binary support
   (<https://v2.tauri.app/develop/sidecar/>), so the tray app can embed the
-  exact pinned `ai-memory` release binary.
+  exact pinned `pitstop` release binary.
 - **Desktop-app table stakes as plugins**: `single-instance` (avoid two
   trays), `autostart` (login launch), `updater` (signed updates),
-  deep-linking (`ai-memory://`) (<https://v2.tauri.app/plugin/>).
+  deep-linking (`pitstop://`) (<https://v2.tauri.app/plugin/>).
 - **Packaging matrix from one toolchain**, with official distribute targets:
   Linux deb / rpm / AppImage / AUR / Flathub / Snap, macOS DMG + app bundle
   (+ pkg), Windows installer (NSIS/MSI) + Microsoft Store; per-OS signing
@@ -41,7 +41,7 @@
 
 ### Option C — keep Swift companion + add a Linux counterpart
 
-- macOS: `companions/ai-memory-macos` already works (ships runtime, governs
+- macOS: `companions/pitstop-macos` already works (ships runtime, governs
   LaunchAgent, data dir survives app replacement, philosophy: "wrapper, not
   a second operator console").
 - Linux: a counterpart would duplicate the service governance (systemd user
@@ -69,17 +69,17 @@ here.
 Ground truth from the repo/local machine:
 
 - **Data dir** holds wiki + SQLite + `config.toml` + spool + models:
-  `~/.local/share/ai-memory` (Linux), `~/Library/Application Support/ai-memory`
+  `~/.local/share/pitstop` (Linux), `~/Library/Application Support/pitstop`
   (macOS, the Swift companion's documented default), `%LOCALAPPDATA%`
   (Windows). The desktop app MUST detect and reuse it, never fork a second
   one silently.
-- **One writer, one server**: ai-memory's SQLite is single-writer-actor by
+- **One writer, one server**: pitstop's SQLite is single-writer-actor by
   design (repo invariants #2, #9). Two server processes on one data dir is
   forbidden, so the tray app's first job is detection rather than spawning:
   1. Probe the configured/default server (`GET /admin/status` on the port
      from `config.toml` / default `127.0.0.1:49374`).
   2. Check the **`server_profiles` registry** (CLI:
-     `crates/ai-memory-cli/src/server_profiles.rs`: named profiles with
+     `crates/pitstop-cli/src/server_profiles.rs`: named profiles with
      url + project roots + token, used by hooks via `--server-url`). On this
      machine the hooks point at a LAN server (`--server-url
      http://192.168.0.90:49374`), and the desktop app must respect that
@@ -88,7 +88,7 @@ Ground truth from the repo/local machine:
      managed service (LaunchAgent/systemd user unit/Startup task, reusing
      `packaging/` templates), or (b) connect to remote with URL+token.
 - **Hooks are decoupled from app bundles already**: hooks installed by
-  ai-memory invoke `~/.local/share/ai-memory/native-runner/ai-memory` (the
+  pitstop invoke `~/.local/share/pitstop/native-runner/pitstop` (the
   native-runner copy inside the data dir; verified in local
   `~/.claude/settings.json` and `~/.codex/hooks.json`). Replacing a desktop
   app bundle therefore never rewrites hooks or breaks capture. Preserve
@@ -98,7 +98,7 @@ Ground truth from the repo/local machine:
   system CLI can differ. Rules: the *server* version wins schema truth
   (migrations run under the single-writer server); the tray UI talks HTTP
   only (`/admin/status`, `/web`, `/api/v1`) so it degrades gracefully
-  against older/newer servers; `ai-memory` CLI on PATH is never overwritten
+  against older/newer servers; `pitstop` CLI on PATH is never overwritten
   by the app (no symlink stomping).
 - **Auto-wiring MCP configs**: reuse `install-mcp` per client (it already
   knows claude-desktop incl. MSIX paths, codex, antigravity-cli, zed, grok,
@@ -108,13 +108,13 @@ Ground truth from the repo/local machine:
 
 ## 4. The "desktop users don't know Docker" constraint
 
-ai-memory today is a self-contained Rust binary (bundled SQLite, vendored
+pitstop today is a self-contained Rust binary (bundled SQLite, vendored
 libgit2), so **Docker is already optional** (`docs/install.md` ships native
 packages + systemd). The tray app completes that story:
 
 - Default path: bundled binary + local data dir + loopback bind + zero
   auth (single-user posture from `docs/install.md`).
-- Team/remote path: URL + bearer token (AI_MEMORY_AUTH_TOKEN) fields in the
+- Team/remote path: URL + bearer token (PITSTOP_AUTH_TOKEN) fields in the
   tray settings → written to `server_profiles` so hooks and MCP installs
   point at the same remote.
 - Anti-goal: the tray app becoming an admin console. Keep the Swift
@@ -146,7 +146,7 @@ this pass, so treat them as directional only.)
 2. Flatpak feasibility (portals for background service + host file access
    to agent configs) or skip Flatpak and ship deb/rpm/AppImage/AUR only.
 3. Auto-update channel policy for the bundled server binary vs CLI-managed
-   installs (Tauri updater is for the app; the embedded `ai-memory`
+   installs (Tauri updater is for the app; the embedded `pitstop`
    sidecar needs its own update story).
 4. Whether the tray app should also own `install-hooks` for detected
    agents (it is the natural place for the "enable capture" toggle).

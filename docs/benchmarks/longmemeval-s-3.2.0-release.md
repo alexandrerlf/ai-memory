@@ -17,20 +17,20 @@ production-default observation stream enabled.
   shell timings in throwaway containers overlapped the FTS run and the first
   minutes of the local run; the FTS result matches 3.1.2 exactly and the local
   slowdown below lasts the whole run, so that work does not explain either.
-- commands, after `cargo clean` and building `ai-memory` and `ai-memory-eval`
+- commands, after `cargo clean` and building `pitstop` and `pitstop-eval`
   in release mode:
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true
   ```
 
 - run dirs: `evals/runs/2026-10-22T02-00-49-545842361Z-retrieval` (FTS)

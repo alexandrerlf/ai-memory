@@ -2,13 +2,13 @@
 
 ## What this buys you
 
-Your memory is portable beyond ai-memory. Hand a project bundle to a
+Your memory is portable beyond pitstop. Hand a project bundle to a
 teammate who runs a *different* OKF-aware tool, or no tool at all,
 and they read your decisions, gotchas and procedures as ordinary
 markdown with standard metadata:
 
 ```bash
-ai-memory export-okf --project myproject -o myproject-bundle.tar.gz
+pitstop export-okf --project myproject -o myproject-bundle.tar.gz
 ```
 
 The receiving side unpacks a directory of `.md` files where every page
@@ -16,7 +16,7 @@ declares its `type`, provenance (`generated`, `sources`) and freshness
 (`stale_after`) in the vocabulary Google's Open Knowledge Format
 standardized. The files are greppable, open in Obsidian, and import into
 anything OKF-aware. Nothing is locked in: the export is a validated copy of
-the files ai-memory already stores its memory in.
+the files pitstop already stores its memory in.
 
 Local wikilink labels containing brackets or backslashes remain ordinary
 Markdown links in an exported bundle. Reindexing the extracted concept files
@@ -33,7 +33,7 @@ how existing stores migrate.
 
 ---
 
-ai-memory's wiki is natively an **Open Knowledge Format** bundle from
+pitstop's wiki is natively an **Open Knowledge Format** bundle from
 2.0 on: every page a consumer reads off disk is a conformant OKF
 concept file, and a project's wiki directory is a conformant bundle.
 "Native" means the wiki files *are* the OKF files, so no export step
@@ -54,7 +54,7 @@ families. Summary of what conformance requires:
   index.md frontmatter allowed) and lists the directory;
 - reserved names `index.md` / `log.md` follow spec structure when
   present;
-- consumers MUST tolerate unknown keys, so all ai-memory extension
+- consumers MUST tolerate unknown keys, so all pitstop extension
   fields are spec-safe as-is.
 
 ## Field mapping
@@ -64,15 +64,15 @@ to `notes/my note.md`. Import and the web UI decode that path once before
 resolving it. A literal percent sequence in a filename uses `%25` in a
 Markdown URL, while `[[wikilinks]]` continue to name literal page paths.
 
-| OKF key | ai-memory source |
+| OKF key | pitstop source |
 |---|---|
 | `type` (required) | derived from path family + existing frontmatter: `sessions/` → `Session Summary`, `_rules/` → `Rule`, `gotchas/` → `Gotcha`, `decisions/` → `Decision`, `procedures/` → `Procedure`, `concepts/` → `Concept`, `notes/` → `Note`, `runbooks/` → `Runbook`, `_slots/` → `Invariant`/`State` (from `slot_kind`), `_lint/` → `Lint Report`, `_pending/` → `Pending Note`; `kind:` frontmatter (`fact`/`note`/`procedure`/`decision`) wins over the path default when present |
 | `title` | not written by `conform_frontmatter` on the general write path; only an explicit `title:` frontmatter value survives there. `export-okf` backfills a missing/empty `title` at export time from `derive_title` (H1 heading, else path stem); the on-disk wiki file is never touched |
 | `description` | `conform_frontmatter` fills it from `summary` at write time, when present. `export-okf` additionally falls back to `abstract` when `summary` is absent, but only in the exported copy, so a page with neither at write time still has no `description` until it is exported |
 | `tags` | already written |
-| `generated.by` | actor convention: `process:ai-memory/<version>` for the zero-LLM consolidator and system writers; `<provider-model>` (e.g. `openai-compat/qwen3:32b`) for LLM-written pages; `human:<user>` for wiki edits attributed via the watcher |
+| `generated.by` | actor convention: `process:pitstop/<version>` for the zero-LLM consolidator and system writers; `<provider-model>` (e.g. `openai-compat/qwen3:32b`) for LLM-written pages; `human:<user>` for wiki edits attributed via the watcher |
 | `generated.at` | the page version's `updated_at` |
-| `sources` | session provenance: pages already stamped with `session_id`/`agent` get `[{resource: "ai-memory://session/<uuid>", author: "process:<agent>"}]`, the `process:<id>` actor form (§5.1), since a per-harness semantic version can't be reliably derived |
+| `sources` | session provenance: pages already stamped with `session_id`/`agent` get `[{resource: "pitstop://session/<uuid>", author: "process:<agent>"}]`, the `process:<id>` actor form (§5.1), since a per-harness semantic version can't be reliably derived |
 | `stale_after` | existing `expires_at` (TTL), when present: an RFC 3339 value verbatim, a bare `YYYY-MM-DD` as the end of that day in UTC (`2026-10-01T23:59:59.999999Z`), since OKF timestamps carry an explicit offset |
 | `status` | `deprecated` when TTL-expired but retained; otherwise omitted (spec default `stable`) |
 
@@ -88,7 +88,7 @@ provenance, and the two never share entries.
 One **project scope directory = one bundle**: the portable unit of
 knowledge is a project. Each project dir gets a generated `index.md`
 (frontmatter `okf_version: "0.2"`, body = directory listing). The
-existing `_meta.md` scope manifest is unchanged: it is ai-memory's
+existing `_meta.md` scope manifest is unchanged: it is pitstop's
 identity record, and `index.md` is the OKF-facing description. Nothing in
 the current tree writes `index.md`, so that reserved name is free.
 `log.md` is not adopted: git is the log.
@@ -118,7 +118,7 @@ Order is fixed; each step gates the next:
 
 1. **Proactive backup, first, always.** The migration compresses the
    entire data dir (wiki, SQLite DB, manifests) to
-   `~/ai-memory-backup-pre-2.0-<date>.tar.gz` (outside the data dir),
+   `~/pitstop-backup-pre-2.0-<date>.tar.gz` (outside the data dir),
    fsyncs it, verifies the archive is listable and size-sane, and **aborts if the
    backup cannot be written or verified**. The archive path is recorded
    in the wiki meta manifest.
@@ -159,13 +159,13 @@ so any later rewrite of an affected page (a restore, a hand edit, a
   `stale_after` that equals its date-only `expires_at` to the instant the
   TTL names (`2026-10-01` → `2026-10-01T23:59:59.999999Z`); a
   `stale_after` that differs from `expires_at` was not derived by
-  ai-memory and is left alone.
+  pitstop and is left alone.
 
 ## Reconcile-delete safety net (opt-in, #929)
 
 The watcher's 30s reconcile pass only ever reindexes create/modify events by
 default: a page whose file disappears from disk stays indexed until
-`ai-memory delete-page` removes it explicitly. `[maintenance]
+`pitstop delete-page` removes it explicitly. `[maintenance]
 reconcile_tombstones_deleted_pages` (default `false`) opts into a background
 safety net that closes that gap, designed to be safe even though it adds an
 automatic mutation to a background loop:
@@ -230,8 +230,8 @@ automatic mutation to a background loop:
   directory and letting the watcher (or `reindex`) ingest them IS the
   import path. Overwriting an already-imported concept file gets its new
   version embedded the same way a brand-new file does, with no manual
-  `ai-memory embed` needed. Deleting one does not remove it from the index by
+  `pitstop embed` needed. Deleting one does not remove it from the index by
   default: the watcher only reconciles create/modify events, so a deleted
-  concept file needs an explicit `ai-memory delete-page` unless the opt-in
+  concept file needs an explicit `pitstop delete-page` unless the opt-in
   safety net below is enabled (#929).
 - Retrieval regression: LongMemEval baseline re-run; no material drop.

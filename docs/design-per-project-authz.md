@@ -2,7 +2,7 @@
 
 **Implementation status.** Slices 2 and 3 have landed. Slice 2 is the inert
 V68 schema (`project_grants` + `projects.access_mode`, default `open`) and the
-`authorize_project` choke point (`ai-memory-store/src/project_authz.rs`),
+`authorize_project` choke point (`pitstop-store/src/project_authz.rs`),
 wired into `ScopeResolver` read/write resolution and the writer actor. Slice 3
 makes `restricted` safe end-to-end:
 
@@ -23,8 +23,8 @@ makes `restricted` safe end-to-end:
   point applies; the global preferences scope stays readable by everyone.
 - **Raw-id entry points** (managed runs, workstreams, session-scoped
   consolidation) resolve the id to its project and authorize it.
-- **Management surface**, root-only: `ai-memory project access`,
-  `ai-memory user grant|revoke|grants`, `ai-memory project grants`, and the
+- **Management surface**, root-only: `pitstop project access`,
+  `pitstop user grant|revoke|grants`, `pitstop project grants`, and the
   matching `/admin` routes; every change is recorded in `audit_log`.
   `[auth] new_projects_restricted` makes new projects start `restricted`.
 - **Captures** into a project the author may not write are dropped and counted
@@ -53,7 +53,7 @@ bitten single-user installs. It is a real gap for a shared server hosting severa
 
 ## Current model (what exists today)
 
-- **Auth ladder** (`ai-memory-core::actor`): `AuthLevel` = `Anonymous` / `User` / `Root`;
+- **Auth ladder** (`pitstop-core::actor`): `AuthLevel` = `Anonymous` / `User` / `Root`;
   `Capability` = `Admin` / `UserManagement` / `NormalRead` / `NormalWrite` /
   `SkipAdmissionChain`. `authorize(capability, distinguishes_operators)` gates them.
   `NormalRead`/`NormalWrite` are currently granted to everyone (no project dimension).
@@ -148,8 +148,8 @@ failure, not a compatibility state. Enforcement is gated on both the server
 distinguishing operators **and** the specific project being `restricted`.
 
 ### Management surface (root-only, `/admin/*`)
-`ai-memory user grant --user alice --workspace w --project p --level write` and
-`… revoke …`, plus `ai-memory project access --workspace w --project p --mode restricted|open`.
+`pitstop user grant --user alice --workspace w --project p --level write` and
+`… revoke …`, plus `pitstop project access --workspace w --project p --mode restricted|open`.
 REST under `/admin/projects/*` and `/admin/users/*`, mirroring existing admin routes.
 
 ### Migration / rollout
@@ -214,7 +214,7 @@ projects. Otherwise one grant silently covers both. Slice 4 routes captures by
   > folder name**; a non-git directory falls back to the folder-name behavior
   (fail-closed, no new collision).
 - The same normalization runs at all four capture front doors (native
-  `ai-memory hook`, the shell bundle, the PowerShell bundle, and the generated
+  `pitstop hook`, the shell bundle, the PowerShell bundle, and the generated
   TypeScript integrations), checked by a shared-fixture parity test so they
   cannot drift.
 
@@ -276,7 +276,7 @@ project. #1033 makes a remote-derived key the default name, landing in steps on
     recreates the original UUID/name; pre-V76 manifests without identity remain
      valid and rebuild an identity-less project.
 4. **Coordinate diagnostics (landed).** `GET /admin/project-coordinate` and
-   `ai-memory doctor` classify exact, canonical-compatibility,
+   `pitstop doctor` classify exact, canonical-compatibility,
    legacy-compatibility, missing, and ambiguous coordinates. They report
    rename eligibility and collision reasons from read-only indexed store
    queries; no project, claim, rename, audit entry, or manifest is written.
@@ -299,13 +299,13 @@ project. #1033 makes a remote-derived key the default name, landing in steps on
    only the Phase 1 write-authorized canonical promotion. Alias lists are
    transient routing hints, not persisted rows, and stay supported after v3.
 6. **Operator-home routes (landed).** The exact operator-home
-   `.ai-memory.toml` accepts bounded namespaced identity and path tables. Exact
+   `.pitstop.toml` accepts bounded namespaced identity and path tables. Exact
    normalized hostful identity wins the longest component-safe lexical path;
    local non-home settings markers win both. Route project names are canonical,
    route aliases reuse the Phase 3 wire only with remote identity plus marker
    provenance, malformed or ambiguous maps fail closed, and old line parsers
    ignore the deliberately prefixed `route_*` child fields. Native callers use
-   `AI_MEMORY_HOME` first; portable clients use `HOME`/`USERPROFILE`, and Docker
+   `PITSTOP_HOME` first; portable clients use `HOME`/`USERPROFILE`, and Docker
     compares the forwarded host cwd.
 7. **Default flip (landed final).** `Path` is now the explicit client default;
    the typed server/wire default remains legacy-safe `HostPath`. Authorized

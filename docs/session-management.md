@@ -1,7 +1,7 @@
 # Self-service session management
 
 Start the HTTP server with `--enable-session-management`
-(`AI_MEMORY_ENABLE_SESSION_MANAGEMENT=true`). It is off by default and
+(`PITSTOP_ENABLE_SESSION_MANAGEMENT=true`). It is off by default and
 requires `--transport http`. This enables `/management/v1/projects`,
 `/management/v1/sessions`, `/management/v1/sessions/{id}/observations`, and
 `/management/v1/sessions/{id}/purge` for existing human browser sessions.
@@ -23,6 +23,6 @@ cannot be rolled back after file cleanup fails: `files_failed` reports the
 remaining paths, and recovery honors the tombstone. Git history, backups, and
 native transcripts can retain earlier content.
 
-Run `cargo t -p ai-memory-mcp -E 'test(/session_management/)'`,
-`cargo t -p ai-memory-store -E 'test(/owned_session_purge/)'`, and
-`cargo t -p ai-memory-wiki -E 'test(/owned_session_purge/)'` for the boundary tests.
+Run `cargo t -p pitstop-mcp -E 'test(/session_management/)'`,
+`cargo t -p pitstop-store -E 'test(/owned_session_purge/)'`, and
+`cargo t -p pitstop-wiki -E 'test(/owned_session_purge/)'` for the boundary tests.

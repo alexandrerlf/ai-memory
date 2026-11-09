@@ -1,13 +1,13 @@
-# ai-memory cookbook
+# pitstop cookbook
 
 A task-oriented cheat sheet: "I want to do X" → how. For the full reference see
 [`ARCHITECTURE.md`](ARCHITECTURE.md); for install see [`install.md`](install.md)
 (including the [macOS menu bar app](install.md#macos-menu-bar-app));
 for the tool-routing table see [`usage.md`](usage.md).
 
-## What ai-memory is, in one paragraph
+## What pitstop is, in one paragraph
 
-ai-memory gives your AI coding agents long-term, cross-session memory. It runs
+pitstop gives your AI coding agents long-term, cross-session memory. It runs
 as one server; your agent talks to it over MCP (tools like `memory_query`,
 `memory_write_page`) and over lifecycle hooks that automatically capture what you
 do. Memory is a **markdown wiki in git** (the source of truth, hand-editable) plus
@@ -17,7 +17,7 @@ normalized repository path (`upstream`, then `origin`; folder basename only
 without a valid remote). It works with no LLM at all (capture + full-text search + rule-based summaries); adding a provider
 enables consolidation and auto-improvement.
 
-## Recipe: use ai-memory as your tool's memory
+## Recipe: use pitstop as your tool's memory
 
 Call the existing MCP tools to save pages, query knowledge and pass a handoff
 between executions. Native hooks are optional. The [programmatic memory guide](programmatic-memory.md)
@@ -48,7 +48,7 @@ automatically, and (with an LLM) consolidation compiles them into pages.
 
 Your agent calls `memory_write_page` and it lands as a durable wiki page (routed
 under `_rules/` when it's a rule). Next session, `memory_query` surfaces it, and
-if the project's `.ai-memory.toml` opts into the on-start brief, rules are
+if the project's `.pitstop.toml` opts into the on-start brief, rules are
 prepended to the agent's context automatically: an excerpt of every rule first,
 whole bodies while the budget lasts, and `memory_read_page` for the rest. Pin
 the rule to have it shown in full before the others. To make it apply to **all** your
@@ -91,16 +91,16 @@ Your agent writes each one into the cross-project profile
 every harness, gets a short "your usual choices" section at session start, and
 the agent applies those choices whenever the repository's rules file and you
 say nothing. A brand-new repository gets the whole baseline, plus a pointer to
-`ai-memory profile apply` for writing it into that repository's rules file.
+`pitstop profile apply` for writing it into that repository's rules file.
 
 - You don't have to ask: habits you state in your prompts ("always…", "prefer
   X over Y", "from now on…") are learned on their own once you say them as a
-  general rule or in two projects. `ai-memory profile review` shows what was
+  general rule or in two projects. `pitstop profile review` shows what was
   learned, from which words, and what is still one project short.
-- See what it holds: `ai-memory profile list`; drop one: `ai-memory profile
+- See what it holds: `pitstop profile list`; drop one: `pitstop profile
   forget tools/pnpm.md` (it stays dropped until you say it again).
 - Keep a client project out of it: `[profile] contribute = false` in that
-  repository's `.ai-memory.toml`; keep the digest out of one: `consume = false`.
+  repository's `.pitstop.toml`; keep the digest out of one: `consume = false`.
 - Scope an entry to a stack with `applies_to: ["rust"]` on `memory_write_page`
   (`--applies-to rust` on `write-page`), or mark it `enforced_by` to keep it
   out of the digest.
@@ -124,16 +124,16 @@ Two ways, depending on where the document lives:
 
 ## Recipe: import an existing knowledge base (e.g. OKF norms/laws/specs)
 
-ai-memory's wiki **is** OKF (Obsidian-compatible markdown + frontmatter). To
+pitstop's wiki **is** OKF (Obsidian-compatible markdown + frontmatter). To
 bring an existing body of documents in as project memory:
 
 - **A few documents**: save each as a durable page via your agent
-  (`memory_write_page`) or the CLI (`ai-memory write-page`), one page per
+  (`memory_write_page`) or the CLI (`pitstop write-page`), one page per
   document, under a stable prefix like `norms/…`. Then any project can read a
   specific one before implementing (recipe above).
 - **A whole OKF/Obsidian vault or an export from another tool**: use the
   companion importer (see [`companion-crates.md`](companion-crates.md)). It
-  ingests OMC and external-conversation exports into the store. `ai-memory
+  ingests OMC and external-conversation exports into the store. `pitstop
   export-okf` is the inverse (export your wiki as an OKF bundle), useful to see
   the exact on-disk shape your documents should take.
 - The wiki lives at `<data_dir>/wiki/<workspace>/<project>/…` and is plain
@@ -146,7 +146,7 @@ before implementing against it.
 
 ## Recipe: bootstrap many repositories at once
 
-`ai-memory bootstrap` seeds a project from its git log, README and docs. Run it
+`pitstop bootstrap` seeds a project from its git log, README and docs. Run it
 from several shells (or a loop with `&`) to seed many repositories; the server
 decides how many call the LLM at a time with `bootstrap_max_concurrent`
 (default 1). Runs for the same project always wait for each other, and chunks
@@ -180,7 +180,7 @@ api_key_env = "FALLBACK_API_KEY"
 ## Coming from agentmemory
 
 The data moves with the companion importer
-([`ai-memory-importer`](../companions/ai-memory-importer), boundary in
+([`pitstop-importer`](../companions/pitstop-importer), boundary in
 [`companion-crates.md`](companion-crates.md)). Most of the work is re-wiring
 each harness. Do it in this order:
 
@@ -194,8 +194,8 @@ each harness. Do it in this order:
    block its `connect` command writes into rules files (`AGENTS.md`,
    `GEMINI.md`, `.cursor/rules/`, `.kiro/steering/` and the like). Left in
    place, that block keeps agents calling tools that no longer exist, and one
-   of them, `memory_consolidate`, is also an ai-memory tool with different
-   arguments. `ai-memory doctor` lists every leftover it can see, with the file
+   of them, `memory_consolidate`, is also an pitstop tool with different
+   arguments. `pitstop doctor` lists every leftover it can see, with the file
    and lines and the fix, and changes nothing:
 
    ```text
@@ -207,20 +207,20 @@ each harness. Do it in this order:
    ```
 
    Rules kept outside files (Warp's, for example) need a look by hand.
-3. **Wire ai-memory into each harness:** `ai-memory install-hooks --agent <name>
-   --apply`, `ai-memory install-mcp --client <name> --apply` and `ai-memory
+3. **Wire pitstop into each harness:** `pitstop install-hooks --agent <name>
+   --apply`, `pitstop install-mcp --client <name> --apply` and `pitstop
    install-skills --agent <name>`.
 4. **Map projects, dry-run, then import.** agentmemory names a project by its
-   directory basename, so the importer needs a mapping file to the ai-memory
+   directory basename, so the importer needs a mapping file to the pitstop
    `workspace`/`project` (by basename, or by exact session `cwd` when two
    repositories share a name). The dry run lists every unmapped project and
    every record type it leaves out, with counts; `--apply` refuses to run
    while anything is unmapped:
 
    ```bash
-   cargo run --manifest-path companions/ai-memory-importer/Cargo.toml -- \
+   cargo run --manifest-path companions/pitstop-importer/Cargo.toml -- \
      agentmemory-export --file agentmemory-export.json --mapping mapping.json
-   cargo run --manifest-path companions/ai-memory-importer/Cargo.toml -- \
+   cargo run --manifest-path companions/pitstop-importer/Cargo.toml -- \
      agentmemory-export --file agentmemory-export.json --mapping mapping.json \
      --apply --manifest-out agentmemory-manifest.json
    ```
@@ -232,27 +232,27 @@ each harness. Do it in this order:
    skipped. For a vault, use `agentmemory-vault --dir <vault> --workspace W
    --project P` instead.
 5. **Check.** Ask your agent something an old memory answered, or call
-   `memory_query` for a known title in each project, and run `ai-memory
+   `memory_query` for a known title in each project, and run `pitstop
    doctor` again until it reports no leftovers.
 
-What has no ai-memory counterpart (graph nodes and edges, actions, signals,
+What has no pitstop counterpart (graph nodes and edges, actions, signals,
 routines, sentinels, sketches, checkpoints) is counted in the manifest's
-`dropped` section and not imported. ai-memory derives its own entity graph from
+`dropped` section and not imported. pitstop derives its own entity graph from
 the imported pages.
 
 ## Recipe: mirror a team wiki into the repository (team wiki sync)
 
 To keep a team's shared memory reviewable next to the code it documents, use
-the [`ai-memory-wikisync`](../companions/ai-memory-wikisync) companion
+the [`pitstop-wikisync`](../companions/pitstop-wikisync) companion
 (boundary in [`companion-crates.md`](companion-crates.md)). It exports
 explicitly allowlisted page families from the server's read-only `/api/v1`
 surface into a directory in your repo. It is dry-run by default:
 
 ```bash
-ai-memory-wikisync plan   --server http://127.0.0.1:49374 \
+pitstop-wikisync plan   --server http://127.0.0.1:49374 \
     --workspace demo --project app --dest ./wiki \
     --include _rules --include decisions     # lists create/update/unchanged; never writes
-ai-memory-wikisync export ...same args... --apply   # writes; prints the git commands to run
+pitstop-wikisync export ...same args... --apply   # writes; prints the git commands to run
 ```
 
 Everything is opt-in and fail-safe: the family allowlist must be explicit
@@ -260,19 +260,19 @@ Everything is opt-in and fail-safe: the family allowlist must be explicit
 with a diff summary and refused without `--force`, no frontmatter is forged,
 and the tool never runs git itself. `sync` sends reviewed repository edits
 back through MCP (each write conditional on the version it planned against;
-needs ai-memory 3.0+), and deletes travel only with `--propagate-deletes`.
+needs pitstop 3.0+), and deletes travel only with `--propagate-deletes`.
 
 ### Keep it in step after merges and in CI
 
 `install-hook` writes a git `post-merge` hook that runs `sync` after every
 merge or pull: a dry-run report by default, or a write with `--on-merge apply`. It
-never stores a token (the hook reads `AI_MEMORY_AUTH_TOKEN` when it runs) and
+never stores a token (the hook reads `PITSTOP_AUTH_TOKEN` when it runs) and
 never passes `--prefer`, so conflicts still wait for a person:
 
 ```bash
-ai-memory-wikisync install-hook --workspace demo --project app \
+pitstop-wikisync install-hook --workspace demo --project app \
     --dest docs/wiki --include _rules --include decisions
-ai-memory-wikisync uninstall-hook --dest docs/wiki   # removes only its block
+pitstop-wikisync uninstall-hook --dest docs/wiki   # removes only its block
 ```
 
 In CI, `sync --check` writes nothing and exits `0` in sync, `3` when the
@@ -290,13 +290,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cargo install --locked --git https://github.com/akitaonrails/ai-memory ai-memory-wikisync
-      - name: Compare docs/wiki with the team's ai-memory server
+      - run: cargo install --locked --git https://github.com/akitaonrails/ai-memory pitstop-wikisync
+      - name: Compare docs/wiki with the team's pitstop server
         env:
-          AI_MEMORY_SERVER_URL: ${{ secrets.AI_MEMORY_SERVER_URL }}
-          AI_MEMORY_AUTH_TOKEN: ${{ secrets.AI_MEMORY_AUTH_TOKEN }}
+          PITSTOP_SERVER_URL: ${{ secrets.PITSTOP_SERVER_URL }}
+          PITSTOP_AUTH_TOKEN: ${{ secrets.PITSTOP_AUTH_TOKEN }}
         run: |
-          ai-memory-wikisync sync --check \
+          pitstop-wikisync sync --check \
             --workspace demo --project app --dest docs/wiki \
             --include _rules --include decisions
 ```
@@ -311,7 +311,7 @@ By default there is nothing to think about: memory decays on a single gentle
 curve, and an upgrade to 2.4 changes no scores and evicts nothing. When you *do*
 want to tune aging, it is all opt-in and reversible. The original of anything
 compacted or merged stays in git and the supersession chain, recoverable with
-`ai-memory restore-page`.
+`pitstop restore-page`.
 
 - **Keep something forever:** pin it. A pinned page is exempt from the
   forget-sweep regardless of tier or age. Semantic and procedural pages never
@@ -320,7 +320,7 @@ compacted or merged stays in git and the supersession chain, recoverable with
   <date>" (an `expires_at`); the forget-sweep deletes it when the time passes,
   no matter how often it was read. A TTL outranks pinning.
 - **Tune how long each tier lasts:** set per-tier half-lives in the project's
-  `.ai-memory.toml` `[decay.half_life_days]` (e.g. keep episodic history longer,
+  `.pitstop.toml` `[decay.half_life_days]` (e.g. keep episodic history longer,
   working-tier scratch shorter). Omit it for the default single curve.
 - **Compact instead of evict, and de-duplicate:** `[decay] compact_cold_episodic`
   keeps a cold page's durable facts (paths, error codes, decisions) and drops the
@@ -337,7 +337,7 @@ compacted or merged stays in git and the supersession chain, recoverable with
   contradiction or a supersession instruction. Explicit `contradicts` edges
   remain `contradiction` findings. If
   that noise is too high, raise `contradiction_band_min` (`config.toml` or
-  `AI_MEMORY_CONTRADICTION_BAND_MIN`, default `0.4`). On such a store the
+  `PITSTOP_CONTRADICTION_BAND_MIN`, default `0.4`). On such a store the
   band measures domain proximity more than conflict, so a higher floor trims
   same-domain-but-unrelated pairs.
 - **Let an LLM consolidate on idle ("dream"):** with a provider *and* an embedder
@@ -351,7 +351,7 @@ compacted or merged stays in git and the supersession chain, recoverable with
 A local model with a context window around 200k tokens, or any long-horizon
 session, compacts again and again. Each compaction keeps a lossy summary, and
 the first thing it loses is the start of the session: the task you gave, its
-constraints, the early decisions. ai-memory has the prompts you actually
+constraints, the early decisions. pitstop has the prompts you actually
 typed, so the agent can re-ground on them.
 
 - On Claude Code, Codex, Factory Droid and OpenCode V1/V2, after each
@@ -362,7 +362,7 @@ typed, so the agent can re-ground on them.
   the rest, nothing is injected: the routing block and the handoff skill tell
   the agent to read its own session's prompts with
   `memory_read_session_observations` after a compaction. Install the managed
-  routing (`ai-memory install-instructions`, or ask "install ai-memory
+  routing (`pitstop install-instructions`, or ask "install pitstop
   routing") so every session gets that rule.
 - Anywhere the hooks answer a prompt, you can start one with
   `reload context` to get the stretch the last compaction dropped, for example
@@ -422,11 +422,11 @@ Give each account or provider its own config home and pass it with `--env`, so
 the harness, its hooks and MCP, and transcript import all use that one home:
 
 ```bash
-ai-memory run --env CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude
-ai-memory run --env CODEX_HOME="$HOME/.codex-work" codex   # the dir must exist
+pitstop run --env CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude
+pitstop run --env CODEX_HOME="$HOME/.codex-work" codex   # the dir must exist
 ```
 
-- `--env` and `--env-file` belong to `ai-memory run`, so they go before the
+- `--env` and `--env-file` belong to `pitstop run`, so they go before the
   harness name.
 - A launcher or orchestrator that starts harnesses with its own environment
   (provider keys, an account's config dir) can write it to a file and pass
@@ -440,14 +440,14 @@ ai-memory run --env CODEX_HOME="$HOME/.codex-work" codex   # the dir must exist
   CLAUDE_CONFIG_DIR = "/home/me/.claude-work"
   ```
 
-  Then `ai-memory run --profile work claude`. Use absolute paths: profile
+  Then `pitstop run --profile work claude`. Use absolute paths: profile
   values are not expanded. `--env-file` and `--env` still override a profile
   entry, and an unknown name fails before anything is wired or launched. A
   `--profile` after the harness name belongs to the harness (OMP and Codex
   have their own).
 - Auto-wire runs once per config home, so the second account gets its hooks +
   MCP on its own first launch. To wire one by hand, export the variable for the
-  installers: `CLAUDE_CONFIG_DIR="$HOME/.claude-work" ai-memory install-hooks
+  installers: `CLAUDE_CONFIG_DIR="$HOME/.claude-work" pitstop install-hooks
   --agent claude-code --apply`, then the same for `install-mcp --client
   claude-code --apply`.
 
@@ -457,12 +457,12 @@ See [`managed-workstreams.md`](managed-workstreams.md).
 
 `--yolo` maps to each harness's dangerous-mode flag (Claude Code →
 `--dangerously-skip-permissions`, plus `--settings` forcing
-`bypassPermissions`), which runs every tool call with no confirmation. `ai-memory run --yolo` adds guardrails around that, gated
+`bypassPermissions`), which runs every tool call with no confirmation. `pitstop run --yolo` adds guardrails around that, gated
 entirely on a real interactive terminal (stdin and stderr both TTYs), so
 scripts, hooks, and CI are never prompted:
 
 ```bash
-ai-memory run --yolo claude
+pitstop run --yolo claude
 ```
 
 - **The warning.** Before the agent spawns, you are asked to confirm:
@@ -479,7 +479,7 @@ ai-memory run --yolo claude
   forwarding only the credential/config
   environment variables that are already set (server/hook URL,
   `CLAUDE_CONFIG_DIR`, provider API keys, etc.). `--network` keeps the
-  loopback ai-memory server reachable while still sandboxing the filesystem.
+  loopback pitstop server reachable while still sandboxing the filesystem.
   Declining keeps the run unsandboxed (your choice, already warned).
 - **Choosing what the jail gets.** After you accept the offer, a checklist
   lists what this host can mount, pre-marked so `Enter` does the friendly
@@ -497,23 +497,23 @@ ai-memory run --yolo claude
   machine`, `origin pushes over SSH`), and the header says when your answers
   were saved and what changed since (`new: …`, `no longer offered: …`). Type
   `reset` to go back to the recommended marks. The answers are stored in
-  ai-memory's data directory, never in your repository.
+  pitstop's data directory, never in your repository.
 - **Letting the agent read a sibling project.** Press `f` in the checklist to
   pick extra folders. The picker starts in the folder above your checkout:
   type to filter, Space to select (read-only), Ctrl+W to make the selected one
   read-write, Tab or → to open a folder, ← to go up, Enter when done. From the
-  command line, `ai-memory run --jail --jail-map ../ai-jail claude` mounts a
+  command line, `pitstop run --jail --jail-map ../ai-jail claude` mounts a
   folder read-only and `--jail-rw-map DIR` read-write; both repeat. Your home,
   `/`, credential folders (`~/.ssh`, `~/.aws`, `~/.config/gh`, …) and
-  ai-memory's own data directory are refused, and the error says why. Edits
+  pitstop's own data directory are refused, and the error says why. Edits
   the agent makes in a read-write sibling are captured under the current
   project, because capture follows the session. This needs ai-jail 2.15.
-- **The same choices next time.** When the jailed session ends, ai-memory
-  prints the `ai-memory run …` line that repeats your choices, `--jail=…`
+- **The same choices next time.** When the jailed session ends, pitstop
+  prints the `pitstop run …` line that repeats your choices, `--jail=…`
   list, folders and harness included. Paste it, or keep it as an alias, to
   skip the questions. Switching harness from the post-run menu keeps the same
   jail and options.
-- **Skipping the questions.** `ai-memory run --jail claude` re-runs inside
+- **Skipping the questions.** `pitstop run --jail claude` re-runs inside
   ai-jail straight away, turning on those pre-marked defaults and leaving
   everything else to your own ai-jail config. This works with or without
   `--yolo`, and in scripts too; it fails rather than running unjailed if ai-jail is not
@@ -524,12 +524,12 @@ ai-memory run --yolo claude
   flags on purpose: they would collide with the harness's own flags (Claude
   Code has a `--worktree`). The credential mounts need ai-jail 2.5.0; toggles
   your installed ai-jail lacks are hidden, and naming one is an error.
-- **Connecting back to ai-memory.** The jailed process automatically receives
+- **Connecting back to pitstop.** The jailed process automatically receives
   the resolved server URL and URL base path, including a remote server from
   `config.toml`. A root bearer read from `config.toml` or
   `bearer_token_file` is not exposed to the managed harness; the launch stops
   instead. For an authenticated server, give the launch a least-privilege API
-  token with `AI_MEMORY_AUTH_TOKEN=... ai-memory run --jail ...`, or run
+  token with `PITSTOP_AUTH_TOKEN=... pitstop run --jail ...`, or run
   without the jail. An explicitly supplied environment token already belongs
   to the child-process boundary and is forwarded.
 - **A project `.ai-jail` wins.** If the directory you launch from has its own
@@ -537,20 +537,20 @@ ai-memory run --yolo claude
   no toggles; `--jail=…` still applies its list on top. A project file cannot
   enable credentials (ai-jail treats it as untrusted), so to have them mounted
   automatically there, enable them in your global `~/.ai-jail` or pass
-  `--jail=github,…`. ai-memory always passes `--no-save-config`, so a jailed
+  `--jail=github,…`. pitstop always passes `--no-save-config`, so a jailed
   run never writes its own flags into your repository's `.ai-jail`.
 - **With ai-jail 3.0.1 or newer.** ai-jail reviews the access itself, once
-  per project, so ai-memory's screen keeps only the extra folders (`f`).
-  ai-memory names the harness for ai-jail and passes what the session needs
+  per project, so pitstop's screen keeps only the extra folders (`f`).
+  pitstop names the harness for ai-jail and passes what the session needs
   as plain grants, with no extra prompts: the harness's login state, the
-  `AI_MEMORY_*` variables, and only that harness's own API key (a Claude jail
+  `PITSTOP_*` variables, and only that harness's own API key (a Claude jail
   never gets your OpenAI key). A memory server on this machine is reached
   through one forwarded port, so the network stays filtered unless you open
   it in ai-jail's review; a server on another machine keeps full network,
   which ai-jail labels OPEN. Copilot and Command Code, which ai-jail has no
   preset for, keep the checklist above.
 - **Already inside ai-jail.** Both prompts are skipped and the run proceeds
-  directly, so `ai-jail ai-memory run … --yolo` sees no extra friction.
+  directly, so `ai-jail pitstop run … --yolo` sees no extra friction.
   Detection is Linux (`ai-sandbox` hostname) / macOS (`PS1` starting with
   `(jail) `); it fails open (shows the warning) when undetectable, never
   open to skipping it silently.
@@ -564,7 +564,7 @@ ai-memory run --yolo claude
   mode, so a rule like `Bash(docker run *)` in `~/.claude/settings.json` still
   pauses the run. For a pause-free sandbox, drop those `ask` entries; `deny`
   rules block without pausing, so they can stay. Best paired with ai-jail.
-- **Passing extra env, e.g. a GitHub token.** `ai-memory run claude --yolo
+- **Passing extra env, e.g. a GitHub token.** `pitstop run claude --yolo
   --env GH_TOKEN="$(gh auth token)"` forwards it into the jailed agent (needs
   ai-jail 2.4.2 or later when you accept the jail offer). This
   hands a sandboxed agent your token, so only do it for work you'd trust it
@@ -577,11 +577,11 @@ full contract.
 
 `install-hooks --agent claude-code --apply` wires the hooks user-wide
 (`~/.claude/settings.json`), so every Claude Code session is captured and you
-exclude paths with `[capture] ignore_paths` in `.ai-memory.toml`. To opt in
+exclude paths with `[capture] ignore_paths` in `.pitstop.toml`. To opt in
 per repository instead, run from inside the checkout:
 
 ```bash
-ai-memory install-hooks --agent claude-code --scope project --apply
+pitstop install-hooks --agent claude-code --scope project --apply
 ```
 
 This writes the repository's gitignored `.claude/settings.local.json` where
@@ -589,23 +589,23 @@ Claude Code reads it (the git root; the current directory on Windows or when
 the repository root is your home directory) and leaves the user-level file
 alone. Backups of an updated file go under the data dir, not the checkout.
 Pick one scope per machine: Claude Code merges project and user hooks. The
-installer warns when the file is not git-ignored, and `ai-memory uninstall
+installer warns when the file is not git-ignored, and `pitstop uninstall
 --only hooks --apply` from inside the checkout removes the entries again.
 Claude Code only; other harnesses keep their user-level hook files.
 
 ## Recipe: send different repositories to different servers
 
-One machine, several organisations, each with its own ai-memory server.
+One machine, several organisations, each with its own pitstop server.
 Register each server once under a name, with the directory it is allowed to
 serve, then let each repository's marker pick it:
 
 ```bash
-ai-memory server add team-a --url https://memory-a.example.com --root ~/work/team-a --auth-token-stdin
-ai-memory server add team-b --url https://memory-b.example.com --root ~/work/team-b --auth-token-stdin
+pitstop server add team-a --url https://memory-a.example.com --root ~/work/team-a --auth-token-stdin
+pitstop server add team-b --url https://memory-b.example.com --root ~/work/team-b --auth-token-stdin
 ```
 
 ```toml
-# ~/work/team-b/.ai-memory.toml
+# ~/work/team-b/.pitstop.toml
 workspace = "team-b"
 server = "team-b"
 ```
@@ -621,24 +621,24 @@ fail-closed rules, and which integrations support it:
 ## Recipe: run the server on a Mac
 
 Use the menu bar app when you want one `.app` that starts the server and
-opens the existing tools (web UI, `ai-memory status`, config, logs). It does
+opens the existing tools (web UI, `pitstop status`, config, logs). It does
 not replace those tools with a second dashboard.
 
 ```bash
-./companions/ai-memory-macos/build.sh
-open "companions/ai-memory-macos/dist/AI Memory.app"
+./companions/pitstop-macos/build.sh
+open "companions/pitstop-macos/dist/Pitstop.app"
 ```
 
-Drag **AI Memory.app** to `/Applications`, then **Install & Start Server**
+Drag **Pitstop.app** to `/Applications`, then **Install & Start Server**
 from the menu extra. Wire an agent with the bundled binary:
 
 ```bash
-BIN="/Applications/AI Memory.app/Contents/Resources/runtime/ai-memory"
+BIN="/Applications/Pitstop.app/Contents/Resources/runtime/pitstop"
 "$BIN" install-mcp --client claude-code --apply
 "$BIN" install-hooks --agent claude-code --apply
 ```
 
-Memory stays in `~/Library/Application Support/ai-memory`. Replacing the
+Memory stays in `~/Library/Application Support/pitstop`. Replacing the
 `.app` does not rewrite it. Full paths (tarball, source, Docker, launchd):
 [`macos.md`](macos.md).
 
@@ -647,25 +647,25 @@ Memory stays in `~/Library/Application Support/ai-memory`. Replacing the
 Your agent runs most of these for you; `run` and `continue` are how you start it:
 
 ```bash
-ai-memory run <harness>              # launch a harness, hooks + MCP auto-wired
-ai-memory continue                   # resume the newest managed checkout
-ai-memory resume --search auth       # pick a matching workstream in this checkout only
-ai-memory resume --all               # pick from every linked checkout on this machine
-ai-memory workstreams                # list this checkout's managed workstreams
-ai-memory status                     # counts, paths, health
-ai-memory recover                    # replay outage spool/transcripts safely
-ai-memory list-projects              # every workspace/project the server knows about
-ai-memory project init               # pin this checkout's scope in a .ai-memory.toml
-ai-memory doctor                     # is every harness that ran here captured?
-ai-memory backfill                   # import prior local history into an empty store
-ai-memory search "wal mode"          # FTS5 lookup in this project
-ai-memory recent                     # newest wiki pages in this project
-ai-memory write-page …               # save a durable page
-ai-memory handoffs                   # list open handoffs for the project
-ai-memory message list               # cross-project inbox
-ai-memory server list                # server profiles a marker can route to
-ai-memory export-okf …               # export the wiki as an OKF bundle
-ai-memory serve                      # run the server
+pitstop run <harness>              # launch a harness, hooks + MCP auto-wired
+pitstop continue                   # resume the newest managed checkout
+pitstop resume --search auth       # pick a matching workstream in this checkout only
+pitstop resume --all               # pick from every linked checkout on this machine
+pitstop workstreams                # list this checkout's managed workstreams
+pitstop status                     # counts, paths, health
+pitstop recover                    # replay outage spool/transcripts safely
+pitstop list-projects              # every workspace/project the server knows about
+pitstop project init               # pin this checkout's scope in a .pitstop.toml
+pitstop doctor                     # is every harness that ran here captured?
+pitstop backfill                   # import prior local history into an empty store
+pitstop search "wal mode"          # FTS5 lookup in this project
+pitstop recent                     # newest wiki pages in this project
+pitstop write-page …               # save a durable page
+pitstop handoffs                   # list open handoffs for the project
+pitstop message list               # cross-project inbox
+pitstop server list                # server profiles a marker can route to
+pitstop export-okf …               # export the wiki as an OKF bundle
+pitstop serve                      # run the server
 ```
 
 On an interactive terminal, `status` and `doctor` group and wrap their output
@@ -675,7 +675,7 @@ contract.
 
 ## When it isn't doing what you expect
 
-- **Server/homelab down**: `ai-memory run` does not need the server to start a
+- **Server/homelab down**: `pitstop run` does not need the server to start a
   harness. When the server is unreachable it prints one loud warning and
   launches anyway. Hooks keep capturing to the local spool (drained
   automatically when the server returns), an existing MCP registration
@@ -687,7 +687,7 @@ contract.
   cursor and recovery imports only the appended delta; a cursor that cannot be
   proven requires manual repair. A fresh run is journaled only when one new
   native session can be correlated; ambiguity prints a manual backfill action.
-  Once the server returns, run `ai-memory recover`: for transcript-capable
+  Once the server returns, run `pitstop recover`: for transcript-capable
   harnesses it quarantines correlated spool entries, drains unrelated events,
   and replays the bounded exact transcript through sanitized `/hook/batch`;
   Antigravity has no supported transcript exporter, so its degraded run is
@@ -700,18 +700,18 @@ contract.
   Re-running is safe. See [Degraded offline
   launches](managed-workstreams.md#degraded-offline-launches). To fail instead
   of degrading, pass `--require-server` (or set `run.require_server = true` /
-  `AI_MEMORY_RUN_REQUIRE_SERVER=true`). For a planned outage, consider
-  `AI_MEMORY_HOOK_SPOOL_MAX_ATTEMPTS=0` so spooled events are never dropped
+  `PITSTOP_RUN_REQUIRE_SERVER=true`). For a planned outage, consider
+  `PITSTOP_HOOK_SPOOL_MAX_ATTEMPTS=0` so spooled events are never dropped
   for retry-attempt count.
 
-- **Nothing is being remembered**: hooks may not be installed. `ai-memory run
+- **Nothing is being remembered**: hooks may not be installed. `pitstop run
   <harness>` installs its hooks + MCP on the first launch per harness,
-  ai-memory version and config home, and again after `ai-memory uninstall`. If that harness
+  pitstop version and config home, and again after `pitstop uninstall`. If that harness
   already launched through `run` and its hooks went missing another way
-  (removed by hand, a failed first wire), install them by hand: `ai-memory
-  install-hooks --agent <your-agent> --apply` and `ai-memory install-mcp
-  --client <client> --apply`. Then check `ai-memory status` / `ai-memory doctor`.
-- **The current checkout resolves to an unexpected project**: run `ai-memory
+  (removed by hand, a failed first wire), install them by hand: `pitstop
+  install-hooks --agent <your-agent> --apply` and `pitstop install-mcp
+  --client <client> --apply`. Then check `pitstop status` / `pitstop doctor`.
+- **The current checkout resolves to an unexpected project**: run `pitstop
   doctor`. Its project-coordinate block shows the effective local marker,
   credential-stripped repository identity source/style, canonical and legacy
   candidate names, the server's exact/compatibility/missing/ambiguous result,
@@ -721,7 +721,7 @@ contract.
   preferred identity-backed candidate for context, not a unique resolution or
   rename permission. Local harness rows remain visible and their captured
   counts are shown as unavailable rather than zero.
-- **Only *some* agents are being remembered**: run `ai-memory doctor`. It lists
+- **Only *some* agents are being remembered**: run `pitstop doctor`. It lists
   every harness that has local sessions in this project and whether the server
   captured them. A harness you rotated in without installing its hook (a
   silent gap: it keeps its own local history while capturing nothing) shows up
@@ -732,28 +732,28 @@ contract.
   and is not reported. An `excluded` verdict applies only to native/generated
   hooks; shell and PowerShell compatibility hooks do not enforce capture-policy
   exclusions.
-- **Nothing new is being remembered at all**: run `ai-memory doctor`. It works
+- **Nothing new is being remembered at all**: run `pitstop doctor`. It works
   with the server down and says so; it reports the local hook spool (events
   waiting for the server, and a warning once it is full and newly captured
-  events are dropped until space is available); and when ai-memory's Codex
+  events are dropped until space is available); and when pitstop's Codex
   hooks are installed, it asks Codex whether it will run them. Codex skips a
   hook you have not trusted, and skips it again after its command changes,
   without telling you: open Codex, run `/hooks`, and trust them.
-- **Agents keep calling `memory_recall`, `memory_save` or other tools ai-memory
+- **Agents keep calling `memory_recall`, `memory_save` or other tools pitstop
   does not have**: agentmemory's MCP entry or its rules-file guideline block is
-  still there. `ai-memory doctor` names each one with the fix (see
+  still there. `pitstop doctor` names each one with the fix (see
   [Coming from agentmemory](#coming-from-agentmemory)).
 - **I just installed hooks in a project I've worked in for a while**: the first
-  time you open the project after installing, ai-memory imports your existing
+  time you open the project after installing, pitstop imports your existing
   local session history once (bounded, sanitized on the server, only into an
   empty store) so it isn't starting from nothing. It runs automatically in the
-  background; you can trigger or preview it yourself with `ai-memory backfill`
+  background; you can trigger or preview it yourself with `pitstop backfill`
   (`--dry-run` to see what it would import), or turn it off with
-  `AI_MEMORY_BACKFILL_ON_START=false`. A single transcript record over 1 MiB
+  `PITSTOP_BACKFILL_ON_START=false`. A single transcript record over 1 MiB
   (usually a screenshot in a tool result) is skipped and counted on stderr;
   the rest of that session is still imported.
 - **A search misses something you saved**: confirm the scope. Memory is
   per-project; a page saved in project A is not returned in project B unless it
   was written to the global scope or you query with an explicit scope.
 - **You want an LLM feature (consolidation, digests)**: set a provider
-  (`AI_MEMORY_LLM_PROVIDER=…`); without one, capture + search still work.
+  (`PITSTOP_LLM_PROVIDER=…`); without one, capture + search still work.

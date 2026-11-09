@@ -1,7 +1,7 @@
 # Air-gapped / offline install
 
 Corporate IT-security review commonly asks for a documented offline
-installation path before approving a dev tool. ai-memory's build and
+installation path before approving a dev tool. pitstop's build and
 runtime are already close to air-gap-friendly by design. This page collects
 what the docs already say elsewhere into one answer; it does not add a new
 mode.
@@ -17,8 +17,8 @@ practice for air-gapped Rust builds, e.g. `cargo vendor`) works the same way.
 
 If you'd rather not build at all, tagged GitHub Releases publish prebuilt
 binaries for Linux (`linux/amd64`, `linux/arm64`), macOS
-(`ai-memory-macos-aarch64.tar.gz`, `ai-memory-macos-x86_64.tar.gz`), and
-Windows (`ai-memory-windows-x86_64.zip`), each with a SHA-256 checksum
+(`pitstop-macos-aarch64.tar.gz`, `pitstop-macos-x86_64.tar.gz`), and
+Windows (`pitstop-windows-x86_64.zip`), each with a SHA-256 checksum
 (`SECURITY.md`, "Published executable integrity"). Download once on a
 network-connected machine, verify the checksum, and transfer the artifact
 into the air-gapped environment.
@@ -26,7 +26,7 @@ into the air-gapped environment.
 ## Runtime: no network calls unless you configure one
 
 Covered in full in [`DATA_HANDLING.md`](../DATA_HANDLING.md), summarized
-here: ai-memory has no telemetry, analytics, or phone-home behavior. The
+here: pitstop has no telemetry, analytics, or phone-home behavior. The
 server, CLI, and lifecycle hooks run entirely against the local data
 directory. The things that make a network call are the ones you explicitly
 configure, plus one default: the local embedding model download described
@@ -36,7 +36,7 @@ unless the files are pre-seeded.
 - **A cloud LLM/embedding provider**, if you want AI-assisted consolidation,
   search, or provider-based embeddings. Skip this and use the `local`
   embedding provider (below) to stay fully offline.
-- **`capture_assistant`** and **`AI_MEMORY_RERANKER=llm`**, both off by
+- **`capture_assistant`** and **`PITSTOP_RERANKER=llm`**, both off by
   default; see `DATA_HANDLING.md`.
 
 ## Local embeddings without a network dependency
@@ -62,7 +62,7 @@ runtime or other native library to source separately.
 
 - **git remote sync**, if you use it to push the wiki repository somewhere,
   is your own channel to secure (`SECURITY.md`, "Remote sync security";
-  out of scope for ai-memory itself). [`docs/backup.md`](backup.md) has a
+  out of scope for pitstop itself). [`docs/backup.md`](backup.md) has a
   worked example of the rsync + `git push` pattern with the appropriate
   secret and derived-state exclusions.
 - **Update/patch delivery** in an air-gapped environment is manual: pull a

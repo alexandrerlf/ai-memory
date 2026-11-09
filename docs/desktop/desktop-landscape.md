@@ -31,12 +31,12 @@
    one `install-mcp`/`install-hooks` write serves CLI + desktop + IDE
    extension (desktop-app hook firing needs one live verification).
 3. **Official Linux desktop builds now exist** for Claude Desktop (beta) and
-   the ChatGPT/Codex app, so ai-memory's `docs/mcp-install.md` "Linux: not
+   the ChatGPT/Codex app, so pitstop's `docs/mcp-install.md` "Linux: not
    officially distributed" note for claude-desktop is stale.
 4. **Grok Bot is a Cursor product** (not xAI) with embedded MCP support but
    no public docs, so support is opportunistic and cannot be planned.
 5. Remote/streamable-HTTP MCP is now the norm across Codex/Antigravity/Zed/
-   Claude(Code), so a loopback ai-memory HTTP server needs **no npx shims** on
+   Claude(Code), so a loopback pitstop HTTP server needs **no npx shims** on
    any researched app except legacy Claude-Desktop-Chat stdio config.
 
 ## Ordered capture opportunity (auto-capture without new product code)

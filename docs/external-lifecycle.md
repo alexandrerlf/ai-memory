@@ -1,7 +1,7 @@
 # External lifecycle capture
 
 An orchestrator that observes its agents can send lifecycle events to one shared
-ai-memory server through `/hook/batch`. Framework adapters belong outside core;
+pitstop server through `/hook/batch`. Framework adapters belong outside core;
 the server continues to own storage, retrieval, consolidation and durable memory.
 
 For deliberate writes, queries and handoffs without lifecycle capture, start
@@ -9,14 +9,14 @@ with the [programmatic memory guide](programmatic-memory.md).
 
 ## Choose one capture path before launching
 
-Set `AI_MEMORY_CAPTURE_OWNER` to your producer namespace in the environment of
+Set `PITSTOP_CAPTURE_OWNER` to your producer namespace in the environment of
 the harness you launch, for example `example.runtime`. Any non-whitespace value
 opts that process and its inheriting children into external capture. Unset,
 empty and whitespace-only values preserve normal native capture.
 
 ```text
 Orchestrator
-  |-- launches harness with AI_MEMORY_CAPTURE_OWNER=example.runtime
+  |-- launches harness with PITSTOP_CAPTURE_OWNER=example.runtime
   |-- records its lifecycle events with stable IDs
   `-- sends those events through POST /hook/batch
 
@@ -50,9 +50,9 @@ This is inherited process context, not server configuration, a security identity
 or a lease. Keep it out of the shared server's environment and global shell
 configuration. Standalone launches without it continue to capture normally.
 A runtime hosting multiple agents in one process applies the variable to all its
-installed ai-memory integrations; it must manage finer capture ownership itself.
+installed pitstop integrations; it must manage finer capture ownership itself.
 
-`ai-memory hook --check-capture` reports `external_capture: true` and
+`pitstop hook --check-capture` reports `external_capture: true` and
 `admits_capture: false` when this context is active. It performs no ingestion or
 handoff delivery. The producer namespace itself is not printed or authenticated.
 
@@ -66,7 +66,7 @@ bytes each; oversized hints are omitted and preflight fails closed.
 unavailable scope. `server_may_remap` warns that the server may choose different
 coordinates. Native routing values are unaffected by the inspection bound.
 
-`ai-memory doctor` reports whether this invocation delegates native capture and
+`pitstop doctor` reports whether this invocation delegates native capture and
 shows its authenticated machine identity. Its per-agent counts flag sessions
 with multiple capture sources (native events or distinct extensions, including
 backfill). An older server leaves those
@@ -180,7 +180,7 @@ Use the tuple recipe when event IDs have narrower scope.
   saturation rather than opening an unbounded number of requests.
 
 Maintain a durable producer-side queue if offline/restart recovery matters.
-The optional [lifecycle relay](../companions/ai-memory-relay) supplies one through
+The optional [lifecycle relay](../companions/pitstop-relay) supplies one through
 a separate CLI. It accepts events from the orchestrator and sends only the first
 pending event of each session in a batch.
 Flush earlier events for a session before sending its terminal event. Serialize
@@ -208,7 +208,7 @@ the execution's first event; switching midway cannot deduplicate events already
 produced by independent paths.
 
 Manual backfill, the importer, `finalize-session` and managed transcript import
-through `ai-memory run` retain their existing behavior. Do not combine them as
+through `pitstop run` retain their existing behavior. Do not combine them as
 independent lifecycle producers for the same execution. External capture does
 not disable native harness transcript files or other vendors' hooks.
 
@@ -224,4 +224,4 @@ No framework adapter, workflow engine, generic plugin runtime or OpenTelemetry
 collector is introduced. A future OpenTelemetry adapter can map conversation
 and tool-call identities at the boundary. Keep ingestion producer identity
 separate from the model provider and preserve the native session identity needed
-by ai-memory's existing integrations.
+by pitstop's existing integrations.

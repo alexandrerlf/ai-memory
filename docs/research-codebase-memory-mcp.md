@@ -7,9 +7,9 @@ Knowledge Graphs for LLM Code Exploration via MCP"* (arXiv:2603.27277).
 
 > **Category caveat.** codebase-memory-mcp ("cbm") is code-structure memory,
 > so it does not compete with session memory. It answers *"what is this code
-> and how does it connect?"*, while ai-memory answers *"what did we do and
+> and how does it connect?"*, while pitstop answers *"what did we do and
 > decide, and why?"*. An agent can run both: cbm to navigate the code,
-> ai-memory to recall the work. This report reads cbm for ideas to borrow.
+> pitstop to recall the work. This report reads cbm for ideas to borrow.
 
 ## 1. Purpose & Scope
 
@@ -30,7 +30,7 @@ kernel (28M LOC) in ~3 minutes and answer Cypher queries in <1ms.
   gopls / Roslyn / rust-analyzer but embedded and offline.
 - **Pipeline:** *"RAM-first: LZ4 compression, in-memory SQLite, fused
   Aho-Corasick pattern matching. Memory released after indexing."*
-- **Storage:** SQLite at `~/.cache/codebase-memory-mcp/` (ai-memory also uses
+- **Storage:** SQLite at `~/.cache/codebase-memory-mcp/` (pitstop also uses
   a single SQLite database).
 - **Graph model:** nodes (Project, Package, File, Function, Class, Route, …)
   and edges (`CALLS`, `IMPORTS`, `IMPLEMENTS`, `HTTP_CALLS`, `DATA_FLOWS`,
@@ -54,7 +54,7 @@ classification), `semantic_query` (vector search over the graph),
 ## 4. Freshness & Team Sharing
 
 - **Auto-sync watcher** re-indexes on file change (`auto_watch` default true),
-  much like ai-memory's wiki watcher keeps its index live.
+  much like pitstop's wiki watcher keeps its index live.
 - **Committed, compressed derived index:** *".codebase-memory/graph.db.zst is
   a zstd-compressed snapshot of the knowledge graph"* checked into the repo;
   new clones decompress and run incremental indexing instead of a full
@@ -67,7 +67,7 @@ classification), `semantic_query` (vector search over the graph),
 ## 5. Distinctive Ideas Worth Noting
 
 - **Committing a compressed *derived* index for team sharing** (`graph.db.zst`
-  in-repo). ai-memory keeps its DB derived/rebuildable and shares through the
+  in-repo). pitstop keeps its DB derived/rebuildable and shares through the
   server instead; cbm's git-artifact model is the offline, server-less
   alternative. The trade-off is worth keeping in mind (see the ECC and
   landscape notes on git-shared vs server-mediated).
@@ -77,45 +77,45 @@ classification), `semantic_query` (vector search over the graph),
   the idea that transfers best: expose different subsets of tools to
   different task phases.
 - **`detect_changes` → risk classification**: maps a git diff to affected
-  symbols and a risk score. It resembles ai-memory's typed-edge/contradiction
+  symbols and a risk score. It resembles pitstop's typed-edge/contradiction
   lint, applied to code instead of knowledge.
 - **Token-efficiency as the headline metric**, benchmarked and published.
-  ai-memory publishes LongMemEval numbers the same way; cbm's main metric is
+  pitstop publishes LongMemEval numbers the same way; cbm's main metric is
   "queries vs grep tokens".
 
 ## 6. What Good / What's Missing — Honest Take
 
-**A complement, not a competitor.** cbm indexes the codebase; ai-memory
-indexes the work. cbm knows the code as it is right now; ai-memory knows the
+**A complement, not a competitor.** cbm indexes the codebase; pitstop
+indexes the work. cbm knows the code as it is right now; pitstop knows the
 decisions, gotchas, sessions, and handoffs, which is the reasoning and history
 no AST carries. An agent that needs both "where is this function called" and
 "why did we build it this way" needs both tools.
 
-**Ideas ai-memory could borrow:**
-1. **Tiered tool exposure** (Scout/Verify/Auditor). ai-memory ships ~18 MCP
+**Ideas pitstop could borrow:**
+1. **Tiered tool exposure** (Scout/Verify/Auditor). pitstop ships ~18 MCP
    tools to every client at every phase; a task-phase-scoped subset (e.g. a
    read-only "recall" tier vs a full "curate" tier) would cut prompt surface
    and over-permissioning. Worth considering alongside the rules-promotion
    work (`docs/design-rules-promotion.md`).
 2. **The token-efficiency framing** as a first-class, published metric for the
-   *retrieval* side (ai-memory already benchmarks recall; "tokens to answer"
+   *retrieval* side (pitstop already benchmarks recall; "tokens to answer"
    is the complementary axis).
 3. **A committed, compressed derived-index option** for server-less small
    teams, the same idea flagged in `research-ecc.md`'s git-shared team scope.
 
-**Where ai-memory is simply doing a different (harder-for-its-domain) job:**
+**Where pitstop is simply doing a different (harder-for-its-domain) job:**
 - Automatic, sanitized session capture and cross-agent handoff; LLM
   consolidation into human-readable knowledge; temporal `as_of`; a server for
   multi-user/multi-machine use. cbm does none of that because it watches
   files, never sessions.
 
 **Bottom line.** codebase-memory-mcp is a strong, narrowly scoped
-code-intelligence engine that pairs well with ai-memory. The lessons for us
+code-intelligence engine that pairs well with pitstop. The lessons for us
 are operational rather than architectural: tiered tool profiles, a published
 token-efficiency metric, and (optionally) a git-committed compressed index for
 teams that won't run a server.
 
-## 7. 2.1 Feasibility — grounded in ai-memory's code
+## 7. 2.1 Feasibility — grounded in pitstop's code
 
 Each borrowable idea was checked against the current tree so the release call
 rests on real choke points. Verdicts: one 2.1 feature, one land-now dev
@@ -124,7 +124,7 @@ metric, one deferred design.
 ### 7.1 Tiered tool profiles — **recommend for 2.1**
 
 *Where it plugs in.* The MCP server exposes 23 tools through the rmcp
-`#[tool_router]` macro (`crates/ai-memory-mcp/src/server.rs:1239`), and
+`#[tool_router]` macro (`crates/pitstop-mcp/src/server.rs:1239`), and
 `list_tools` (`server.rs:3966`) is the single choke point. It returns
 `tool_router.list_all()` unfiltered, with only a per-dialect schema *reshape*
 (`restricted_schema_tool_list`, `server.rs:4021`) that never drops a tool. A
@@ -142,7 +142,7 @@ rules-promotion work (`docs/design-rules-promotion.md`): both give the agent
 less, better-scoped authority by default.
 
 *Shape.* Add a `--tool-profile recall|full` flag to `ServeArgs`
-(`crates/ai-memory-cli/src/cli.rs:2119`), or a per-request `?profile=` marker
+(`crates/pitstop-cli/src/cli.rs:2119`), or a per-request `?profile=` marker
 mirroring the existing `?flavor=` mechanism (`server.rs:3980`); filter
 `list_all()` by `tool_call_is_write` before returning. No new classification
 logic is needed because the partition already exists.
@@ -165,14 +165,14 @@ cheaply. It can go to `main` at any time, independent of the 2.1 train.
 
 *Where it plugs in.* The DB is contractually derived and rebuildable:
 markdown-in-git is the source of truth, SQLite `db/` is the index
-(`crates/ai-memory-wiki/src/lib.rs:3`, `docs/companion-crates.md:14`), with a
-working rebuild (`ai-memory reindex`, `crates/ai-memory-cli/src/commands/reindex.rs`)
+(`crates/pitstop-wiki/src/lib.rs:3`, `docs/companion-crates.md:14`), with a
+working rebuild (`pitstop reindex`, `crates/pitstop-cli/src/commands/reindex.rs`)
 and an online-backup tarball producer (`POST /admin/backup`,
-`crates/ai-memory-mcp/src/admin.rs:746`). So a committed `graph.db.zst`-style
+`crates/pitstop-mcp/src/admin.rs:746`). So a committed `graph.db.zst`-style
 artifact *fits the model* mechanically.
 
 *Why defer.* It is a different distribution model and too large to count as
-a small feature. ai-memory's multi-user/multi-machine story is server-mediated
+a small feature. pitstop's multi-user/multi-machine story is server-mediated
 by design (attributed writes, per-user scope, live handoff); a git-committed
 binary index is the server-less counterpart, and it brings in
 snapshot-consistency, staleness, regeneration cadence, and binary-blob merge

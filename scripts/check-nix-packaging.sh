@@ -28,15 +28,15 @@ main() {
     fail "usage: $0 <nix-build-result-prefix>"
   fi
 
-  local binary="${PREFIX}/bin/ai-memory"
+  local binary="${PREFIX}/bin/pitstop"
   if [ ! -x "${binary}" ]; then
     fail "missing executable: ${binary}"
   fi
 
-  log "Checking ai-memory --version"
+  log "Checking pitstop --version"
   "${binary}" --version
 
-  local hooks_dir="${PREFIX}/share/ai-memory/hooks"
+  local hooks_dir="${PREFIX}/share/pitstop/hooks"
   if [ ! -d "${hooks_dir}" ]; then
     fail "missing hooks directory: ${hooks_dir}"
   fi
@@ -44,7 +44,7 @@ main() {
     fail "hooks directory is empty: ${hooks_dir}"
   fi
 
-  local config_template="${PREFIX}/etc/ai-memory/config.default.toml"
+  local config_template="${PREFIX}/etc/pitstop/config.default.toml"
   if [ ! -f "${config_template}" ]; then
     fail "missing config template: ${config_template}"
   fi

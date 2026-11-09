@@ -39,10 +39,10 @@ All MCP/hook mechanics of this app are covered in
   ChatGPT; no stdio/local servers in hosted Chat.
 - Plugins/connections are administered per workspace for ChatGPT Work
   (<https://developers.openai.com/codex/enterprise/apps-and-connectors>).
-- **Implication for ai-memory:** an ai-memory *plugin* (hosted remote MCP
+- **Implication for pitstop:** an pitstop *plugin* (hosted remote MCP
   pointing at a user-run server) is the only sanctioned path into hosted
   ChatGPT chat, which matches RFC #878's "remote-only connectors"
-  conclusion. A local loopback ai-memory server cannot be reached from
+  conclusion. A local loopback pitstop server cannot be reached from
   hosted Chat; a tunnel (e.g. OpenAI's "Secure MCP Tunnel" docs exist at
   <https://developers.openai.com/api/docs/guides/secure-mcp-tunnels>) or a
   hosted deployment would be required. Not researched further here.
@@ -61,7 +61,7 @@ see [`codex-desktop.md`](codex-desktop.md).
   calls only (option (a) in RFC #878) unless a hosted plugin is built.
 - Codex-mode in the desktop app: same store/session identity as Codex CLI
   (`session_id` from hooks/rollouts under `~/.codex/sessions/`), so
-  ai-memory's `(agent=codex, session_id)` keying applies unchanged.
+  pitstop's `(agent=codex, session_id)` keying applies unchanged.
 - No documented CLI↔desktop session handoff (unlike Claude's `/desktop`).
 
 ## Sources

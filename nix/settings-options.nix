@@ -1,4 +1,4 @@
-# Typed `services.ai-memory.settings` options for common non-secret keys.
+# Typed `services.pitstop.settings` options for common non-secret keys.
 #
 # The parent submodule has `freeformType = pkgs.formats.toml.type`, so any
 # other `config.toml` key remains usable without copying the Rust schema into
@@ -54,7 +54,7 @@ in
       Warning: values set here land in the generated `config.toml` Nix store
       path, which is world-readable. Do not put API keys or other secrets in
       `llm_headers`; pass those via `ageSecret`, `sopsSecret`, or
-      `environmentFile` (for example `AI_MEMORY_LLM_HEADERS`) instead.
+      `environmentFile` (for example `PITSTOP_LLM_HEADERS`) instead.
     '';
   };
 

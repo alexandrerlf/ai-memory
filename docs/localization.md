@@ -4,20 +4,20 @@ The built-in web interface and human CLI output support English (`en`) and
 Brazilian Portuguese (`pt-BR`). English remains the CLI default.
 
 ```sh
-ai-memory --language pt-BR status
-ai-memory --language pt-BR --help
-AI_MEMORY_LANGUAGE=pt-BR ai-memory doctor
+pitstop --language pt-BR status
+pitstop --language pt-BR --help
+PITSTOP_LANGUAGE=pt-BR pitstop doctor
 ```
 
 For a persistent terminal preference, set the top-level `language = "pt-BR"`
-in `config.toml`. Precedence is `--language`, then `AI_MEMORY_LANGUAGE`, then
+in `config.toml`. Precedence is `--language`, then `PITSTOP_LANGUAGE`, then
 the config file, then English. Help and argument-validation errors work before
 configuration is loaded, so they use the flag or environment preference.
-A `--language` after the harness in `ai-memory run` belongs to that harness,
+A `--language` after the harness in `pitstop run` belongs to that harness,
 just like its other native arguments.
 
 The web interface negotiates `Accept-Language` on each request. The language
-selector saves an `ai_memory_language` preference cookie scoped to the
+selector saves an `pitstop_language` preference cookie scoped to the
 installation's URL prefix. It takes precedence over the browser header. Two
 operators can use different languages on the same server. HTML responses carry
 `Content-Language` and vary by language header and cookie; the JSON API does not.
@@ -53,7 +53,7 @@ These strings still appear in English under `pt-BR`:
 
 ## Catalogs and ownership
 
-Fluent resources live under `crates/ai-memory-core/locales/<language>/`:
+Fluent resources live under `crates/pitstop-core/locales/<language>/`:
 
 - `common.ftl`: elapsed times, status labels and fixed protocol errors.
 - `cli.ftl`: human command output and interactive prompts.
@@ -100,7 +100,7 @@ recover, resume or report its workstreams use `localization::format`, as does
 any other catalog line that quotes an error or a reason.
 Web templates use `label`, the same lookup, for fixed text that Rust passes to them.
 Hook commands run before configuration loads, so they follow only
-`AI_MEMORY_LANGUAGE`. Commented configuration snippets printed for pasting stay
+`PITSTOP_LANGUAGE`. Commented configuration snippets printed for pasting stay
 in English, like other generated configuration.
 
 Use `message` for typed Fluent values and `count` for numeric plural selectors.
@@ -129,7 +129,7 @@ selectors.
 
 Copy all five English resources into a new BCP 47 language directory, translate
 them, then register the tag, accepted aliases and embedded resources in
-`ai-memory-core::i18n`. Add the language to the browser selector. Preserve the
+`pitstop-core::i18n`. Add the language to the browser selector. Preserve the
 parameters in each message; use Fluent selectors for the language's plural
 forms. Keep technical tokens inside translated prose unchanged.
 
@@ -145,9 +145,9 @@ Run the repository's normal formatting, clippy, test and dependency gates.
 Focused checks during translation work are:
 
 ```sh
-cargo test -p ai-memory-core i18n::tests
-cargo test -p ai-memory-cli --lib localization::tests
-cargo test -p ai-memory-web localization --all-features
+cargo test -p pitstop-core i18n::tests
+cargo test -p pitstop-cli --lib localization::tests
+cargo test -p pitstop-web localization --all-features
 ```
 
 Tests validate Fluent syntax, duplicate IDs, language parity, parameter parity,

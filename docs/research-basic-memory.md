@@ -31,8 +31,8 @@ integrations, and real-time cloud collaboration. Those items are on `main`,
 not in the latest stable release, so this report does not treat them as
 shipped stable behavior.
 
-The useful new comparisons for ai-memory are structured pre-rank filters and
-optional document ingestion. ai-memory already ships the underlying ideas in
+The useful new comparisons for pitstop are structured pre-rank filters and
+optional document ingestion. pitstop already ships the underlying ideas in
 OKF v0.2, conditional writes, temporal reads, attribution, lifecycle capture,
 and git-markdown truth. A document path should remain an importer companion;
 live cloud co-editing and a hosted personal knowledge base serve a different
@@ -143,5 +143,5 @@ wiki-link* primitives, the *memory:// URI* navigation, the *typed-client +
 composition-root* layering, the *MCP annotations*, and the
 *file-as-portable-export* idea; invert the capture model, add a lifecycle and
 agent/session provenance, and keep the tool surface narrow. The old suggestion
-to keep the database primary is superseded: ai-memory's established invariant
+to keep the database primary is superseded: pitstop's established invariant
 is markdown-in-git as source of truth with SQLite as a derived index.

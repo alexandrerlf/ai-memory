@@ -41,7 +41,7 @@ and **share MCP configuration for the same Codex host**"
 - Config file: `~/.codex/config.toml`, `[mcp_servers.<name>]` tables;
   project scope `.codex/config.toml` (trusted projects only). Verified
   locally: `~/.codex/config.toml` already contains
-  `[mcp_servers.ai-memory] url = "http://192.168.0.90:49374/mcp"` (remote
+  `[mcp_servers.pitstop] url = "http://192.168.0.90:49374/mcp"` (remote
   streamable HTTP, which works with the desktop app without Node/npx).
 - Desktop app GUI: Settings → MCP servers → Add server (STDIO or Streamable
   HTTP); `/mcp` in the composer lists servers.
@@ -49,9 +49,9 @@ and **share MCP configuration for the same Codex host**"
 - Transports: stdio (command/args/env/cwd/env_vars) and streamable HTTP
   (`url`, `bearer_token_env_var`, `http_headers`, `env_http_headers`,
   `http_headers_helper`), OAuth incl. CIMD/DCR and ChatGPT session auth.
-  ai-memory's loopback HTTP + optional bearer token maps directly onto this.
+  pitstop's loopback HTTP + optional bearer token maps directly onto this.
 - Server `instructions` field is read as server-wide guidance (keep first
-  512 chars self-contained). This matters for how ai-memory's tool-routing
+  512 chars self-contained). This matters for how pitstop's tool-routing
   guidance is surfaced in Codex.
 
 ## Lifecycle hooks — full Claude-Code-style model, in core
@@ -65,11 +65,11 @@ Codex has a native lifecycle-hooks framework
   `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`.
 - Config: `~/.codex/hooks.json` (or inline `[hooks]` in `config.toml`),
   repo `<repo>/.codex/hooks.json`, plugin-bundled hooks. Verified
-  locally: ai-memory already writes `~/.codex/hooks.json` with
+  locally: pitstop already writes `~/.codex/hooks.json` with
   SessionStart/UserPromptSubmit/PreToolUse/PostToolUse command hooks calling
-  `ai-memory hook --event ... --agent codex --server-url ...`.
+  `pitstop hook --event ... --agent codex --server-url ...`.
 - Hook stdin includes `session_id`, `transcript_path`, `cwd`,
-  `hook_event_name`, and `model`, which covers everything ai-memory's capture needs.
+  `hook_event_name`, and `model`, which covers everything pitstop's capture needs.
 - Trust review: non-managed hooks must be trusted once (`/hooks` in the
   TUI); trust is recorded against the hook's hash.
 - Handlers can be `command` or `mcp_tool` (a lifecycle event can call a tool
@@ -84,7 +84,7 @@ so changing an installed hook command needs a fresh trust. `SessionEnd`
 fires when a thread is archived or app-server shuts down cleanly, not when
 a client unsubscribes. The hook payload does not say which client started
 the session; the rollout's `session_meta.originator` does. A desktop-app
-prompt with the ai-memory hooks in place has not been run yet.
+prompt with the pitstop hooks in place has not been run yet.
 
 ## Transcript store
 

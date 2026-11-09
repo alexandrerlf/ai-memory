@@ -35,14 +35,14 @@ Two distinct MCP surfaces:
    remote HTTPS connectors configured in-app ("Connectors"). Config paths:
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json` (or the MSIX
-     AppContainer path; ai-memory's `install-mcp --client claude-desktop`
+     AppContainer path; pitstop's `install-mcp --client claude-desktop`
      already detects both)
    - Linux: `~/.config/Claude/claude_desktop_config.json` (**verified
      locally**; the file exists with a `preferences` object, so the Linux beta
      reuses the same file). `docs/mcp-install.md` documents it, and
      `install-mcp --client claude-desktop` writes it on Linux.
    - Source: <https://modelcontextprotocol.io/quickstart/user> (mac/win
-     paths), local file inspection, ai-memory `docs/mcp-install.md`.
+     paths), local file inspection, pitstop `docs/mcp-install.md`.
    - Local MCP logs: `~/Library/Logs/Claude/mcp*.log` (mac),
      `%APPDATA%\Claude\logs` (win), same source.
 2. **Code tab (Claude Code host)**: the same MCP configuration the CLI uses:
@@ -73,10 +73,10 @@ tab's extension surface.
   conversations stays model-discretion (memory tool calls), unchanged from
   RFC #878's conclusion.
 - **The Code tab is full Claude Code**, and it reads the user's
-  `~/.claude/settings.json`, where ai-memory's hooks are already installed
+  `~/.claude/settings.json`, where pitstop's hooks are already installed
   (verified locally: `hooks.SessionStart` →
-  `ai-memory ... hook --event session-start --agent claude-code ...`).
-  Therefore **ai-memory already captures desktop Code sessions today**, keyed
+  `pitstop ... hook --event session-start --agent claude-code ...`).
+  Therefore **pitstop already captures desktop Code sessions today**, keyed
   `agent=claude-code`, `session_id=<CLI UUID>`, `cwd=<session workspace>`.
 - Code-tab sessions started without a project folder run in per-session
   scratch workspaces:
@@ -133,12 +133,12 @@ real and observable on this machine. Mechanism, from local artifacts:
    sessions; cross-session messaging can additionally reach terminal Claude
    Code sessions (same doc).
 
-### What ai-memory's `(agent, session_id)` key sees
+### What pitstop's `(agent, session_id)` key sees
 
 - A desktop Code session and the CLI session it came from (via
   `--resume`/`/desktop`) are **one session id**, so capture dedups naturally.
 - A desktop Code session started without a folder is a *new* CLI session
-  (new UUID) whose cwd is a fresh scratch workspace; ai-memory sees it as a
+  (new UUID) whose cwd is a fresh scratch workspace; pitstop sees it as a
   claude-code session in an auto-named project derived from the scratch
   path. Cowork sessions are a separate, unverified case (see above). The desktop↔CLI mapping
   (`local_* ↔ cliSessionId`) is available on disk if we ever want to join or
@@ -166,4 +166,4 @@ real and observable on this machine. Mechanism, from local artifacts:
 - Local: `~/.config/Claude/` (config, sessions, scratch workspaces, bundled
   CLI), `~/.claude/sessions/`, `~/.claude/projects/`,
   `~/.local/share/applications/claude-code-url-handler.desktop`
-- ai-memory repo: `docs/mcp-install.md` (claude-desktop section), RFC #878.
+- pitstop repo: `docs/mcp-install.md` (claude-desktop section), RFC #878.

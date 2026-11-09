@@ -164,7 +164,7 @@ pub async fn memory_query(
 }
 
 /// Call one MCP tool over Streamable HTTP and return its first text
-/// content block (every ai-memory tool answers with one JSON text block).
+/// content block (every pitstop tool answers with one JSON text block).
 pub async fn mcp_tool_text(
     client: &reqwest::Client,
     base_url: &str,

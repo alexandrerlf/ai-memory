@@ -1,10 +1,10 @@
-# Systemd hardening for the NixOS ai-memory module. Packaged FHS units under
+# Systemd hardening for the NixOS pitstop module. Packaged FHS units under
 # `packaging/systemd/` keep their existing lighter hardening.
 { lib, ... }:
 
 {
-  # Full sandbox for the system unit (StateDirectory + /var/lib/ai-memory).
-  aiMemorySystemSandbox = {
+  # Full sandbox for the system unit (StateDirectory + /var/lib/pitstop).
+  pitstopSystemSandbox = {
     CapabilityBoundingSet = [ ];
     AmbientCapabilities = [ ];
     MemoryDenyWriteExecute = true;

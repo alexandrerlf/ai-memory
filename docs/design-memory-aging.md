@@ -6,7 +6,7 @@ as designed. Sections labelled "Current state" and the phased PR plan preserve
 the pre-implementation baseline. Current feature status and R2 results are in
 [`competitive-parity.md`](competitive-parity.md#prior-gaps-and-current-status).
 
-Design-of-record for a 2.4 feature set that improves how ai-memory handles
+Design-of-record for a 2.4 feature set that improves how pitstop handles
 **old** memory: decay/compression/consolidation and access-weighted retention.
 It is honest about what already ships, what is dormant, and what is proposed;
 every claim about current behavior cites the code. It lays out three feature
@@ -28,7 +28,7 @@ The aging machinery is further along than a first reading suggests. What exists:
 
 ### The retention formula and its inputs
 
-`crates/ai-memory-store/src/decay.rs` computes a pure retention score:
+`crates/pitstop-store/src/decay.rs` computes a pure retention score:
 
 ```
 retention = salience·exp(−λ·age_days)
@@ -80,7 +80,7 @@ reinforcement today. (Bucket C1.)
 
 ### The forget-sweep and its tiers
 
-`crates/ai-memory-consolidate/src/sweep.rs` runs, in order: a **TTL pass**
+`crates/pitstop-consolidate/src/sweep.rs` runs, in order: a **TTL pass**
 (frontmatter `expires_at` in the past → hard-delete file+rows regardless of
 tier or pin, V36); an **episodic-only decay pass** (retention `< cold_threshold`
 → remove the Markdown, turn the latest row into a decay tombstone); a
@@ -265,7 +265,7 @@ Everything in A works with no provider and does not require ranking changes.
 
 **Classification fixtures ([RFC #1685](https://github.com/akitaonrails/ai-memory/issues/1685)).**
 The existing `contradiction_lint` suite also runs
-[`contradiction_evidence.json`](../crates/ai-memory-consolidate/tests/fixtures/contradiction_evidence.json),
+[`contradiction_evidence.json`](../crates/pitstop-consolidate/tests/fixtures/contradiction_evidence.json),
 a small manually labeled English, Portuguese and Chinese corpus. Its vectors
 are controlled inputs, not outputs from an embedding model. The fixtures record
 current classification, including compatible pairs inside the band and a
@@ -282,8 +282,8 @@ Expected counts document the current behavior; labels remain independent of
 the classifier output.
 
 ```bash
-cargo test -p ai-memory-consolidate labeled_evidence_pairs_record_current_classification -- --nocapture
-cargo test -p ai-memory-consolidate labeled_evidence_pairs_timing_receipt -- --ignored --nocapture
+cargo test -p pitstop-consolidate labeled_evidence_pairs_record_current_classification -- --nocapture
+cargo test -p pitstop-consolidate labeled_evidence_pairs_timing_receipt -- --ignored --nocapture
 ```
 
 The first command reports the confusion counts, precision, recall, F1 and
@@ -419,7 +419,7 @@ and is under-used. The only firm new column is A2's compaction marker.
 
 Ordering is cheapest-and-safest first. Each PR that touches LLM or changes ranking
 ships **opt-in / off-by-default** and does not default on until the **R2 harness**
-(now built, #771/#772; `crates/ai-memory-consolidate/tests/recall_eval.rs`) proves
+(now built, #771/#772; `crates/pitstop-consolidate/tests/recall_eval.rs`) proves
 a triple/QA delta.
 
 **Phase 1: cheap, zero-LLM, safe (no ranking change):**
@@ -528,10 +528,10 @@ in a boot migration.
 ### 3. Recovery & proof
 
 `serve` startup already writes a **pre-migration safety archive** of the whole
-data directory before applying migrations (#633; `ai-memory-wiki/src/backup.rs`,
+data directory before applying migrations (#633; `pitstop-wiki/src/backup.rs`,
 `create_pre_migration_backup` at `:125`, receipt
 `pre-migration-backup.json`, `:21`), and the wiki error path points a stuck user
-at restoring it (`ai-memory-wiki/src/error.rs:51`). Beyond that, every
+at restoring it (`pitstop-wiki/src/error.rs:51`). Beyond that, every
 state-touching step keeps its source **diffable in git and reachable via
 supersession** until the existing 180-day tombstone grace + hard-delete
 (`DecayParams::hard_delete_after_days`, `decay.rs:43`).
@@ -555,7 +555,7 @@ every new migration.
 ## R2 acceptance
 
 R2 is the reproducible LongMemEval-V2 recall-eval harness
-(`crates/ai-memory-consolidate/tests/recall_eval.rs`, built in #771/#772). It is
+(`crates/pitstop-consolidate/tests/recall_eval.rs`, built in #771/#772). It is
 the gate for this work:
 
 - **No-regression gate (mandatory for anything that changes stored content or

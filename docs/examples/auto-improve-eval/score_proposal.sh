@@ -1,5 +1,5 @@
 #!/bin/sh
-# POSIX sh + awk port of score_proposal.py for ai-memory auto-improve eval gates.
+# POSIX sh + awk port of score_proposal.py for pitstop auto-improve eval gates.
 # It needs no Python, so it also runs inside the official Docker image, which
 # ships only a POSIX shell and awk. The checks never match section names or
 # wording, so a wiki written in any language scores the same way.

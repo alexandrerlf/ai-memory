@@ -29,7 +29,7 @@ tools.
 
 Our `wiki/` is now a native **OKF v0.2 bundle**: markdown, YAML frontmatter,
 one page per concept, with generated `index.md` and `log.md` projections and
-an `ai-memory okf check` conformance command. The interoperability work is
+an `pitstop okf check` conformance command. The interoperability work is
 already shipped.
 
 The second validation came from an unexpected direction: **Letta**
@@ -525,7 +525,7 @@ It now ships coding-agent front-ends too (Claude Code/Codex/Cursor/OpenCode
 plugins + an **MCP server** with exactly three tools: `honcho_search`,
 `honcho_chat`, `honcho_remember`), so it **collides with us on the shelf**, but
 the thing remembered is different: **Honcho remembers the *user*;
-ai-memory remembers the *project*.** A coding team wanting cross-harness project
+pitstop remembers the *project*.** A coding team wanting cross-harness project
 continuity would not switch to it (opaque DB, LLM-mandatory, user-centric,
 multi-service), and an app builder wanting end-user personalization would not use
 us. It is **adjacent, not a migration target either way**. Two ideas are worth
@@ -578,7 +578,7 @@ with another or with ours, and no ranking is claimed.
 
 | Tool | Number | Kind | Setup caveats |
 |---|---|---|---|
-| ai-memory 3.0 | LongMemEval-S hit@5 0.951 zero-LLM FTS, 0.945 local embeddings (all 470) | Retrieval through the shipped capture pipeline | 2.6 published 0.666 / 0.815; component mode (raw sessions indexed whole) FTS 0.972 |
+| pitstop 3.0 | LongMemEval-S hit@5 0.951 zero-LLM FTS, 0.945 local embeddings (all 470) | Retrieval through the shipped capture pipeline | 2.6 published 0.666 / 0.815; component mode (raw sessions indexed whole) FTS 0.972 |
 | MemPalace | 96.6% R@5 raw, 98.4% on 450 held-out questions | Retrieval only | Closest in kind to our hit@5; different harness |
 | agentmemory | 95.2% `recall_any@5`; 2026-10-09 baseline 452/470 (96.2%) any-hit, 84.68% strict recall-all@5 | Retrieval, component (whole raw sessions) | Reranker disabled; the authors say the baseline supports no competitive claim |
 | mcp-memory-service | 80.4% R@5 turn-level, 86.0% session-level | Retrieval | Not re-read on 2026-10-13 |
@@ -671,17 +671,17 @@ capability is in a tagged release; `main` means it is visible in the default
 branch but is not yet a stable release. The table records quiet projects
 explicitly.
 
-| Project | Change since 2026-10-13 | What it means for ai-memory |
+| Project | Change since 2026-10-13 | What it means for pitstop |
 |---|---|---|
-| **claude-mem** | **Released v14.0.0/v14.0.1.** “My Work” turns captured requests into a local dashboard with workstream cards, evidence drill-down, live attention states, and an explicit human “Checked” state. TeamBrain adds selected shared work, collision awareness, decisions, and delegation as a paid service. | The local work dashboard is the clearest new product gap. Build a read-only operational view over ai-memory's existing managed-workstream ledger, with derived attention states and a minimal human review marker. Do not copy the paid cloud or create a second task tracker. |
+| **claude-mem** | **Released v14.0.0/v14.0.1.** “My Work” turns captured requests into a local dashboard with workstream cards, evidence drill-down, live attention states, and an explicit human “Checked” state. TeamBrain adds selected shared work, collision awareness, decisions, and delegation as a paid service. | The local work dashboard is the clearest new product gap. Build a read-only operational view over pitstop's existing managed-workstream ledger, with derived attention states and a minimal human review marker. Do not copy the paid cloud or create a second task tracker. |
 | **Mem0** | No material memory change. The repository added event promotion; the latest core release remains v2.2.1. | No action. Its category and cloud-first tradeoffs are unchanged. |
-| **MemPalace** | **Released v3.11.0.** Adds a dry-run-first audit/repair workflow, optional EmbeddingGemma 2 multimodal retrieval, embedder identity checks, large-palace performance work, and security fixes. v3.12 work is on `main`, not released. | ai-memory already records embedding identity, rejects stale vectors, and has `doctor`, lint, reindex, backup, and health tools. A unified audit UX is worth evaluating; native image/audio/video memory remains outside the text-only core. |
+| **MemPalace** | **Released v3.11.0.** Adds a dry-run-first audit/repair workflow, optional EmbeddingGemma 2 multimodal retrieval, embedder identity checks, large-palace performance work, and security fixes. v3.12 work is on `main`, not released. | pitstop already records embedding identity, rejects stale vectors, and has `doctor`, lint, reindex, backup, and health tools. A unified audit UX is worth evaluating; native image/audio/video memory remains outside the text-only core. |
 | **Hindsight** | No new stable release after v1.0.0. `main` adds decision-model triage before consolidation, decision-routed reflection/ranking, scheduled full mental-model refreshes, operation-specific request extensions, more providers, and richer source exports. | Measure per-operation model profiles and a cheap structured decision tier before adopting either. Any periodic full refresh must produce reviewed proposals, never silently rewrite source truth. |
-| **OpenViking** | No new stable release after v0.5.0. `main` adds mixed image/text queries, scoped one-use downloads, Redis-backed idle commit scheduling, multi-replica account stores, privacy commands, and bot steering. | Most changes target a multimodal distributed context platform. The resource drill-down pattern validates ai-memory's progressive disclosure; the scaling and opaque-media stack does not fit the single-binary markdown core. |
+| **OpenViking** | No new stable release after v0.5.0. `main` adds mixed image/text queries, scoped one-use downloads, Redis-backed idle commit scheduling, multi-replica account stores, privacy commands, and bot steering. | Most changes target a multimodal distributed context platform. The resource drill-down pattern validates pitstop's progressive disclosure; the scaling and opaque-media stack does not fit the single-binary markdown core. |
 | **Cognee** | **Released v1.6.5.** Adds code docstrings as graph documents, Memify APIs, batched trace processing, base64 embeddings, a Calendar connector, and session/dataset binding. | No new core work. Code graphs and connectors remain adjacent; batched ingestion reinforces the existing single-writer batching design. |
 | **Zep/Graphiti** | **Released v0.31.0/v0.31.1.** Per-prompt `LLMRuntime` routing, combined extraction, temporal/dedup fixes, Decisions clients, and MCP SDK/group routing moved from unreleased work into a stable release. | This strengthens the case for a measured per-operation provider/model profile. It does not justify a graph database or LLM-mandatory path. |
-| **Supermemory** | No new release after server-v0.0.9. `main` aligns the v5 API/docs and hardens MCP authorization, writable defaults, and deletion by ID. | No product gap. The authorization fixes validate ai-memory's fail-closed scope resolver and capability gates. |
-| **agentmemory** | No new release after v0.9.30. `main` contains redaction, vector/compression recovery, bounded graph-index work, Redis mutation serialization, and Devin integration preparation. | No action. ai-memory already has Devin support, bounded capture, recovery, and a stricter sanitizer boundary. |
+| **Supermemory** | No new release after server-v0.0.9. `main` aligns the v5 API/docs and hardens MCP authorization, writable defaults, and deletion by ID. | No product gap. The authorization fixes validate pitstop's fail-closed scope resolver and capability gates. |
+| **agentmemory** | No new release after v0.9.30. `main` contains redaction, vector/compression recovery, bounded graph-index work, Redis mutation serialization, and Devin integration preparation. | No action. pitstop already has Devin support, bounded capture, recovery, and a stricter sanitizer boundary. |
 | **TencentDB Agent Memory** | v2.0.3-beta.1 remains the newest release; subsequent commits are fixes. | No material change to the proxy-fan-in comparison. |
 | **Letta V1 server** | No product work. The repository is **not GitHub-archived**: its README redirects active development to Letta Code, while the retired V1 source lives on an `archive` branch. | Correct the old “repository archived” wording. The V1 server remains retired, but the repository itself is an active redirect. |
 | **Letta Code** | **Released v0.34.14-v0.34.16.** Adds steering, resuming, and stopping remote Claude Code/Codex subagents, vault inheritance, listener heartbeats, and recovery fixes. | This is an agent runtime feature, not a memory-system gap. Managed workstreams remain harness-neutral. |
@@ -689,14 +689,14 @@ explicitly.
 | **memvid** | No commits since 2026-07-14 and no new release. | Remains quiet; its relative benchmark claim is still not independently useful. |
 | **memU** | No feature release. Four Windows path/idempotency fixes landed. | No material change. |
 | **EverOS** | **Released v1.4.2.** Fixes an FD leak, separates query embedding capacity from background writes, batches embeddings, keys indexes by the full scope tuple, self-repairs damaged indexes, and hardens path containment. | Adopted for the in-process local embedder after measurement: eight background workers raised query p50/p95 from 36/41 ms to 74/76 ms on the reference host; one document slot plus one reserved query slot brought them to 39/51 ms. Hosted providers and the reranker retain their existing policies. |
-| **MemOS** | No commits or release after the prior cutoff. Its current headline remains DeepSeek Harness integration, multimodal memory, memory cubes, asynchronous ingestion, and feedback/correction. | No material change. The memory-OS and multimodal tradeoffs remain different from ai-memory's scope. |
+| **MemOS** | No commits or release after the prior cutoff. Its current headline remains DeepSeek Harness integration, multimodal memory, memory cubes, asynchronous ingestion, and feedback/correction. | No material change. The memory-OS and multimodal tradeoffs remain different from pitstop's scope. |
 | **Honcho** | **Released v3.3.0.** Adds an optional Chroma backend, scoped custom instructions, cursor pagination, prompt-budget handling, and performance fixes; stable object `uid` work followed on `main`. | No core work. Its theory-of-mind buyer remains different. Operation-scoped instructions are a useful reference if per-operation LLM profiles are designed. |
-| **Engram** | No new tag after v3.4.0. `main` adds local aliases/routing preview, project provenance, compact search/history clients, capture guards, tombstones, and sync isolation. | No new gap. ai-memory already has stronger repository identity, routing diagnostics, tombstone/supersession semantics, and conflict-aware wiki sync. |
-| **basic-memory** | No new stable release after v0.23.2. The unreleased v0.24 changelog describes optimistic checksummed writes, native OKF v0.2 export/check, cross-project and structured filters, document extraction with provenance, temporal qualifiers, a local reranker, locked notes, more harnesses, and cloud team collaboration. | ai-memory already ships native OKF, conditional writes, temporal queries, attribution, and lifecycle capture. Structured filters are a real gap. Document ingestion belongs in an optional importer; local reranking stays measure-first; live co-edit/cloud is a different product. |
-| **mcp-memory-service** | **Released v12.1.0/v12.1.1.** Security fixes include stored-XSS handling and graph-write scoping; automatic supersession is now conservative. `main` adds Codex hooks, store-partitioned SSE, tombstone protection, and BM25 fixes. | No new feature work. The release validates conservative supersession, output encoding, and strict write scoping already required by ai-memory's invariants. |
+| **Engram** | No new tag after v3.4.0. `main` adds local aliases/routing preview, project provenance, compact search/history clients, capture guards, tombstones, and sync isolation. | No new gap. pitstop already has stronger repository identity, routing diagnostics, tombstone/supersession semantics, and conflict-aware wiki sync. |
+| **basic-memory** | No new stable release after v0.23.2. The unreleased v0.24 changelog describes optimistic checksummed writes, native OKF v0.2 export/check, cross-project and structured filters, document extraction with provenance, temporal qualifiers, a local reranker, locked notes, more harnesses, and cloud team collaboration. | pitstop already ships native OKF, conditional writes, temporal queries, attribution, and lifecycle capture. Structured filters are a real gap. Document ingestion belongs in an optional importer; local reranking stays measure-first; live co-edit/cloud is a different product. |
+| **mcp-memory-service** | **Released v12.1.0/v12.1.1.** Security fixes include stored-XSS handling and graph-write scoping; automatic supersession is now conservative. `main` adds Codex hooks, store-partitioned SSE, tombstone protection, and BM25 fixes. | No new feature work. The release validates conservative supersession, output encoding, and strict write scoping already required by pitstop's invariants. |
 | **LangMem** | No repository or package release since the prior cutoff. | No material change. |
-| **Caura** | **Released backend-v3.34.5.** `main` also carries a beta collaboration extension: tenant-scoped peer discovery, requests, correlated replies, presence, leases, progress, and recovery for running Claude/Codex hosts. External effects remain at-least-once. | Treat the bus as adjacent fleet orchestration. ai-memory messaging is durable project-to-project continuity, not a live peer runtime. Do not add presence or wake orchestration to the memory core. |
-| **LiquidLM** | Stable CLI is v0.1.6; v0.2.0-alpha.1 is prerelease. Public client work adds scoped tokens, MCP installation, safer upload reconciliation, search/upload commands, and local media fetching; the engine remains closed. | Correct the version. Its managed multimodal second-brain UX remains outside ai-memory's core. |
+| **Caura** | **Released backend-v3.34.5.** `main` also carries a beta collaboration extension: tenant-scoped peer discovery, requests, correlated replies, presence, leases, progress, and recovery for running Claude/Codex hosts. External effects remain at-least-once. | Treat the bus as adjacent fleet orchestration. pitstop messaging is durable project-to-project continuity, not a live peer runtime. Do not add presence or wake orchestration to the memory core. |
+| **LiquidLM** | Stable CLI is v0.1.6; v0.2.0-alpha.1 is prerelease. Public client work adds scoped tokens, MCP installation, safer upload reconciliation, search/upload commands, and local media fetching; the engine remains closed. | Correct the version. Its managed multimodal second-brain UX remains outside pitstop's core. |
 | **Claude Code native memory** | Releases 2.1.299-2.1.302 improve compaction and runtime stability but add no material project-memory capability. | No change to the comparison: excellent zero-setup single-harness memory, weak portability and team continuity. |
 
 The adjacent codebase-memory, search, context-compaction, and issue-tracking
@@ -785,7 +785,7 @@ public, open artifact is the MIT npm client `@liquidlm/cli` (stable v0.1.6).
   worth studying: every fact/edge carries event-time and
   ingestion-time, so "what did we believe on June 1" and "what was true
   on June 1" are both answerable, and corrections are supersessions
-  rather than overwrites. ai-memory now ships ingestion-time temporal
+  rather than overwrites. pitstop now ships ingestion-time temporal
   validity and `as_of` reads on SQLite; true world-time extraction remains a
   deliberate LLM-dependent boundary.
 - Also active, lower relevance for us: MIRIX (multi-agent memory
@@ -795,12 +795,12 @@ public, open artifact is the MIT npm client `@liquidlm/cli` (stable v0.1.6).
   by shape (session-end consolidation jobs,
   scheduled maintenance) without the branding.
 
-## 5. What this means for ai-memory - analysis and recommendations
+## 5. What this means for pitstop - analysis and recommendations
 
 > Companion audit: [`competitive-parity.md`](competitive-parity.md) turns this
 > "what to borrow" lens around and asks the harder one: in the goals where we
 > *overlap* a competitor, are we actually better or did we copy without
-> improving, and is ai-memory worth migrating *to*? It is the self-critical
+> improving, and is pitstop worth migrating *to*? It is the self-critical
 > record behind this section's recommendations.
 
 The May research led us to build versioned supersession, retention
@@ -814,7 +814,7 @@ original recommendations below are retained as an implementation audit;
 their headings state what has shipped.
 
 **R1: OKF conformance - shipped.** The wiki is a native OKF v0.2 bundle,
-with generated index/log projections and `ai-memory okf check`. No export-only
+with generated index/log projections and `pitstop okf check`. No export-only
 compatibility layer is needed.
 
 **R2: Reproducible eval harness - shipped; full-set QA run still open.** The

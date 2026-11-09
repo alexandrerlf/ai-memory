@@ -1,17 +1,17 @@
 # Frontend integration: `/api/v1`
 
 > Read-only JSON API and custom-UI hosting model for building third-party
-> frontends against an `ai-memory` server. Added in **v0.6.0** (PR #7).
+> frontends against an `pitstop` server. Added in **v0.6.0** (PR #7).
 > Everything below is sourced from the actual route handlers in
-> `crates/ai-memory-web/src/routes/api.rs` and the response structs in
-> `crates/ai-memory-store/src/reader.rs`. Treat those files as the canonical
+> `crates/pitstop-web/src/routes/api.rs` and the response structs in
+> `crates/pitstop-store/src/reader.rs`. Treat those files as the canonical
 > reference if anything here drifts.
 
 ## 1. What this surface is (and isn't)
 
 | | What you can do | What you can't do |
 |---|---|---|
-| `/api/v1/*` | Browse workspaces, projects, pages; read full page markdown + frontmatter + back-links; list a page's stored versions and diff two of them; search (global FTS5, or scoped through `memory_query`'s hybrid ranker, single or multi-project); read the cross-project and in-project link graphs; aggregate "overview" snapshots; drill into stale / duplicate / orphan pages; list a project's sessions and read one session's raw observations. | Write, delete, rename, lint, consolidate, run sweeps, manage handoffs. The `/api/v1` surface is **read-only by construction**: the handlers contain zero writer calls, and `crates/ai-memory-web/clippy.toml` forbids the `Wiki` write and destructive methods anywhere in the crate, so adding one fails `cargo clippy -D warnings`. Writes still go through `/admin/*` (used by the CLI) or MCP tools. |
+| `/api/v1/*` | Browse workspaces, projects, pages; read full page markdown + frontmatter + back-links; list a page's stored versions and diff two of them; search (global FTS5, or scoped through `memory_query`'s hybrid ranker, single or multi-project); read the cross-project and in-project link graphs; aggregate "overview" snapshots; drill into stale / duplicate / orphan pages; list a project's sessions and read one session's raw observations. | Write, delete, rename, lint, consolidate, run sweeps, manage handoffs. The `/api/v1` surface is **read-only by construction**: the handlers contain zero writer calls, and `crates/pitstop-web/clippy.toml` forbids the `Wiki` write and destructive methods anywhere in the crate, so adding one fails `cargo clippy -D warnings`. Writes still go through `/admin/*` (used by the CLI) or MCP tools. |
 | `--web-ui-dir` | Host any SPA at `/web` (or `--web-slug`), same-origin with the API, behind the same auth. The default built-in `/web` browser stays the fallback when the flag is absent. | Host the SPA on a *different* origin without a reverse proxy. Use same-origin hosting or configure CORS deliberately (see §9). |
 
 ## 2. Auth model
@@ -40,11 +40,11 @@ and the search controls and focus stay in place.
 `/api/v1/*` and `/admin/*` are dual-auth surfaces:
 
 - Human operators authenticate with `POST /auth/login`. The engine returns an
-  `HttpOnly`, `SameSite=Strict` `ai_memory_session` cookie plus a readable
-  `ai_memory_csrf` cookie. Browser requests use `credentials: "include"`;
+  `HttpOnly`, `SameSite=Strict` `pitstop_session` cookie plus a readable
+  `pitstop_csrf` cookie. Browser requests use `credentials: "include"`;
   mutations also copy the CSRF cookie to `X-CSRF-Token`.
 - Machine clients send `Authorization: Bearer <token>`. The static
-  `AI_MEMORY_AUTH_TOKEN` is machine-root authority; native `aim_` API keys are
+  `PITSTOP_AUTH_TOKEN` is machine-root authority; native `aim_` API keys are
   always User-level. Bearers never authenticate `/auth/*`.
 - A recognized Bearer has precedence over every browser credential. An invalid
   Bearer fails closed rather than falling back. Before human auth activates,
@@ -75,7 +75,7 @@ The builtin wiki also serves the root-only `GET {web_slug}/pending` page. It
 lists pending auto-improvement proposals and posts approve and reject to the
 existing `/admin/pending-writes/*` routes. A signed-in non-root user gets a
 403 page, not the change-password redirect. A browser on the GET-only legacy
-Basic credential sees each proposal's `ai-memory pending-writes` commands in
+Basic credential sees each proposal's `pitstop pending-writes` commands in
 place of the buttons, since its posts would be refused. The root-only
 `GET {web_slug}/health` page follows the same gate: hook counters (accepted,
 shed, 429), writer queue, the spool and recovery journal under the server's
@@ -111,10 +111,10 @@ Content-Type: application/json
 `/auth/login` and `/auth/recovery` answer 415 to any other content type, so a
 form post or a `text/plain` request from another site cannot reach them.
 
-Do not put `AI_MEMORY_AUTH_TOKEN`, `aim_` keys, session values, or CSRF values
+Do not put `PITSTOP_AUTH_TOKEN`, `aim_` keys, session values, or CSRF values
 in `localStorage`. Before any human password or completed bootstrap exists,
 deprecated GET-only browser compatibility may accept the root bearer through
-HTTP Basic, or an HttpOnly `ai_memory_auth` cookie an older build set; a Basic
+HTTP Basic, or an HttpOnly `pitstop_auth` cookie an older build set; a Basic
 sign-in no longer sets that cookie. Human activation disables
 that path immediately. See [`docs/users.md`](users.md) for bootstrap, password
 rotation, recovery, roles, session expiry, and API-key lifecycle.
@@ -190,7 +190,7 @@ GET /api/v1/projects?workspace=NAME   # projects in one workspace
     "workspace_id": "0193e7a1-0000-7000-8000-00000000000a",
     "workspace_name": "default",
     "project_id": "0193e7a1-0000-7000-8000-00000000000b",
-    "project_name": "ai-memory",
+    "project_name": "pitstop",
     "page_count": 138,
     "last_updated": "2026-05-28T14:02:11.123Z"
   }
@@ -241,7 +241,7 @@ links + back-links.
 ```json
 {
   "id": "01a11da7-0604-7cc1-b518-1f0e0f2d4705",
-  "project": "ai-memory",
+  "project": "pitstop",
   "path": "decisions/0007-db.md",
   "title": "Standardised on Postgres",
   "kind": "decision",
@@ -274,7 +274,7 @@ JSON body for multi-scope.
 
 ```http
 GET /api/v1/search?q=karpathy&limit=20                                # global
-GET /api/v1/search?q=karpathy&workspace=default&project=ai-memory     # one project
+GET /api/v1/search?q=karpathy&workspace=default&project=pitstop     # one project
 ```
 
 ```http
@@ -284,7 +284,7 @@ Content-Type: application/json
 {
   "q": "karpathy",
   "scopes": [
-    { "workspace": "default", "project": "ai-memory" },
+    { "workspace": "default", "project": "pitstop" },
     { "workspace": "default", "project": "shared-notes" }
   ],
   "limit": 20
@@ -297,7 +297,7 @@ Content-Type: application/json
 [
   {
     "workspace": "default",
-    "project": "ai-memory",
+    "project": "pitstop",
     "path": "concepts/karpathy-wiki.md",
     "title": "Karpathy LLM Wiki pattern",
     "kind": "concept",
@@ -484,7 +484,7 @@ plus `briefing` and `health` aggregated across all of its projects:
 
 ```json
 {
-  "handoff":  { "agent": "claude-code", "at": "…", "project": "ai-memory", "summary": "…", "open_questions": [ … ], "next_steps": [ … ] },
+  "handoff":  { "agent": "claude-code", "at": "…", "project": "pitstop", "summary": "…", "open_questions": [ … ], "next_steps": [ … ] },
   "briefing": { "counts": { … }, "activity_7d": { … }, "rules": [ … ], "recent_pages": [ … ] },
   "health":   { "stale": 4, "duplicates": 1, "contradictions": 0, "orphans": 12,
                 "audited_at": null, "stale_pages": [HealthPage, …],
@@ -497,7 +497,7 @@ either response, `handoff` is `null` when no open handoff matches the scope:
 
 ```json
 {
-  "handoff":  { "agent": "claude-code", "at": "…", "project": "ai-memory", "summary": "…", "open_questions": [ … ], "next_steps": [ … ] },
+  "handoff":  { "agent": "claude-code", "at": "…", "project": "pitstop", "summary": "…", "open_questions": [ … ], "next_steps": [ … ] },
   "briefing": { … },
   "health":   { … }
 }
@@ -508,7 +508,7 @@ either response, `handoff` is `null` when no open handoff matches the scope:
 ```json
 {
   "workspace": "default",
-  "project": "ai-memory",
+  "project": "pitstop",
   "path": "concepts/old-thing.md",
   "title": "Old thing",
   "kind": "concept"
@@ -539,7 +539,7 @@ edge still requires both ends to be readable.
   "edges": [
     {
       "from_workspace": "default",
-      "from_project":   "ai-memory",
+      "from_project":   "pitstop",
       "from_path":      "decisions/0014-storage.md",
       "to_workspace":   "default",
       "to_project":     "infra",
@@ -565,7 +565,7 @@ as the page list applies.
 ```json
 {
   "workspace": "default",
-  "project": "ai-memory",
+  "project": "pitstop",
   "truncated": false,
   "nodes": [
     { "path": "decisions/0014-storage.md", "title": "Storage", "degree": 2 }
@@ -803,7 +803,7 @@ For an API-only companion, mount the protected JSON surface without a browser
 UI:
 
 ```bash
-ai-memory serve --transport http --enable-api
+pitstop serve --transport http --enable-api
 ```
 
 `--enable-web` continues to imply `/api/v1` for compatibility. `--enable-api`
@@ -812,7 +812,7 @@ favicon route. The API uses the same machine Bearer or browser-session auth gate
 in either mode.
 
 ```bash
-ai-memory serve \
+pitstop serve \
     --transport http \
     --bind 127.0.0.1:49374 \
     --enable-web \
@@ -831,18 +831,18 @@ The static directory is served at `/web` via `tower-http::ServeDir`:
   `/web/whatever` without 404s.
 - **Path traversal is rejected** by `ServeDir`'s default safety.
 - **Pre-startup validation:** the directory must exist *and* contain
-  `index.html`, or `ai-memory serve` exits with a clear error before
+  `index.html`, or `pitstop serve` exits with a clear error before
   binding. Requires `--enable-web` to also be set.
-- **Base-path injection:** ai-memory injects `<base href="...">` and
-  `<meta name="ai-memory-base-path" content="...">` into the SPA shell. This
+- **Base-path injection:** pitstop injects `<base href="...">` and
+  `<meta name="pitstop-base-path" content="...">` into the SPA shell. This
   covers direct `/web`, `/web/index.html`, and client-router fallback paths;
   static assets are served unchanged.
 
-When a reverse proxy keeps ai-memory under a URL subpath, set
-`--base-path` (or `AI_MEMORY_BASE_PATH`) so every HTTP surface moves together:
+When a reverse proxy keeps pitstop under a URL subpath, set
+`--base-path` (or `PITSTOP_BASE_PATH`) so every HTTP surface moves together:
 
 ```bash
-ai-memory serve \
+pitstop serve \
     --transport http \
     --bind 127.0.0.1:49374 \
     --enable-web \
@@ -877,10 +877,10 @@ project tree), unchanged from before.
 ## 7. Worked example: minimal SPA fetch
 
 ```js
-// Resolve bases from the SPA shell injected by ai-memory. The meta tag is
+// Resolve bases from the SPA shell injected by pitstop. The meta tag is
 // empty at host root and e.g. "/wiki" behind a subpath reverse proxy.
 const basePath = document
-  .querySelector('meta[name="ai-memory-base-path"]')
+  .querySelector('meta[name="pitstop-base-path"]')
   ?.getAttribute("content") ?? "";
 const origin = `${location.origin}${basePath}`;
 const API = `${origin}/api/v1`;
@@ -921,7 +921,7 @@ async function apiGet(path, params) {
 }
 
 // Call login() from the UI first. The HttpOnly session is never visible here.
-const overview = await apiGet("/workspaces/default/projects/ai-memory/overview", {
+const overview = await apiGet("/workspaces/default/projects/pitstop/overview", {
   limit: 10,
 });
 console.log(overview.briefing.counts.pages_latest, "pages");
@@ -932,12 +932,12 @@ const search = await fetch(`${API}/search`, {
   credentials: "include",
   headers: {
     "Content-Type": "application/json",
-    "X-CSRF-Token": decodeURIComponent(cookie("ai_memory_csrf") ?? ""),
+    "X-CSRF-Token": decodeURIComponent(cookie("pitstop_csrf") ?? ""),
   },
   body: JSON.stringify({
     q: "karpathy",
     scopes: [
-      { workspace: "default", project: "ai-memory" },
+      { workspace: "default", project: "pitstop" },
       { workspace: "default", project: "shared-notes" },
     ],
     limit: 20,
@@ -960,15 +960,15 @@ Read these:
 
 | | Location |
 |---|---|
-| Route registration + handler bodies | `crates/ai-memory-web/src/routes/api.rs` |
-| Response structs (`PageHit`, `WorkspaceSummary`, `BriefingSnapshot`, `HealthPage`, `SessionSummary`, `ObservationRecord`, …) | `crates/ai-memory-store/src/reader.rs` |
-| Session listing + per-session observation readers (`sessions_for_scope`, `session_summary_scoped`, `session_observations_scoped`) | `crates/ai-memory-store/src/reader.rs` |
-| Page-history readers (`page_versions`, `page_version_body`) and the bounded diff | `crates/ai-memory-store/src/reader.rs`, `crates/ai-memory-web/src/diff.rs` |
-| Scoped search ranker shared with `memory_query` (`hybrid_search_scopes`) | `crates/ai-memory-web/src/recall.rs`, `crates/ai-memory-store/src/reader.rs` |
-| Health panel checks and fix lines | `crates/ai-memory-web/src/health.rs`, `crates/ai-memory-core/src/fix_lines.rs` |
-| Integration tests for API and web routes (auth, 400s, 404s, multi-scope correctness, SPA fallback) | `crates/ai-memory-web/tests/suite/routes.rs` |
-| Auth + middleware layering | `crates/ai-memory-cli/src/commands/serve.rs` (`mount_web_router`, `apply_http_layers`) |
-| Custom-UI dir validation | `crates/ai-memory-cli/src/commands/serve.rs` (`validate_web_ui_args`) |
+| Route registration + handler bodies | `crates/pitstop-web/src/routes/api.rs` |
+| Response structs (`PageHit`, `WorkspaceSummary`, `BriefingSnapshot`, `HealthPage`, `SessionSummary`, `ObservationRecord`, …) | `crates/pitstop-store/src/reader.rs` |
+| Session listing + per-session observation readers (`sessions_for_scope`, `session_summary_scoped`, `session_observations_scoped`) | `crates/pitstop-store/src/reader.rs` |
+| Page-history readers (`page_versions`, `page_version_body`) and the bounded diff | `crates/pitstop-store/src/reader.rs`, `crates/pitstop-web/src/diff.rs` |
+| Scoped search ranker shared with `memory_query` (`hybrid_search_scopes`) | `crates/pitstop-web/src/recall.rs`, `crates/pitstop-store/src/reader.rs` |
+| Health panel checks and fix lines | `crates/pitstop-web/src/health.rs`, `crates/pitstop-core/src/fix_lines.rs` |
+| Integration tests for API and web routes (auth, 400s, 404s, multi-scope correctness, SPA fallback) | `crates/pitstop-web/tests/suite/routes.rs` |
+| Auth + middleware layering | `crates/pitstop-cli/src/commands/serve.rs` (`mount_web_router`, `apply_http_layers`) |
+| Custom-UI dir validation | `crates/pitstop-cli/src/commands/serve.rs` (`validate_web_ui_args`) |
 
 ## 9. CORS
 
@@ -977,7 +977,7 @@ the allow-list. The CORS layer is scoped to that router only; `/mcp`,
 `/hook`, `/admin/*`, and `/web` stay same-origin.
 
 Configure via either `--cors-allow-origin <origin>` (repeatable) on
-the `serve` subcommand or `AI_MEMORY_CORS_ALLOW_ORIGINS=<csv>` in the
+the `serve` subcommand or `PITSTOP_CORS_ALLOW_ORIGINS=<csv>` in the
 environment. The list is validated at startup:
 
 - Each entry must be a fully-qualified `scheme://host[:port]` URL.

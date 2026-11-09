@@ -1,6 +1,6 @@
 # Backups and remote git mirror
 
-> This document covers backup patterns beyond the on-box `ai-memory backup
+> This document covers backup patterns beyond the on-box `pitstop backup
 > --to <tarball>` snapshot documented in
 > [`docs/lifecycle-ops.md#backup`](lifecycle-ops.md#backup) and the "point-in-time
 > consistency" `scp` idiom in [`docs/deploy.md#backups`](deploy.md#backups). If
@@ -15,7 +15,7 @@ For a host move, follow the companion-material checklist in
 [`docs/lifecycle-ops.md#backup`](lifecycle-ops.md#backup); keep secrets in a
 separately protected backup and reinstall hooks/MCP wiring on the destination.
 
-Ai-memory's wiki directory is a real git repository. Every consolidation pass
+Pitstop's wiki directory is a real git repository. Every consolidation pass
 writes a checkpoint through libgit2 (see cross-cutting invariant #10 in
 [`AGENTS.md`](../AGENTS.md) and the wiki design notes in
 [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)). That means half of a remote-backup
@@ -28,7 +28,7 @@ up, what else to include, what to exclude, and how to schedule it.
 
 ## What the data dir contains, and what to back up
 
-`ai-memory status` prints the resolved data dir; per
+`pitstop status` prints the resolved data dir; per
 [`docs/deploy.md#backups`](deploy.md#backups) it looks like this:
 
 ```
@@ -46,15 +46,15 @@ Split by durability:
 |---|---|---|
 | `wiki/` | **Yes, always.** | Markdown source of truth. Irreplaceable. Already a git repository. |
 | `raw/` | Yes if you want the full ledger; no if you want a small mirror. | Immutable observation log. Useful for rebuilding session history; not required to keep the wiki working. |
-| `db/` | **No.** | SQLite index derived from `wiki/`. Rebuildable via `ai-memory reindex`; see [`lifecycle-ops.md#reindex`](lifecycle-ops.md#reindex). Committing a WAL-mode SQLite database to git also wastes space on every write. |
+| `db/` | **No.** | SQLite index derived from `wiki/`. Rebuildable via `pitstop reindex`; see [`lifecycle-ops.md#reindex`](lifecycle-ops.md#reindex). Committing a WAL-mode SQLite database to git also wastes space on every write. |
 | `logs/` | No. | Tracing output; nothing durable. |
 | `models/` | No. | Local embedder weights, sha256-pinned, redownloaded on first boot per [`local-embeddings.md`](local-embeddings.md). |
 | `.serve.lock` | No. | Server pidfile. |
-| `config.toml` and env files under `~/.config/ai-memory/` | Yes, minus secrets. | Provider config is useful for reproducing an install; API-key env files (`*.env`), OAuth tokens (`auth.json`), and private CA bundles must never land in a mirror. |
+| `config.toml` and env files under `~/.config/pitstop/` | Yes, minus secrets. | Provider config is useful for reproducing an install; API-key env files (`*.env`), OAuth tokens (`auth.json`), and private CA bundles must never land in a mirror. |
 
 If you also need the SQLite index for near-instant recovery (rather than
 running `reindex` after a restore), pair the git mirror with a periodic
-`ai-memory backup --to <tarball>` and stash the tarball on a second location
+`pitstop backup --to <tarball>` and stash the tarball on a second location
 (external disk, network share, or on WSL2 the Windows-side filesystem via
 `/mnt/c/`).
 
@@ -64,7 +64,7 @@ Read this before configuring a remote. Decide what is acceptable to have
 off your machine, then pick the shape of backup that matches.
 
 The wiki captures **everything the coding agent sees during a session**
-that ai-memory's sanitizer classifies as observations to store: user
+that pitstop's sanitizer classifies as observations to store: user
 prompts, tool inputs and outputs, page bodies written by consolidation.
 The sanitizer strips obvious credentials (see `SECURITY.md`), but it
 cannot prove that every prompt or tool response was safe to store. In
@@ -134,9 +134,9 @@ The wiki is already a git repository. If your only goal is off-site *wiki*
 storage, adding a remote and pushing is enough:
 
 ```bash
-data_dir=$(ai-memory status --json | jq -r .data_dir)
+data_dir=$(pitstop status --json | jq -r .data_dir)
 cd "$data_dir/wiki"
-git remote add origin git@github.com:<you>/ai-memory-wiki.git
+git remote add origin git@github.com:<you>/pitstop-wiki.git
 git push -u origin main
 ```
 
@@ -161,10 +161,10 @@ secrets or private memory and must be protected accordingly.
 A worked example lives at
 [`docs/examples/backup/`](examples/backup/README.md) and consists of:
 
-- `ai-memory-snapshot.sh`: an idempotent rsync + `git commit && git push` +
-  online `ai-memory backup` script driven by environment variables.
-- `ai-memory-backup.service`: a `systemd --user` oneshot unit that runs it.
-- `ai-memory-backup.timer`: a daily user timer with a randomised delay and
+- `pitstop-snapshot.sh`: an idempotent rsync + `git commit && git push` +
+  online `pitstop backup` script driven by environment variables.
+- `pitstop-backup.service`: a `systemd --user` oneshot unit that runs it.
+- `pitstop-backup.timer`: a daily user timer with a randomised delay and
   `Persistent=true` so a missed run after a reboot still fires.
 - `.gitignore`: an exclusion list to drop into the root of the mirror
   repository so derived state and common standalone secret files do not land
@@ -183,8 +183,8 @@ cadence):
    changed; skip if there is no delta.
 4. `git push origin main` with a timeout so a hung network does not block the
    next run.
-5. Run `ai-memory backup --to
-   $TARBALL_DIR/ai-memory-$(date +%F).tar.gz` so SQLite is copied through its
+5. Run `pitstop backup --to
+   $TARBALL_DIR/pitstop-$(date +%F).tar.gz` so SQLite is copied through its
    online backup API rather than racing the live WAL. Models are not included;
    redownload them after recovery.
 6. Rotate old tarballs and old script logs on a retention window (30 days by
@@ -197,25 +197,25 @@ Task Scheduler via WSL, Docker sidecar).
 ## Restoring from a mirror repository
 
 The mirror repository is a copy of the data dir minus derived state.
-Recovering the full ai-memory install from it is two steps:
+Recovering the full pitstop install from it is two steps:
 
 1. Clone the mirror onto the target host, then rsync the `data/` and
-   `config/` subtrees into place under the ai-memory data dir and config dir
+   `config/` subtrees into place under the pitstop data dir and config dir
    respectively.
 2. Rebuild the SQLite index from the recovered markdown:
    [`lifecycle-ops.md#reindex`](lifecycle-ops.md#reindex) walks through this.
    Sessions, observations, handoffs, users/tokens, audit rows, and
    embeddings live only in the DB and are not rebuilt by `reindex`. For
-   those, restore from the paired tarball via `ai-memory restore --from
+   those, restore from the paired tarball via `pitstop restore --from
    <tarball> --data-dir <path> --force`.
 
 ## Security posture
 
-Remote sync is your own channel, not ai-memory's. This is called out
+Remote sync is your own channel, not pitstop's. This is called out
 explicitly in [`SECURITY.md`](../SECURITY.md) ("Remote sync security" under
 out-of-scope for v1). What that means in practice:
 
-- **Private repository, always.** ai-memory captures prompts, tool calls, and
+- **Private repository, always.** pitstop captures prompts, tool calls, and
   synthesized page bodies verbatim, the same content you would treat as
   project source.
 - **Least-privilege push credential.** Prefer an SSH deploy key or a
@@ -229,7 +229,7 @@ out-of-scope for v1). What that means in practice:
   `[auth]` tokens, `token_pepper`, or sensitive LLM headers stored inline in
   `config.toml` will be committed. Remove them from the mirror or encrypt and
   access-control the repository as a secret store.
-- **Encryption at rest is out of scope for ai-memory.** If your threat model
+- **Encryption at rest is out of scope for pitstop.** If your threat model
   requires it, either put the mirror on an encrypted remote (`git-crypt`,
   GitLab's group-level encryption, a self-hosted Gitea over TLS with disk
   encryption) or archive the tarballs with `gpg --encrypt` before dropping
@@ -237,7 +237,7 @@ out-of-scope for v1). What that means in practice:
 
 ## Related documents
 
-- [`docs/lifecycle-ops.md`](lifecycle-ops.md): `ai-memory backup`, `restore`,
+- [`docs/lifecycle-ops.md`](lifecycle-ops.md): `pitstop backup`, `restore`,
   `restore-page`, `reset`, `reindex` reference.
 - [`docs/deploy.md#backups`](deploy.md#backups): the on-box tarball routine
   and the `scp`-to-laptop idiom for Docker deployments.

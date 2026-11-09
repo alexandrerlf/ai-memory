@@ -61,11 +61,11 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo clippy --workspace --all-targets --features ai-memory-cli/management-ui -- -D warnings
-      - run: cargo test -p ai-memory-mcp --features management-ui management
-      - run: cargo test -p ai-memory-store owned_session_purge
-      - run: cargo test -p ai-memory-web --features management-ui management
-      - run: cargo test -p ai-memory-cli --features management-ui --lib management_ui
+      - run: cargo clippy --workspace --all-targets --features pitstop-cli/management-ui -- -D warnings
+      - run: cargo test -p pitstop-mcp --features management-ui management
+      - run: cargo test -p pitstop-store owned_session_purge
+      - run: cargo test -p pitstop-web --features management-ui management
+      - run: cargo test -p pitstop-cli --features management-ui --lib management_ui
 
   test:
     name: test (${{ matrix.os }})
@@ -119,19 +119,19 @@ jobs:
       - name: Build the external lifecycle relay
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
-        run: cargo build --locked --manifest-path companions/ai-memory-relay/Cargo.toml
+        run: cargo build --locked --manifest-path companions/pitstop-relay/Cargo.toml
       - name: External lifecycle delivery against the real server
         run: >
           uv run --no-project python tests/e2e/external_relay_smoke.py
-          --ai-memory-bin "${{ github.workspace }}/target/debug/ai-memory"
-          --relay-bin "${{ github.workspace }}/target/debug/ai-memory-relay"
+          --pitstop-bin "${{ github.workspace }}/target/debug/pitstop"
+          --relay-bin "${{ github.workspace }}/target/debug/pitstop-relay"
       # The companion job runs the importer's unit tests without a server;
       # its agentmemory end-to-end tests need the binary built above.
       - name: agentmemory import against the real server
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
-          AI_MEMORY_IMPORTER_E2E_BIN: ${{ github.workspace }}/target/debug/ai-memory
-        run: cargo test --locked --manifest-path companions/ai-memory-importer/Cargo.toml e2e
+          PITSTOP_IMPORTER_E2E_BIN: ${{ github.workspace }}/target/debug/pitstop
+        run: cargo test --locked --manifest-path companions/pitstop-importer/Cargo.toml e2e
       # The Jev reranker adapter under docs/examples is stdlib Python with its
       # own unittest suite; nothing else runs it. `unittest discover` exits 5
       # when it finds no tests, so the step skips cleanly until a test file
@@ -170,30 +170,30 @@ jobs:
       - name: Real dashboard browser tests and mutation checks
         if: matrix.os == 'ubuntu-latest'
         env:
-          AI_MEMORY_BIN: ${{ github.workspace }}/target/debug/ai-memory
+          PITSTOP_BIN: ${{ github.workspace }}/target/debug/pitstop
         run: node tests/e2e/web_dashboard_mutations.mjs
       - name: Generated capture-policy TypeScript runtime evidence
         if: matrix.os == 'ubuntu-latest'
         # `--workspace` reuses the test binaries built above instead of
         # re-resolving features for one package.
         run: cargo test --workspace --lib -- --ignored --exact commands::render_shared::tests::generated_capture_policy_v1_node_runtime_evidence
-      # The optional TypeScript SDK (companions/ai-memory-ts) against the server
+      # The optional TypeScript SDK (companions/pitstop-ts) against the server
       # built above: integration tests, the MCP schema drift test and every
       # example. A pull request that changes an MCP tool schema fails here
       # until the SDK's schema snapshot is updated, even when it never touches
       # companions/. The harness gives the server a scratch data dir, a
-      # loopback port and an environment without inherited AI_MEMORY_* values.
+      # loopback port and an environment without inherited PITSTOP_* values.
       - name: TypeScript SDK against the real server
         if: matrix.os == 'ubuntu-latest'
-        working-directory: companions/ai-memory-ts
+        working-directory: companions/pitstop-ts
         env:
-          AI_MEMORY_BIN: ${{ github.workspace }}/target/debug/ai-memory
+          PITSTOP_BIN: ${{ github.workspace }}/target/debug/pitstop
         run: |
           npm ci --ignore-scripts
           npm run test:integration
       - name: Vendored tailwind.css is current
         if: matrix.os == 'ubuntu-latest'
-        run: git diff --exit-code -- crates/ai-memory-web/static/tailwind.css
+        run: git diff --exit-code -- crates/pitstop-web/static/tailwind.css
 
   # The script edits tracked source and rebuilds target/ once per mutant, so
   # it runs alone: no later step consumes the binary it leaves behind, and a
@@ -262,7 +262,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        companion: [ai-memory-client, ai-memory-importer, ai-memory-relay, ai-memory-wikisync]
+        companion: [pitstop-client, pitstop-importer, pitstop-relay, pitstop-wikisync]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,7 +297,7 @@ jobs:
         with:
           filters: |
             sdk:
-              - 'companions/ai-memory-ts/**'
+              - 'companions/pitstop-ts/**'
               - '.github/workflows/ci.yml'
 
   sdk-ts:
@@ -312,7 +312,7 @@ jobs:
         node: ["22", "24"]
     defaults:
       run:
-        working-directory: companions/ai-memory-ts
+        working-directory: companions/pitstop-ts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -356,11 +356,11 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo build --release --bin ai-memory
+      - run: cargo build --release --bin pitstop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ci-ai-memory-${{ matrix.artifact }}
-          path: target/release/ai-memory
+          name: ci-pitstop-${{ matrix.artifact }}
+          path: target/release/pitstop
 
   # `cargo install --path` deliberately resolves without the workspace lockfile.
   # Keep that user-facing path visible alongside the normal lock-aware gates so
@@ -377,9 +377,9 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install with a fresh dependency resolution
-        run: cargo install --path crates/ai-memory-cli --debug --root target/source-install
+        run: cargo install --path crates/pitstop-cli --debug --root target/source-install
       - name: Smoke test installed binary
-        run: target/source-install/bin/ai-memory --version
+        run: target/source-install/bin/pitstop --version
 
   native-packaging:
     name: native packaging assets
@@ -398,8 +398,8 @@ jobs:
   #
   # The matrix is the substance here, not decoration. The bundle runs on
   # whatever awk the host provides, and the implementations disagree on exactly
-  # what this code leans on: `ai_memory_json_string` builds its JSON escapes
-  # out of gsub replacement strings, and `ai_memory_json_field` parses a spool
+  # what this code leans on: `pitstop_json_string` builds its JSON escapes
+  # out of gsub replacement strings, and `pitstop_json_field` parses a spool
   # entry back out. A single-awk leg would say nothing about the hosts users
   # install on — macOS ships the one-true-awk lineage (`original-awk` here),
   # Debian and Ubuntu default to mawk, most other Linux to gawk.
@@ -474,18 +474,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ci-ai-memory-linux-x86_64
-          path: dist/docker/ai-memory-linux-x86_64
+          name: ci-pitstop-linux-x86_64
+          path: dist/docker/pitstop-linux-x86_64
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: build image (local tag only)
-        run: docker build --target runtime-prebuilt-amd64 -f docker/Dockerfile -t ai-memory:ci .
+        run: docker build --target runtime-prebuilt-amd64 -f docker/Dockerfile -t pitstop:ci .
       - name: --version smoke
-        run: docker run --rm ai-memory:ci --version
+        run: docker run --rm pitstop:ci --version
       - name: bundled hooks present
-        run: docker run --rm --entrypoint sh ai-memory:ci -c "ls /usr/local/share/ai-memory/hooks/"
+        run: docker run --rm --entrypoint sh pitstop:ci -c "ls /usr/local/share/pitstop/hooks/"
       - name: --help lists the v0.3 subcommands
         run: |
-          out=$(docker run --rm ai-memory:ci --help)
+          out=$(docker run --rm pitstop:ci --help)
           for sub in bootstrap install-mcp install-hooks setup-agent generate-auth-token; do
               echo "$out" | grep -q "$sub" || { echo "missing subcommand: $sub"; exit 1; }
           done
@@ -505,7 +505,7 @@ jobs:
         with:
           log-level: warn
           command: check
-          manifest-path: companions/ai-memory-relay/Cargo.toml
+          manifest-path: companions/pitstop-relay/Cargo.toml
           arguments: --all-features
 
   audit:
@@ -525,10 +525,10 @@ jobs:
           --ignore GHSA-m665-v7pm-7grj
           --ignore RUSTSEC-2025-0141
           --ignore RUSTSEC-2024-0320
-      - run: cargo audit --file companions/ai-memory-relay/Cargo.lock
-      - run: cargo audit --file companions/ai-memory-importer/Cargo.lock
-      - run: cargo audit --file companions/ai-memory-client/Cargo.lock
-      - run: cargo audit --file companions/ai-memory-wikisync/Cargo.lock
+      - run: cargo audit --file companions/pitstop-relay/Cargo.lock
+      - run: cargo audit --file companions/pitstop-importer/Cargo.lock
+      - run: cargo audit --file companions/pitstop-client/Cargo.lock
+      - run: cargo audit --file companions/pitstop-wikisync/Cargo.lock
 
   gitleaks:
     name: gitleaks (secret scan)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""OpenAI-compat -> Jev `/v1/systemone` reranker adapter for ai-memory.
+"""OpenAI-compat -> Jev `/v1/systemone` reranker adapter for pitstop.
 
-ai-memory's LLM reranker (`AI_MEMORY_RERANKER=llm`) sends one structured chat
+pitstop's LLM reranker (`PITSTOP_RERANKER=llm`) sends one structured chat
 request per `memory_query`: a fixed system prompt plus a user JSON payload
 `{"query", "candidates":[{"candidate","title","text"}]}`, and expects the
 first balanced JSON object in the reply content to be
@@ -13,14 +13,14 @@ This adapter recognises exactly that request (by the system-prompt prefix),
 asks Jev one batched `choice` question over all candidates, and returns each
 candidate's choice probability as its relevance, as plain chat content. A
 malformed Jev answer (missing or extra keys, non-numbers, values outside
-[0, 1], a distribution that does not sum to ~1) is an error, so ai-memory
+[0, 1], a distribution that does not sum to ~1) is an error, so pitstop
 keeps its own order instead of ranking on fabricated scores. Everything else
 (consolidation, lint, bootstrap) is reverse-proxied unchanged to the
 configured upstream, so only reranking rides the Jev endpoint.
 
 Why: a hosted reranker model that answers in tens of seconds dwarfs the rest
 of a `memory_query`, while a judge endpoint answers in well under a second,
-which keeps `AI_MEMORY_RERANKER=llm` usable in interactive sessions.
+which keeps `PITSTOP_RERANKER=llm` usable in interactive sessions.
 docs/jev-reranker-adapter.md has the measurements, including how this choice
 variant compares with the earlier per-candidate rubric adapter.
 
@@ -48,7 +48,7 @@ UPSTREAM = os.environ.get("UPSTREAM", "http://127.0.0.1:8000").rstrip("/")
 LISTEN = os.environ.get("LISTEN", "127.0.0.1:18097")
 
 # Fixed prefix of the reranker's system prompt; see
-# crates/ai-memory-llm/src/reranker.rs in the ai-memory tree.
+# crates/pitstop-llm/src/reranker.rs in the pitstop tree.
 RERANK_SYSTEM_PREFIX = "You are a retrieval reranker for a software project's memory wiki."
 
 # Mirrors the four grades of the reranker prompt (1.0 / 0.7 / 0.3 / 0.0).
@@ -81,7 +81,7 @@ def extract_choice_probs(out, cand_ids):
     Raises ValueError on any malformed shape — missing/renamed keys, extra
     candidates, non-numeric or boolean values, NaN/Inf, out-of-range numbers,
     or a distribution whose mass is nowhere near 1 — so the caller answers
-    HTTP 500 and ai-memory keeps its original order, instead of silently
+    HTTP 500 and pitstop keeps its original order, instead of silently
     ranking on fabricated 0.0 scores.
     """
     if not cand_ids:

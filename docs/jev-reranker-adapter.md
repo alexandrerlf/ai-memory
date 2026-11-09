@@ -1,9 +1,9 @@
 # Jev Reranker Adapter
 
-> Route ai-memory's LLM reranker to a Jev judge endpoint while keeping the
+> Route pitstop's LLM reranker to a Jev judge endpoint while keeping the
 > hosted LLM for everything else. Stdlib-only Python, no Rust changes.
 
-[`AI_MEMORY_RERANKER=llm`](llm-providers.md) reorders `memory_query`
+[`PITSTOP_RERANKER=llm`](llm-providers.md) reorders `memory_query`
 candidates with the configured chat provider. That works until the provider
 is a hosted reasoning model: the reranker prompt is long, a graded judgement
 over up to 30 candidates, and a slow model answers in tens of seconds.
@@ -15,7 +15,7 @@ The reranker prompt, though, is already a scoring rubric: grade each
 candidate 1.0 (direct answer) / 0.7 (same topic) / 0.3 (tangential) /
 0.0 (unrelated). A judge endpoint that scores a fixed rubric answers the
 same question without autoregressive decoding. The rubric adapter
-described here sits between ai-memory and the provider, translates exactly
+described here sits between pitstop and the provider, translates exactly
 that request into one batched Jev `score` call, and proxies everything else
 unchanged. Its script, `jev_rerank_shim.py`, is no longer in the tree (it
 was removed in commit `e45db18a`; recover it with
@@ -26,13 +26,13 @@ the [choice-contrastive variant](#choice-contrastive-variant).
 
 ## How it works
 
-ai-memory 2.4.0 has a single chat-provider configuration, so the reranker
+pitstop 2.4.0 has a single chat-provider configuration, so the reranker
 and consolidation share one base URL. The adapter does not try to split
 configuration; it splits traffic by request shape:
 
 1. The reranker's system prompt starts with the fixed sentence
    `You are a retrieval reranker for a software project's memory wiki.`
-   (see `crates/ai-memory-llm/src/reranker.rs`). Requests whose system
+   (see `crates/pitstop-llm/src/reranker.rs`). Requests whose system
    message has that prefix are reranker requests.
 2. The user message is `{"query", "candidates": [{"candidate", "title",
    "text"}]}` with 1-based indices. The adapter renders one `state` block
@@ -48,7 +48,7 @@ configuration; it splits traffic by request shape:
    forwarded verbatim. The adapter stores no secrets.
 
 Failure semantics match the server contract: if the Jev call fails, the
-adapter answers HTTP 500 and ai-memory keeps its own candidate order, the
+adapter answers HTTP 500 and pitstop keeps its own candidate order, the
 same as any provider outage. A judge endpoint that is down degrades to
 "no reranking", never to "no search".
 
@@ -82,11 +82,11 @@ Run it next to the server (systemd unit adapted to your paths):
 
 ```ini
 [Unit]
-Description=ai-memory Jev reranker adapter
+Description=pitstop Jev reranker adapter
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 /opt/ai-memory/ops/jev_rerank_shim_choice.py
+ExecStart=/usr/bin/python3 /opt/pitstop/ops/jev_rerank_shim_choice.py
 Environment=JEV_URL=http://127.0.0.1:18095/v1/systemone
 Environment=UPSTREAM=http://127.0.0.1:8000
 Environment=LISTEN=127.0.0.1:18097
@@ -100,9 +100,9 @@ WantedBy=multi-user.target
 Then point the provider at the adapter instead of the upstream:
 
 ```console
-AI_MEMORY_LLM_PROVIDER=openai-compat
-AI_MEMORY_LLM_BASE_URL=http://127.0.0.1:18097/v1
-AI_MEMORY_RERANKER=llm
+PITSTOP_LLM_PROVIDER=openai-compat
+PITSTOP_LLM_BASE_URL=http://127.0.0.1:18097/v1
+PITSTOP_RERANKER=llm
 ```
 
 The unit runs the shipped choice-contrastive variant. To run the rubric
@@ -133,7 +133,7 @@ server's 20 s completion timeout, so in production every rerank call timed
 out and the feature was effectively off (queries stalled 20 s, then fell
 back to the original order).
 
-Live end-to-end (production server, `AI_MEMORY_RERANKER=llm` through the
+Live end-to-end (production server, `PITSTOP_RERANKER=llm` through the
 adapter, full golden set): hit@1 0.657 / MRR 0.788 / NDCG@10 0.843,
 0 errors in 102 queries, mean `memory_query` latency 2.2 s (p50 2.21 s,
 max 3.07 s), 110/110 rerank translations served, 0 adapter failures. The

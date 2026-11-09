@@ -24,9 +24,9 @@ default.
 ## How to run
 
 ```bash
-cargo build --release -p ai-memory-cli
+cargo build --release -p pitstop-cli
 # baseline (FTS-only) vs candidate (local embeddings), full 500 questions:
-cargo run --release -p ai-memory-eval -- retrieval --fetch \
+cargo run --release -p pitstop-eval -- retrieval --fetch \
     --candidate-embeddings local
 ```
 
@@ -92,9 +92,9 @@ confirmation re-run, not a one-run dip.
 Reproduce:
 
 ```bash
-cargo run --release -p ai-memory-eval -- retrieval --candidate-embeddings local
+cargo run --release -p pitstop-eval -- retrieval --candidate-embeddings local
 # determinism (deltas must be 0):
-cargo run --release -p ai-memory-eval -- retrieval --candidate
+cargo run --release -p pitstop-eval -- retrieval --candidate
 ```
 
 ### Observation stream (3.0)
@@ -106,7 +106,7 @@ FTS, 470 scored) is published with its provenance in
 questions gained and 3 lost; local embeddings 0.800 → 0.945 on the full set
 (corrected harness, 2026-10-13). The stream is on by default in 3.0, so a baseline run
 of the 2.4 configuration on a 3.0 build needs
-`--server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false`.
+`--server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false`.
 
 The apparent stream-off local-embedding drop from the published 2.4 number
 (`0.815`) to the corrected 3.0 number (`0.800`) was investigated in #1263.
@@ -147,6 +147,6 @@ QA-accuracy (Gemini `gemini-2.5-flash` answered + graded):
 Reproduce (QA needs `GEMINI_API_KEY`):
 
 ```bash
-cargo run --release -p ai-memory-eval -- retrieval \
+cargo run --release -p pitstop-eval -- retrieval \
     --sample 20 --qa --qa-provider gemini --qa-model gemini-2.5-flash
 ```

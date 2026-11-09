@@ -19,10 +19,10 @@ the default local embeddings. Each run compares the observation stream off
 - commands (from a checkout holding `evals/datasets` and `evals/models`):
 
   ```bash
-  AB="--server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=false
-      --candidate-server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true"
-  ai-memory-eval retrieval --server-bin target/release/ai-memory --concurrency 6 --http-timeout-secs 900 $AB
-  ai-memory-eval retrieval --server-bin target/release/ai-memory --concurrency 6 --http-timeout-secs 900 --embeddings local $AB
+  AB="--server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=false
+      --candidate-server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true"
+  pitstop-eval retrieval --server-bin target/release/pitstop --concurrency 6 --http-timeout-secs 900 $AB
+  pitstop-eval retrieval --server-bin target/release/pitstop --concurrency 6 --http-timeout-secs 900 --embeddings local $AB
   ```
 
 - run dirs: `evals/runs/2026-10-13T17-14-10-307179783Z-retrieval` (FTS) and

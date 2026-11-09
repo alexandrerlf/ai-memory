@@ -5,7 +5,7 @@
 
 ## 1. The problem
 
-ai-memory keeps knowledge per project, and switching harness already costs
+pitstop keeps knowledge per project, and switching harness already costs
 nothing: Claude Code, Codex and OpenCode in one checkout read the same pages.
 What still costs something is switching **project**. A new repository starts
 from zero, so the user re-explains the same habits in every one: the package
@@ -94,7 +94,7 @@ Borrowed:
   with `memory_read_page` before relying on its one-line summary for anything
   non-trivial.
 
-Not borrowed: the single universal chat and harness (ai-memory is
+Not borrowed: the single universal chat and harness (pitstop is
 multi-harness and the harness owns its context), a verbatim log kept forever
 (the sanitizer boundary and capture exclusions win), and a 64k-token view (the
 injected digest stays in the low kilobytes; rule adherence drops well before
@@ -218,12 +218,12 @@ page alone instead of recreating the former wording at a suffixed path.
   query. No timestamps, so the text is stable.
 - **New-project baseline.** When the project has no pages yet, the digest uses
   `baseline_max_bytes` (default 6,000) and adds a line telling the agent it can
-  offer `ai-memory profile apply` to seed the repository's rules file.
+  offer `pitstop profile apply` to seed the repository's rules file.
 - **Query union.** `memory_query` already unions `_global`; for `workspace`
   and `user` profiles it also unions the caller's profile project, subject to
   authorization.
-- **`ai-memory profile apply`.** Writes the top entries into a managed
-  sub-block (`<!-- ai-memory:profile:start -->` … `end`) of the rules file in
+- **`pitstop profile apply`.** Writes the top entries into a managed
+  sub-block (`<!-- pitstop:profile:start -->` … `end`) of the rules file in
   the current repository, capped at `apply_max_lines` (default 40), never
   touching text outside the markers. Command-driven only, with `--dry-run`
   and `--remove`. The entries come from `GET /admin/profile/apply` with the
@@ -253,7 +253,7 @@ Both calls fall back to the zero-LLM path on any provider error.
 
 ## 7. Configuration
 
-Server (`config.toml` / `AI_MEMORY_PROFILE__<KEY>`):
+Server (`config.toml` / `PITSTOP_PROFILE__<KEY>`):
 
 ```toml
 [profile]
@@ -267,7 +267,7 @@ apply_max_lines = 40
 llm = true                  # use the configured provider when there is one
 ```
 
-Per project (`.ai-memory.toml`):
+Per project (`.pitstop.toml`):
 
 ```toml
 [profile]
@@ -277,7 +277,7 @@ consume = false      # no digest or union in this project
 
 ## 8. Commands
 
-`ai-memory profile status | list | show <path> | forget <path> | review |
+`pitstop profile status | list | show <path> | forget <path> | review |
 rebuild | apply [--target FILE] [--dry-run | --remove]`.
 
 `status`, `list`, `review` and `apply` read `/admin/profile/*` and `rebuild`

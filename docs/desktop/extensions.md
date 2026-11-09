@@ -1,6 +1,6 @@
 # Extension and plugin surfaces (research, 2026-10-08)
 
-> Can an ai-memory extension in each app's marketplace do what an installer
+> Can an pitstop extension in each app's marketplace do what an installer
 > cannot? Sourced from current official docs and, for Codex, its source.
 > The resulting design proposal is RFC #1166; the implementation design,
 > re-verified on 2026-10-13, is
@@ -26,7 +26,7 @@ Bitbucket marketplace, or an uploaded zip), are attached to the account, and
 reach Claude Code as synced plugins. Claude Code installs per machine
 (`/plugin`, `claude plugin install`).
 
-Consequences for ai-memory:
+Consequences for pitstop:
 
 - **Cowork gains a capture path**: a plugin's hooks load there, which
   `~/.claude/settings.json` hooks are not documented to do. Unverified: on
@@ -36,7 +36,7 @@ Consequences for ai-memory:
   Only skills and a remote MCP connector load, and a remote connector has to
   be reachable as configured (whether claude.ai brokers it from Anthropic's
   side, which would rule out a loopback server, was not verified here).
-- A plugin cannot install the ai-memory binary on Chat/Cowork (`bin/` is
+- A plugin cannot install the pitstop binary on Chat/Cowork (`bin/` is
   refused there), so the server still has to be installed separately; hook
   scripts shipped as plugin files (like the POSIX bundle in `hooks/`) are
   not top-level executables.
@@ -57,5 +57,5 @@ a plugin from any other source goes through the normal per-hook trust, so a
 plugin does not remove the silent "untrusted hook" failure. Whether Cursor
 plugin hooks need approval is not stated in its docs (the hooks page only
 says project hooks run in any trusted workspace). The #721 de-duplication of
-Cursor's copy of the Claude Code hooks needs Cursor's own ai-memory hooks, so
+Cursor's copy of the Claude Code hooks needs Cursor's own pitstop hooks, so
 only the Cursor Plugin format can provide it.

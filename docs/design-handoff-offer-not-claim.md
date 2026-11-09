@@ -24,7 +24,7 @@ session it was meant for:
 - an unrelated next session silently consumes it;
 - continuing the same work in a different harness or TUI loses it to
   whatever started first;
-- non-interactive launches (`opencode run`, scripted probes, `ai-memory run`)
+- non-interactive launches (`opencode run`, scripted probes, `pitstop run`)
   claim it too.
 
 Observed on 2.4.1 (`433a19f3`): a Claude Code session left an automatic
@@ -40,9 +40,9 @@ has no opt-out, and `to_agent` is stored but never used to target delivery.
 
 ## Baseline before implementation
 
-- **Claim site**: `fetch_and_accept_handoff_at` in `crates/ai-memory-hooks/src/router.rs`
+- **Claim site**: `fetch_and_accept_handoff_at` in `crates/pitstop-hooks/src/router.rs`
   (~line 1355). Every `SessionStart` (and every `opencode run` /
-  `ai-memory run` launch) calls this. It resolves the project, looks up
+  `pitstop run` launch) calls this. It resolves the project, looks up
   `latest_open_handoff` (owner-filtered by `OwnerFilter::User`/`Unattributed`,
   so a shared server does not leak one operator's baton to another's
   session), renders it to markdown, then claims it inside the same admission-chain
@@ -52,7 +52,7 @@ has no opt-out, and `to_agent` is stored but never used to target delivery.
   session-start claim is how most handoffs are consumed, so a webhook must
   be able to see it").
 - **Selection**: `is_handoff_candidate` / `prefer_handoff` in
-  `crates/ai-memory-store/src/reader.rs` (~line 10301, ~10363). A manual
+  `crates/pitstop-store/src/reader.rs` (~line 10301, ~10363). A manual
   handoff (`HandoffOrigin::is_manual`: created via `memory_handoff_begin`,
   or left without a source session) is project-wide and always wins over an
   automatic one. An automatic (`SessionEnd`) handoff is scoped by cwd path-boundary.
@@ -67,17 +67,17 @@ has no opt-out, and `to_agent` is stored but never used to target delivery.
   `ops.rs`) and a post-claim sweep expires superseded ones, so automatic
   batons do not pile up; only manual ones stay open until accepted or
   cancelled.
-- **`to_agent`**: a column exists on the handoff row (`ai-memory-store`), is
+- **`to_agent`**: a column exists on the handoff row (`pitstop-store`), is
   threaded through `row_to_agent_message`-adjacent plumbing, and is written,
   always as `None`. `memory_handoff_begin`'s args
-  (`crates/ai-memory-mcp/src/server.rs` ~line 1188, `HandoffBeginArgs`) do not
+  (`crates/pitstop-mcp/src/server.rs` ~line 1188, `HandoffBeginArgs`) do not
   accept it at all. Selection never reads it, so today it does nothing.
 - **Per-execution opt-out**: none exists for handoff delivery specifically.
-  The closest precedent is `--no-autowire` / `AI_MEMORY_RUN_AUTOWIRE=false`
-  (`crates/ai-memory-cli/src/cli.rs` ~line 312) for a different concern
-  (harness hook/MCP autowiring on `ai-memory run`), and the generated
+  The closest precedent is `--no-autowire` / `PITSTOP_RUN_AUTOWIRE=false`
+  (`crates/pitstop-cli/src/cli.rs` ~line 312) for a different concern
+  (harness hook/MCP autowiring on `pitstop run`), and the generated
   OpenCode plugin's `fetchHandoff` call
-  (`crates/ai-memory-cli/src/commands/install_hooks.rs`, four call sites:
+  (`crates/pitstop-cli/src/commands/install_hooks.rs`, four call sites:
   ~3464, ~4139/4249, ~4879/4915) has no guard of any kind: every
   `experimental.chat.system.transform` fetches and risks consuming the
   handoff.
@@ -103,7 +103,7 @@ design risk.
 ### 1. Offer, don't claim (config-gated, default unchanged)
 
 New `[handoff]` config section (same shape as `AutoImproveSettings` and its
-siblings in `crates/ai-memory-cli/src/config.rs`):
+siblings in `crates/pitstop-cli/src/config.rs`):
 
 ```toml
 [handoff]
@@ -112,7 +112,7 @@ claim_on_session_start = true   # default: unchanged behavior
 
 **Where the switch lives.** The initial implementation uses a server-wide
 `[handoff]` key, which applies to every operator on a shared server. A
-per-project `.ai-memory.toml` override remains a possible follow-up for teams
+per-project `.pitstop.toml` override remains a possible follow-up for teams
 that need different behavior per repository.
 
 When `true` (the default, so existing installs see no behavior change),
@@ -125,7 +125,7 @@ only through `memory_handoff_accept` (which already exists and already does
 almost this exact lookup; this proposal does not add a second tool).
 
 ```
-📬 ai-memory: a pending handoff `<id>` from `<from_agent>`, left `<age>` ago.
+📬 pitstop: a pending handoff `<id>` from `<from_agent>`, left `<age>` ago.
    To pick it up, call `memory_handoff_accept` with handoff_id `<id>`.
 ```
 
@@ -144,17 +144,17 @@ only the single-use handoff slot's own claim becomes conditional.
 
 ### 2. Per-execution opt-out (additive, no schema change)
 
-`AI_MEMORY_HANDOFF=off`, honored by every front door that can fetch a
+`PITSTOP_HANDOFF=off`, honored by every front door that can fetch a
 handoff:
 
-- the native `ai-memory hook` path (same place `capture_policy` already
+- the native `pitstop hook` path (same place `capture_policy` already
   reads its own env knobs);
 - the POSIX/PowerShell hook bundles (`hooks/<agent>/session-start.sh` and
   `.ps1`, mirroring the native check so a non-native install gets the same
   opt-out);
 - the four generated TypeScript `fetchHandoff` call sites in
   `install_hooks.rs`, which today call it unconditionally;
-- `ai-memory run --no-handoff` as the CLI-flag spelling, for scripted
+- `pitstop run --no-handoff` as the CLI-flag spelling, for scripted
   launches that would rather pass a flag than set an env var.
 
 This covers automation and probes without touching `claim_on_session_start`,
@@ -194,7 +194,7 @@ interact).
    stricter proposal than the issue's literal wording and should be
    confirmed, not assumed.
 2. **Interaction between the opt-out and `claim_on_session_start = false`**:
-   should `AI_MEMORY_HANDOFF=off` suppress the *notice* too, or only the
+   should `PITSTOP_HANDOFF=off` suppress the *notice* too, or only the
    claim? Proposed: suppress both. An automated probe that does not want to
    consume a handoff almost certainly does not want to spend context on a
    notice about one either, and this keeps the opt-out a single on/off
@@ -246,7 +246,7 @@ interact).
   `state = 'open'` after a `SessionStart` that would have claimed it under
   the default; a subsequent `memory_handoff_accept` call claims it
   identically to today's automatic path.
-- Integration: `AI_MEMORY_HANDOFF=off` suppresses both notice and claim for
+- Integration: `PITSTOP_HANDOFF=off` suppresses both notice and claim for
   the native hook path and at least one of the generated bundle/plugin front
   doors (regenerated via `install-hooks --apply`), reusing this project's
   existing per-agent hook-bundle test fixtures rather than adding a new

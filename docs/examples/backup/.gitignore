@@ -1,4 +1,4 @@
-# Suggested .gitignore for a mirror repository that receives ai-memory
+# Suggested .gitignore for a mirror repository that receives pitstop
 # snapshots. Copy this file into the root of your `$REPO_DIR` before the
 # first `git add`.
 #
@@ -22,7 +22,7 @@ config/**/.secrets
 # Server pidfile.
 data/.serve.lock
 
-# Derived SQLite index (rebuildable via `ai-memory reindex`).
+# Derived SQLite index (rebuildable via `pitstop reindex`).
 data/db/
 
 # Local embedder weights (redownloadable on next boot; sha256-pinned).

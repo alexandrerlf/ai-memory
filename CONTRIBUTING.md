@@ -1,10 +1,10 @@
-# Contributing to ai-memory
+# Contributing to pitstop
 
 ## Dev setup
 
 ```bash
 git clone https://github.com/akitaonrails/ai-memory
-cd ai-memory
+cd pitstop
 cargo build --workspace
 cargo test --workspace --all-targets
 ```
@@ -65,7 +65,7 @@ cargo install cargo-deny cargo-audit
 
 ```bash
 cargo t                        # all but the slow tier, ~20s warm
-cargo t -p ai-memory-store     # one crate: builds only its test binaries
+cargo t -p pitstop-store     # one crate: builds only its test binaries
 cargo t -E 'test(/purge/)'     # one topic (builds everything, runs a subset)
 ```
 
@@ -80,7 +80,7 @@ independent things run them anyway: the pre-push hook and CI.
 Install the hook once per clone with `scripts/install-git-hooks.sh` (from Git
 Bash on Windows). It can run from the main checkout or a linked worktree;
 both use the shared repository hook directory. Reinstallation replaces
-ai-memory's managed block in place, preserving surrounding user commands and
+pitstop's managed block in place, preserving surrounding user commands and
 their order. If `core.hooksPath` is set, the installer stops before writing;
 integrate the block through your existing hook manager instead. Incomplete or
 duplicate managed markers also stop installation and leave the hook unchanged.
@@ -97,20 +97,20 @@ Run the installer again to update an existing installation.
 Companions have separate Cargo workspaces. Check each changed companion with
 `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`, passing
 its `--manifest-path`. Changes to the lifecycle relay also need the real-server
-test documented in [its README](companions/ai-memory-relay/README.md#validation).
+test documented in [its README](companions/pitstop-relay/README.md#validation).
 
 Integration tests live in `tests/suite/` per crate and compile into the
 crate's own test harness (declare a new file with `mod name;` in
 `tests/suite/mod.rs`); only the CLI keeps a separate test binary, because its
 tests run the built executable. Helpers shared across crates go in
-`crates/ai-memory-test-support`. Platform-specific speedups
+`crates/pitstop-test-support`. Platform-specific speedups
 (macOS Keychain, Windows linker and Defender) are in AGENTS.md.
 ## CHANGELOG is a merge gate
 
 Every **user-facing** change must add a `CHANGELOG.md` entry under
 `## [Unreleased]` in the same PR. User-facing means: a new CLI flag or
 subcommand, env var, HTTP/admin endpoint, MCP tool or tool-response field,
-`.ai-memory.toml` marker key, any changed behaviour or default, or an
+`.pitstop.toml` marker key, any changed behaviour or default, or an
 observable bug fix. Internal refactors, dead-code removal, and test-only
 churn are exempt.
 
@@ -153,7 +153,7 @@ Never violate any of the invariants in [`AGENTS.md`](AGENTS.md) (see the
 Highlights for contributors:
 
 - All SQLite writes go through the single writer actor (`WriterHandle`).
-- ai-memory settings are read once by `Config::load()` and passed down.
+- pitstop settings are read once by `Config::load()` and passed down.
   Process and third-party harness environment reads use injectable lookups.
 - Atomic file writes only: tmp + rename + fsync; never write in-place.
 - Every wiki page is identified by `(workspace_id, project_id, path)`.

@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# Curl-based installer for ai-memory's lifecycle-hook scripts.
+# Curl-based installer for pitstop's lifecycle-hook scripts.
 #
 # Use when you don't want to clone the repo and don't want to use the
 # docker image to extract the bundle. Downloads a checksum-verified hook
 # archive from a GitHub Release, then installs only the requested agent files.
 #
 # Usage:
-#   ai-memory-install-hooks --agent claude-code
+#   pitstop-install-hooks --agent claude-code
 #
 # Options:
 #   --agent <claude-code|codex|command-code|cursor|gemini-cli|kimi-code|kiro-cli|antigravity-cli|grok|opencode|opencode2|openclaw|omp|oh-my-pi|pi>
 #                                                which agent (default: claude-code;
 #                                                generated-plugin agents print hints)
-#   --to <dir>                               install root (default: $HOME/.ai-memory/hooks)
+#   --to <dir>                               install root (default: $HOME/.pitstop/hooks)
 #   --ref <release-tag>                      release tag to pull (default: latest)
 #   --repo <owner/repo>                      release repository (default: akitaonrails/ai-memory)
 #
 # After installation, render the matching agent config snippet:
-#   ai-memory install-hooks --agent claude-code --hooks-dir ~/.ai-memory/hooks
+#   pitstop install-hooks --agent claude-code --hooks-dir ~/.pitstop/hooks
 #
 # If you only have docker:
-#   docker run --rm ai-memory install-hooks --agent claude-code \
-#       --hooks-dir ~/.ai-memory/hooks
+#   docker run --rm pitstop install-hooks --agent claude-code \
+#       --hooks-dir ~/.pitstop/hooks
 
 set -euo pipefail
 
 AGENT="claude-code"
-TO="$HOME/.ai-memory/hooks"
+TO="$HOME/.pitstop/hooks"
 REF="latest"
 REPO="akitaonrails/ai-memory"
 
@@ -67,38 +67,38 @@ fi
 
 if [[ "$AGENT" == "opencode" ]]; then
     echo "OpenCode uses a generated TypeScript plugin, not shell hook scripts."
-    echo "Run: ai-memory install-hooks --agent opencode --apply"
-    echo "Then restart OpenCode; ai-memory detects V1/V2 and prints the installed plugin path."
+    echo "Run: pitstop install-hooks --agent opencode --apply"
+    echo "Then restart OpenCode; pitstop detects V1/V2 and prints the installed plugin path."
     exit 0
 fi
 
 if [[ "$AGENT" == "opencode2" ]]; then
     echo "OpenCode 2 uses a generated TypeScript plugin, not shell hook scripts."
-    echo "Run: ai-memory install-hooks --agent opencode2 --apply"
-    echo "Then restart OpenCode 2 so it loads ~/.config/opencode/plugins/ai-memory-opencode2.ts."
+    echo "Run: pitstop install-hooks --agent opencode2 --apply"
+    echo "Then restart OpenCode 2 so it loads ~/.config/opencode/plugins/pitstop-opencode2.ts."
     exit 0
 fi
 
 if [[ "$AGENT" == "openclaw" ]]; then
     echo "OpenClaw uses a generated native TypeScript plugin, not shell hook scripts."
-    echo "Run: ai-memory install-hooks --agent openclaw --apply"
+    echo "Run: pitstop install-hooks --agent openclaw --apply"
     echo "Then restart the OpenClaw gateway if it does not auto-restart after plugin install."
     exit 0
 fi
 
 if [[ "$AGENT" == "omp" || "$AGENT" == "oh-my-pi" ]]; then
     echo "OMP uses a generated TypeScript extension, not shell hook scripts."
-    echo "Run: ai-memory install-hooks --agent omp --apply"
+    echo "Run: pitstop install-hooks --agent omp --apply"
     echo "Then restart OMP so it loads the extension install-hooks reports"
-    echo "(default ~/.omp/agent/extensions/ai-memory-omp.ts)."
+    echo "(default ~/.omp/agent/extensions/pitstop-omp.ts)."
     exit 0
 fi
 
 if [[ "$AGENT" == "pi" ]]; then
     echo "Pi uses a generated TypeScript extension, not shell hook scripts."
-    echo "Run: ai-memory install-hooks --agent pi --apply"
+    echo "Run: pitstop install-hooks --agent pi --apply"
     echo "Then restart Pi so it loads the extension install-hooks reports"
-    echo "(default ~/.pi/agent/extensions/ai-memory-pi.ts)."
+    echo "(default ~/.pi/agent/extensions/pitstop-pi.ts)."
     echo "MCP tools come through the same generated bridge extension."
     exit 0
 fi
@@ -164,11 +164,11 @@ if [[ "$REF" == "latest" ]]; then
 else
     BASE_URL="https://github.com/$REPO/releases/download/$REF"
 fi
-ARCHIVE="ai-memory-hooks.tar.gz"
+ARCHIVE="pitstop-hooks.tar.gz"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-echo "Downloading checksum-verified ai-memory hook bundle from $BASE_URL"
+echo "Downloading checksum-verified pitstop hook bundle from $BASE_URL"
 curl -fsSL "$BASE_URL/$ARCHIVE" -o "$TMP/$ARCHIVE"
 curl -fsSL "$BASE_URL/$ARCHIVE.sha256" -o "$TMP/$ARCHIVE.sha256"
 expected_sum="$(awk 'NR == 1 && $1 ~ /^[0-9A-Fa-f]{64}$/ { print tolower($1) }' "$TMP/$ARCHIVE.sha256")"
@@ -184,7 +184,7 @@ if [[ -z "$expected_sum" || "$actual_sum" != "$expected_sum" ]]; then
     echo "hook bundle checksum mismatch; refusing installation" >&2
     exit 1
 fi
-echo "Installing ai-memory hooks for $AGENT into $DEST"
+echo "Installing pitstop hooks for $AGENT into $DEST"
 # Every event script sources _lib.sh from its own directory or the one above
 # it, so the helper goes beside the agent directories, where `install-hooks`
 # also looks when it stages a bundle. A script installed without it stops at
@@ -214,7 +214,7 @@ echo
 echo "Done. Next steps:"
 echo
 echo "  1. Render the config snippet to merge into your agent's settings:"
-echo "       ai-memory install-hooks --agent $AGENT --hooks-dir $TO"
+echo "       pitstop install-hooks --agent $AGENT --hooks-dir $TO"
 echo "     (Or via docker if you don't have the binary locally:"
 echo "       docker run --rm $REPO:latest install-hooks --agent $AGENT --hooks-dir $TO)"
 echo

@@ -1,12 +1,12 @@
 # Benchmarks
 
-Published retrieval-quality numbers for ai-memory, with full provenance
+Published retrieval-quality numbers for pitstop, with full provenance
 (commit, dataset sha256, hardware, mode). Every number here was produced
 by the in-repo harness. `evals/README.md` explains how to reproduce them:
 
 ```bash
-cargo build --release -p ai-memory-cli
-cargo run --release -p ai-memory-eval -- retrieval --fetch
+cargo build --release -p pitstop-cli
+cargo run --release -p pitstop-eval -- retrieval --fetch
 ```
 
 ## Baselines
@@ -223,7 +223,7 @@ baseline-vs-baseline determinism check is clean (all accuracy/token deltas `0.00
   with the previous release (AGENTS.md, project maintenance rules). A drop
   does not block the release: the numbers are published and an issue opens
   for the next release to decide whether it is a regression. To see which
-  questions moved, run `ai-memory-eval retrieval-compare` on the two runs'
+  questions moved, run `pitstop-eval retrieval-compare` on the two runs'
   saved reports ([evals/README.md](../../evals/README.md)).
 - **Pre-registration.** Before the release-candidate run, write down in the
   release's tracking issue what the run is meant to show: the question, the
@@ -248,7 +248,7 @@ a published number.
 
 ### Skip wiki checkpoints (release runs)
 
-`AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1`, passed to the eval server via
+`PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1`, passed to the eval server via
 the harness's general `--server-env` escape, makes the server skip the
 SessionEnd wiki auto-commits. Retrieval never reads git history (the
 markdown files and the SQLite index are the source of truth), so
@@ -256,7 +256,7 @@ accuracy, query latency and context tokens are unchanged. Verified on the
 16- and 100-question prefixes: every hit@k and recall@k matched a default
 run to the last digit, and the 100-question FTS wall clock fell from
 155.9 s to 12.1 s. The variable appears in the report's config line
-(`env:AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1`), so a run that used it
+(`env:PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1`), so a run that used it
 says so. Accuracy, latency and context-token numbers stay comparable with
 earlier releases; only ingest wall clock differs, because runs before
 October 2026 paid for the commits. The variable is an eval-only escape, not
@@ -264,18 +264,18 @@ a supported product configuration: no product path sets it, and its only
 reader is the server's startup check.
 
 ```bash
-ai-memory-eval retrieval \
-  --server-bin target/release/ai-memory \
+pitstop-eval retrieval \
+  --server-bin target/release/pitstop \
   --concurrency 6 --http-timeout-secs 900 \
-  --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-  --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+  --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+  --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 
-ai-memory-eval retrieval \
-  --server-bin target/release/ai-memory \
+pitstop-eval retrieval \
+  --server-bin target/release/pitstop \
   --concurrency 6 --http-timeout-secs 900 \
   --embeddings local \
-  --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-  --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+  --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+  --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 ```
 
 ### Reuse haystack embeddings across runs (local mode)
@@ -297,7 +297,7 @@ embeddings are cached: query embeddings, ranking and fusion run live, so a
 cached run still measures the code under test.
 
 The harness turns the cache on for every local-embeddings server it starts,
-through the eval-only server variable `AI_MEMORY_EVAL_EMBEDDING_CACHE_DIR`.
+through the eval-only server variable `PITSTOP_EVAL_EMBEDDING_CACHE_DIR`.
 Like the checkpoint variable above, no product path sets it, the server reads
 it once at startup, and it is absent from `config.toml`. Zero-LLM runs have no
 embedder and never use it. A report whose document vectors came from the cache

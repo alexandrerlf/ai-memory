@@ -1,27 +1,27 @@
 #!/bin/sh
-# Install the ai-memory release binary for the current user.
+# Install the pitstop release binary for the current user.
 #
 #   curl -fsSL https://github.com/akitaonrails/ai-memory/releases/latest/download/install.sh | sh
 #
-# Downloads ai-memory-<os>-<arch>.tar.gz from a GitHub release, verifies it
+# Downloads pitstop-<os>-<arch>.tar.gz from a GitHub release, verifies it
 # against the release's published .sha256 file, unpacks it under
-# ~/.local/lib/ai-memory and links ~/.local/bin/ai-memory to the binary. No
+# ~/.local/lib/pitstop and links ~/.local/bin/pitstop to the binary. No
 # sudo, and nothing outside those two directories is touched. A missing or
 # mismatched checksum stops the install before anything is unpacked.
 #
-# Then run `ai-memory setup` to create the data dir, start the user service
+# Then run `pitstop setup` to create the data dir, start the user service
 # and wire your agents.
 #
 # Environment (all optional):
-#   AI_MEMORY_VERSION           release to install, e.g. 3.0.0 (default: latest)
-#   AI_MEMORY_BIN_DIR           where the `ai-memory` link goes (default: ~/.local/bin)
-#   AI_MEMORY_LIB_DIR           where the release is unpacked
-#                               (default: ~/.local/lib/ai-memory)
-#   AI_MEMORY_RELEASE_BASE_URL  Releases-compatible URL prefix, the one
-#                               `ai-memory upgrade` reads (default: GitHub).
+#   PITSTOP_VERSION           release to install, e.g. 3.0.0 (default: latest)
+#   PITSTOP_BIN_DIR           where the `pitstop` link goes (default: ~/.local/bin)
+#   PITSTOP_LIB_DIR           where the release is unpacked
+#                               (default: ~/.local/lib/pitstop)
+#   PITSTOP_RELEASE_BASE_URL  Releases-compatible URL prefix, the one
+#                               `pitstop upgrade` reads (default: GitHub).
 #                               The checksum comes from the same place as the
 #                               archive, so point it only at an origin you trust.
-#   AI_MEMORY_INSTALL_TARGET    force a target: linux-x86_64, linux-aarch64,
+#   PITSTOP_INSTALL_TARGET    force a target: linux-x86_64, linux-aarch64,
 #                               macos-x86_64 or macos-aarch64
 #
 # Everything runs inside main(), called on the last line, so a download cut
@@ -32,22 +32,22 @@ set -eu
 DEFAULT_RELEASE_BASE="https://github.com/akitaonrails/ai-memory/releases"
 
 say() {
-    printf 'ai-memory install: %s\n' "$*"
+    printf 'pitstop install: %s\n' "$*"
 }
 
 die() {
-    printf 'ai-memory install: error: %s\n' "$*" >&2
+    printf 'pitstop install: error: %s\n' "$*" >&2
     exit 1
 }
 
 detect_target() {
-    if [ -n "${AI_MEMORY_INSTALL_TARGET:-}" ]; then
-        case "$AI_MEMORY_INSTALL_TARGET" in
+    if [ -n "${PITSTOP_INSTALL_TARGET:-}" ]; then
+        case "$PITSTOP_INSTALL_TARGET" in
             linux-x86_64 | linux-aarch64 | macos-x86_64 | macos-aarch64)
-                printf '%s\n' "$AI_MEMORY_INSTALL_TARGET"
+                printf '%s\n' "$PITSTOP_INSTALL_TARGET"
                 return 0
                 ;;
-            *) die "AI_MEMORY_INSTALL_TARGET must be linux-x86_64, linux-aarch64, macos-x86_64 or macos-aarch64" ;;
+            *) die "PITSTOP_INSTALL_TARGET must be linux-x86_64, linux-aarch64, macos-x86_64 or macos-aarch64" ;;
         esac
     fi
     os="$(uname -s)"
@@ -148,11 +148,11 @@ check_members() {
 main() {
     home="${HOME:-}"
     [ -n "$home" ] || die "HOME is not set"
-    bin_dir="${AI_MEMORY_BIN_DIR:-$home/.local/bin}"
-    lib_dir="${AI_MEMORY_LIB_DIR:-$home/.local/lib/ai-memory}"
-    release_base="${AI_MEMORY_RELEASE_BASE_URL:-$DEFAULT_RELEASE_BASE}"
+    bin_dir="${PITSTOP_BIN_DIR:-$home/.local/bin}"
+    lib_dir="${PITSTOP_LIB_DIR:-$home/.local/lib/pitstop}"
+    release_base="${PITSTOP_RELEASE_BASE_URL:-$DEFAULT_RELEASE_BASE}"
     release_base="${release_base%/}"
-    version="${AI_MEMORY_VERSION:-latest}"
+    version="${PITSTOP_VERSION:-latest}"
 
     case "$bin_dir$lib_dir" in
         *"
@@ -160,25 +160,25 @@ main() {
     esac
     case "$version" in
         latest) url_dir="$release_base/latest/download" ;;
-        *[!0-9A-Za-z.+-]*) die "AI_MEMORY_VERSION must look like 3.0.0" ;;
+        *[!0-9A-Za-z.+-]*) die "PITSTOP_VERSION must look like 3.0.0" ;;
         v*) url_dir="$release_base/download/$version" ;;
         *) url_dir="$release_base/download/v$version" ;;
     esac
 
     target="$(detect_target)"
-    asset="ai-memory-$target.tar.gz"
-    link="$bin_dir/ai-memory"
+    asset="pitstop-$target.tar.gz"
+    link="$bin_dir/pitstop"
 
     # Never replace something this script did not put there: a Docker wrapper
     # or a hand-built binary at the same path is the user's.
     if [ -e "$link" ] || [ -L "$link" ]; then
-        [ -L "$link" ] || die "$link already exists and is not a link to an install.sh release; move it aside or set AI_MEMORY_BIN_DIR"
+        [ -L "$link" ] || die "$link already exists and is not a link to an install.sh release; move it aside or set PITSTOP_BIN_DIR"
     fi
-    if [ -e "$lib_dir" ] && [ ! -f "$lib_dir/ai-memory" ]; then
-        die "$lib_dir exists but holds no ai-memory release; move it aside or set AI_MEMORY_LIB_DIR"
+    if [ -e "$lib_dir" ] && [ ! -f "$lib_dir/pitstop" ]; then
+        die "$lib_dir exists but holds no pitstop release; move it aside or set PITSTOP_LIB_DIR"
     fi
 
-    work="$(mktemp -d "${TMPDIR:-/tmp}/ai-memory-install.XXXXXX")"
+    work="$(mktemp -d "${TMPDIR:-/tmp}/pitstop-install.XXXXXX")"
     trap 'rm -rf "$work"' EXIT
     trap 'exit 1' INT TERM
 
@@ -192,8 +192,8 @@ main() {
     check_members "$work/$asset" "$work/members" "$asset"
     mkdir -p "$work/release"
     tar --no-same-owner -xzf "$work/$asset" -C "$work/release"
-    [ -f "$work/release/ai-memory" ] || die "$asset has no ai-memory binary"
-    chmod 0755 "$work/release/ai-memory"
+    [ -f "$work/release/pitstop" ] || die "$asset has no pitstop binary"
+    chmod 0755 "$work/release/pitstop"
 
     mkdir -p "$(dirname "$lib_dir")" "$bin_dir"
     staged="$lib_dir.new.$$"
@@ -202,7 +202,7 @@ main() {
     # Run the binary from beside its install directory, not from the work
     # directory: a TMPDIR mounted noexec refuses to execute anything there,
     # which would reject a release that runs where it is installed.
-    if ! "$staged/ai-memory" --version >/dev/null 2>&1; then
+    if ! "$staged/pitstop" --version >/dev/null 2>&1; then
         rm -rf "$staged"
         die "the downloaded binary does not run from $(dirname "$lib_dir") on this machine"
     fi
@@ -218,14 +218,14 @@ main() {
         mv "$staged" "$lib_dir"
     fi
     rm -f "$link"
-    ln -s "$lib_dir/ai-memory" "$link"
+    ln -s "$lib_dir/pitstop" "$link"
 
-    say "installed $("$link" --version 2>/dev/null || echo ai-memory) to $lib_dir"
+    say "installed $("$link" --version 2>/dev/null || echo pitstop) to $lib_dir"
     say "linked $link"
-    # Off PATH, a bare `ai-memory setup` would fail with "command not found",
+    # Off PATH, a bare `pitstop setup` would fail with "command not found",
     # so the next step names the link itself.
     case ":${PATH:-}:" in
-        *":$bin_dir:"*) say "next: ai-memory setup" ;;
+        *":$bin_dir:"*) say "next: pitstop setup" ;;
         *)
             say "$bin_dir is not on PATH; add it, e.g. export PATH=\"$bin_dir:\$PATH\""
             say "next: $link setup"

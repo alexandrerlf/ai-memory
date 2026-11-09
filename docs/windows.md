@@ -9,8 +9,8 @@ Run `install-mcp` and `install-hooks` from the same environment that
 launches Claude Code, Codex, Command Code, Devin CLI, Cursor, Gemini CLI, Kimi Code, Kiro CLI,
 Antigravity CLI, or another agent.
 
-- If the agent runs inside WSL2, install ai-memory inside WSL2.
-- If the agent runs as a native Windows process, install ai-memory from
+- If the agent runs inside WSL2, install pitstop inside WSL2.
+- If the agent runs as a native Windows process, install pitstop from
   PowerShell on Windows.
 - Do not mix the Windows wrapper with WSL2-launched agents unless you
   deliberately override every config and hook path.
@@ -24,7 +24,7 @@ The difference matters because hook configs contain executable paths.
 WSL2 agents need Linux paths and POSIX `.sh` hooks. Native Windows
 agents need Windows paths, but the hook runner is agent-specific: local
 supported profiles default to host-native commands. Claude Code may use
-its supported direct exec form (`command: "…ai-memory.exe"`, `args: ["hook",
+its supported direct exec form (`command: "…pitstop.exe"`, `args: ["hook",
 "--event", …]`) with no shell; see [Native Hook
 Command](#native-hook-command-claude-code-on-windows). Other agents use native
 single command strings matching their hook schema. PowerShell/Git Bash script
@@ -38,31 +38,31 @@ installed and launched inside a WSL2 distro.
 ```bash
 # Inside WSL2.
 mkdir -p ~/.local/bin
-wrapper_base=https://github.com/akitaonrails/ai-memory/releases/latest/download/ai-memory-wrapper
+wrapper_base=https://github.com/akitaonrails/ai-memory/releases/latest/download/pitstop-wrapper
 wrapper_tmp="$(mktemp -d)"
 trap 'rm -rf "$wrapper_tmp"' EXIT
-curl -fsSL "$wrapper_base" -o "$wrapper_tmp/ai-memory-wrapper"
-curl -fsSL "$wrapper_base.sha256" -o "$wrapper_tmp/ai-memory-wrapper.sha256"
-(cd "$wrapper_tmp" && sha256sum -c ai-memory-wrapper.sha256)
-install -m 0755 "$wrapper_tmp/ai-memory-wrapper" ~/.local/bin/ai-memory
+curl -fsSL "$wrapper_base" -o "$wrapper_tmp/pitstop-wrapper"
+curl -fsSL "$wrapper_base.sha256" -o "$wrapper_tmp/pitstop-wrapper.sha256"
+(cd "$wrapper_tmp" && sha256sum -c pitstop-wrapper.sha256)
+install -m 0755 "$wrapper_tmp/pitstop-wrapper" ~/.local/bin/pitstop
 rm -rf "$wrapper_tmp"
 trap - EXIT
 export PATH="$HOME/.local/bin:$PATH"
 
-docker run -d --name ai-memory \
+docker run -d --name pitstop \
     --restart unless-stopped \
     -p 127.0.0.1:49374:49374 \
-    -v ai-memory-data:/data \
+    -v pitstop-data:/data \
     akitaonrails/ai-memory:latest
 
-ai-memory install-mcp --client claude-code --apply
-ai-memory install-hooks --agent claude-code --apply
+pitstop install-mcp --client claude-code --apply
+pitstop install-hooks --agent claude-code --apply
 ```
 
-In this mode, ai-memory behaves like Linux:
+In this mode, pitstop behaves like Linux:
 
 - Config files are written under your WSL2 home directory.
-- Hook scripts are staged under `~/.local/share/ai-memory/hooks/`.
+- Hook scripts are staged under `~/.local/share/pitstop/hooks/`.
 - Hook commands point at `.sh` scripts.
 - The agent should also be launched from WSL2 so it can execute those
   WSL paths.
@@ -74,11 +74,11 @@ inside WSL2, no Windows wrapper is involved.
 ## Scenario B: Native Windows With Docker Desktop
 
 Use this when the agent CLI runs as a native Windows process and you want
-the ai-memory server to run from the Docker image. The wrapper renders
+the pitstop server to run from the Docker image. The wrapper renders
 host-side agent config with `http://127.0.0.1:49374`, but its own thin-client
 commands reach the server from inside a helper container via Docker Desktop's
 `host.docker.internal` alias, because Docker Desktop gives Linux containers no
-host networking on Windows. Set `AI_MEMORY_SERVER_URL` only when the server
+host networking on Windows. Set `PITSTOP_SERVER_URL` only when the server
 lives somewhere else (a homelab or remote host); the wrapper honours it and
 skips the alias.
 
@@ -88,8 +88,8 @@ $UserBin = "$HOME\bin"
 New-Item -ItemType Directory -Force $UserBin | Out-Null
 $ReleaseBase = "https://github.com/akitaonrails/ai-memory/releases/latest/download"
 $WrapperAssets = @{
-    "ai-memory.ps1" = "ai-memory-wrapper.ps1"
-    "ai-memory.cmd" = "ai-memory-wrapper.cmd"
+    "pitstop.ps1" = "pitstop-wrapper.ps1"
+    "pitstop.cmd" = "pitstop-wrapper.cmd"
 }
 foreach ($Entry in $WrapperAssets.GetEnumerator()) {
     $File = $Entry.Key
@@ -107,7 +107,7 @@ foreach ($Entry in $WrapperAssets.GetEnumerator()) {
     }
     Remove-Item "$UserBin\$File.sha256"
 }
-Get-ChildItem "$UserBin\ai-memory.*" | Unblock-File
+Get-ChildItem "$UserBin\pitstop.*" | Unblock-File
 
 # Put the wrapper directory on your user PATH for future terminals. Read and
 # write the registry value as is: [Environment]::GetEnvironmentVariable expands
@@ -119,7 +119,7 @@ if (($UserPath -split ';' | ForEach-Object { [Environment]::ExpandEnvironmentVar
     $NewUserPath = (($UserPath, $UserBin) | Where-Object { $_ }) -join ";"
     $EnvKey.SetValue("Path", $NewUserPath, "ExpandString")
     # Removing a variable that does not exist broadcasts the change to Explorer.
-    [Environment]::SetEnvironmentVariable("ai-memory-path-notify", [NullString]::Value, "User")
+    [Environment]::SetEnvironmentVariable("pitstop-path-notify", [NullString]::Value, "User")
     $env:Path = "$env:Path;$UserBin"
 }
 $EnvKey.Dispose()
@@ -127,27 +127,27 @@ $EnvKey.Dispose()
 # Start the server with Docker Desktop. The image default allowlist includes
 # host.docker.internal so wrapper thin-client commands (status, search, …) are
 # not rejected with 403.
-docker run -d --name ai-memory `
+docker run -d --name pitstop `
     --restart unless-stopped `
     -p 127.0.0.1:49374:49374 `
-    -v ai-memory-data:/data `
+    -v pitstop-data:/data `
     akitaonrails/ai-memory:latest
 
-# Do not also run `ai-memory serve`; the long-lived container above is the server.
+# Do not also run `pitstop serve`; the long-lived container above is the server.
 
 # Verify the wrapper can reach the server.
-ai-memory status
+pitstop status
 
 # Wire MCP and lifecycle hooks for a native Windows agent.
-ai-memory install-mcp --client claude-code --apply
-ai-memory install-hooks --agent claude-code --apply
+pitstop install-mcp --client claude-code --apply
+pitstop install-hooks --agent claude-code --apply
 ```
 
 In this mode, the PowerShell wrapper runs the Linux container but tells
 the CLI to render hook commands for the native Windows agent:
 
 - Config files are written through the mounted Windows home directory.
-- Hook scripts are staged under `$HOME\.local\share\ai-memory\hooks\`.
+- Hook scripts are staged under `$HOME\.local\share\pitstop\hooks\`.
 - Local supported profiles default to host-native commands. Claude Code may use
   its exec form (`command` executable + `args` argv array), while other agents
   use native single command strings matching their hook schema. The wrapper
@@ -164,7 +164,7 @@ command form.
 
 ### Managed launches (`run`, `continue`, `show`, …) use the native client
 
-`ai-memory run <harness>`, `continue`, `resume`, `show`, `workstreams` and
+`pitstop run <harness>`, `continue`, `resume`, `show`, `workstreams` and
 `rename-workstream` execute on the host: the helper container cannot see your
 checkouts, your `claude` or `codex` CLIs, or their native session stores. The
 wrapper intercepts those subcommands and runs the native Windows client
@@ -179,32 +179,32 @@ from the release zip
 irm https://github.com/akitaonrails/ai-memory/releases/latest/download/install.ps1 | iex
 ```
 
-`install.ps1` unpacks `ai-memory.exe` to `%LOCALAPPDATA%\Programs\ai-memory`
+`install.ps1` unpacks `pitstop.exe` to `%LOCALAPPDATA%\Programs\pitstop`
 and puts that directory on your `PATH`; the wrapper finds it there, or
-wherever `AI_MEMORY_NATIVE_BIN` points. Without it the intercepted commands
+wherever `PITSTOP_NATIVE_BIN` points. Without it the intercepted commands
 stop with a message naming that installer. They never fall back into the
 container, which has no host CLIs.
 
-- The native client inherits `AI_MEMORY_SERVER_URL`. Leave it unset and it
+- The native client inherits `PITSTOP_SERVER_URL`. Leave it unset and it
   talks to `http://127.0.0.1:49374`, the port the container publishes on the
   host; a remote-server URL wins, as with every other wrapper command.
 - When the container server has auth enabled (a fresh install mints a root
   bearer into the volume), run `install-hooks --agent <agent> --apply` once.
   The wrapper refreshes a host copy at
-  `%LOCALAPPDATA%\ai-memory\server-token`; later managed launches reuse it
-  without starting a helper container. An explicit `AI_MEMORY_AUTH_TOKEN`,
-  `AI_MEMORY_AUTH__BEARER_TOKEN_FILE`, or bind-mounted `AI_MEMORY_DATA_DIR`
+  `%LOCALAPPDATA%\pitstop\server-token`; later managed launches reuse it
+  without starting a helper container. An explicit `PITSTOP_AUTH_TOKEN`,
+  `PITSTOP_AUTH__BEARER_TOKEN_FILE`, or bind-mounted `PITSTOP_DATA_DIR`
   still wins. Rerun `install-hooks` after rotating the volume token.
 - A managed launch does not rewire hooks or MCP: what `install-hooks` and
   `install-mcp` rendered through the container stays in place (the wrapper
-  sets `AI_MEMORY_RUN_AUTOWIRE=false` for the intercepted commands unless you
-  set the variable yourself). Export `AI_MEMORY_RUN_AUTOWIRE=true` to let
+  sets `PITSTOP_RUN_AUTOWIRE=false` for the intercepted commands unless you
+  set the variable yourself). Export `PITSTOP_RUN_AUTOWIRE=true` to let
   `run` rewire a harness around the native client instead.
-- Upgrading in this scenario: `ai-memory upgrade` pulls the image only,
+- Upgrading in this scenario: `pitstop upgrade` pulls the image only,
   including when `--config` or `--data-dir` precedes `upgrade`. It does not
   refresh the wrapper or install a native client. Refresh the
   wrapper scripts by re-running the install block at the top of this
-  scenario, and the native client with its own `ai-memory.exe upgrade`
+  scenario, and the native client with its own `pitstop.exe upgrade`
   ([Scenario C](#scenario-c-prebuilt-release-binary-no-toolchain)). Then
   rerun `install-hooks --agent <agent> --apply` as noted above.
 
@@ -231,21 +231,21 @@ executable paths remain valid.
 Use this when the agent CLI runs as a native Windows process and you want
 the fast native hook path **without** installing a Rust toolchain or
 Docker. Each tagged release publishes
-`ai-memory-windows-x86_64.zip` (see the repo's Releases page).
+`pitstop-windows-x86_64.zip` (see the repo's Releases page).
 
 The quickest path is two commands in PowerShell, neither needing
 administrator rights:
 
 ```powershell
 irm https://github.com/akitaonrails/ai-memory/releases/latest/download/install.ps1 | iex
-ai-memory setup
+pitstop setup
 ```
 
 `install.ps1` downloads the zip and its `.sha256` from the release, refuses a
 missing or mismatched checksum and any archive entry that is absolute or holds
-`..`, unpacks the release to `%LOCALAPPDATA%\Programs\ai-memory` and adds that
-directory to your user `PATH` (set `AI_MEMORY_NO_MODIFY_PATH=1` to skip that).
-`ai-memory setup` then initialises the data dir (`%LOCALAPPDATA%\ai-memory`),
+`..`, unpacks the release to `%LOCALAPPDATA%\Programs\pitstop` and adds that
+directory to your user `PATH` (set `PITSTOP_NO_MODIFY_PATH=1` to skip that).
+`pitstop setup` then initialises the data dir (`%LOCALAPPDATA%\pitstop`),
 registers the server to start at logon (see
 [Scenario E](#scenario-e-keep-the-server-running-native-windows-service)),
 wires the agents it finds, and checks the result. Inside WSL2 the Linux
@@ -258,18 +258,18 @@ Releases from 3.4.0 on are also published to the maintainer's
 
 ```powershell
 scoop bucket add akitaonrails https://github.com/akitaonrails/scoop-bucket
-scoop install ai-memory
-ai-memory setup
+scoop install pitstop
+pitstop setup
 ```
 
 Scoop checks the zip against the release's published SHA-256, unpacks it to
-`<scoop>\apps\ai-memory\<version>` and points the
-`<scoop>\apps\ai-memory\current` junction at it. The `ai-memory` shim on
-`PATH` runs the binary through `current`. `ai-memory setup` records that
+`<scoop>\apps\pitstop\<version>` and points the
+`<scoop>\apps\pitstop\current` junction at it. The `pitstop` shim on
+`PATH` runs the binary through `current`. `pitstop setup` records that
 `current` path in the logon entry, the hook commands and the MCP entries,
 never the version directory, so they keep working after
-`scoop update ai-memory` installs the next version and `scoop cleanup` deletes
-the old one. Update with `scoop update ai-memory`: `ai-memory upgrade` refuses
+`scoop update pitstop` installs the next version and `scoop cleanup` deletes
+the old one. Update with `scoop update pitstop`: `pitstop upgrade` refuses
 a Scoop install, because the bucket owns the version.
 
 To do the same by hand:
@@ -277,14 +277,14 @@ To do the same by hand:
 ```powershell
 # First-time install: download + extract into a stable per-user directory
 # (any stable path works; the native hook exec-form command is rendered from
-# wherever ai-memory.exe lives).
-$Dest = "$env:LOCALAPPDATA\Programs\ai-memory"
+# wherever pitstop.exe lives).
+$Dest = "$env:LOCALAPPDATA\Programs\pitstop"
 New-Item -ItemType Directory -Force $Dest | Out-Null
 Invoke-WebRequest `
-    -Uri "https://github.com/akitaonrails/ai-memory/releases/latest/download/ai-memory-windows-x86_64.zip" `
-    -OutFile "$env:TEMP\ai-memory.zip"
-Expand-Archive "$env:TEMP\ai-memory.zip" -DestinationPath $Dest -Force
-Get-ChildItem "$Dest\ai-memory.exe" | Unblock-File
+    -Uri "https://github.com/akitaonrails/ai-memory/releases/latest/download/pitstop-windows-x86_64.zip" `
+    -OutFile "$env:TEMP\pitstop.zip"
+Expand-Archive "$env:TEMP\pitstop.zip" -DestinationPath $Dest -Force
+Get-ChildItem "$Dest\pitstop.exe" | Unblock-File
 
 # Put it on PATH for future terminals (optional but convenient). The registry
 # value is read and written as is, so its %VAR% entries stay unexpanded.
@@ -293,34 +293,34 @@ $UserPath = $EnvKey.GetValue("Path", "", "DoNotExpandEnvironmentNames")
 if (($UserPath -split ';' | ForEach-Object { [Environment]::ExpandEnvironmentVariables($_) }) -notcontains $Dest) {
     $EnvKey.SetValue("Path", "$UserPath;$Dest", "ExpandString")
     # Removing a variable that does not exist broadcasts the change to Explorer.
-    [Environment]::SetEnvironmentVariable("ai-memory-path-notify", [NullString]::Value, "User")
+    [Environment]::SetEnvironmentVariable("pitstop-path-notify", [NullString]::Value, "User")
     $env:Path = "$env:Path;$Dest"
 }
 $EnvKey.Dispose()
 
 # Wire MCP + lifecycle hooks against your server.
-& "$Dest\ai-memory.exe" install-mcp --client claude-code --apply
-& "$Dest\ai-memory.exe" install-hooks --agent claude-code --apply `
+& "$Dest\pitstop.exe" install-mcp --client claude-code --apply
+& "$Dest\pitstop.exe" install-hooks --agent claude-code --apply `
     --server-url "https://memory.example.com" --auth-token "<token>"
 ```
 
 Later updates for this install (not a Scoop one, which updates with
-`scoop update ai-memory`) use the same command as Linux/macOS release
-binaries. From a writable prefix (for example `%LOCALAPPDATA%\ai-memory`),
+`scoop update pitstop`) use the same command as Linux/macOS release
+binaries. From a writable prefix (for example `%LOCALAPPDATA%\pitstop`),
 run:
 
 ```powershell
-ai-memory upgrade
+pitstop upgrade
 # optional: pin a tag, or force a re-download of the current tag
-ai-memory upgrade --version v2.3.2
-ai-memory upgrade --force
+pitstop upgrade --version v2.3.2
+pitstop upgrade --force
 ```
 
-That downloads `ai-memory-windows-x86_64.zip` + `.sha256`, verifies the
-checksum, replaces `ai-memory.exe` via rename-aside (Windows cannot overwrite
+That downloads `pitstop-windows-x86_64.zip` + `.sha256`, verifies the
+checksum, replaces `pitstop.exe` via rename-aside (Windows cannot overwrite
 a running image), refreshes a sibling `hooks/` tree when present, then
 re-stages hooks for agents already under the data-dir hooks tree. It also
-re-renders existing ai-memory-owned OpenCode, OpenCode 2, OMP, Pi, and OpenClaw
+re-renders existing pitstop-owned OpenCode, OpenCode 2, OMP, Pi, and OpenClaw
 TypeScript integrations from the newly installed binary's templates at their
 default or active-profile paths; absent and user-owned files are left untouched.
 Keep the manual zip download above as a
@@ -328,29 +328,29 @@ fallback if the install directory is not writable (for example under Program
 Files).
 
 The zip mirrors the Linux release tarball, minus the Linux-only service
-assets: it contains `ai-memory.exe`, the full `hooks/` bundle (`.ps1` +
-`.sh`), `crates/ai-memory-cli/templates/config.default.toml`, `README.md`,
+assets: it contains `pitstop.exe`, the full `hooks/` bundle (`.ps1` +
+`.sh`), `crates/pitstop-cli/templates/config.default.toml`, `README.md`,
 `LICENSE`, and `docs/{install,windows}.md`. Because `install-hooks` reads
-the `ai-memory.exe` path from the running binary, keep the extracted `.exe`
+the `pitstop.exe` path from the running binary, keep the extracted `.exe`
 at a stable location (re-run `install-hooks` if you move it).
 
-Without `ai-memory setup`, the server runs only while a terminal is open. To
+Without `pitstop setup`, the server runs only while a terminal is open. To
 keep it up, run `setup` or continue to [Scenario
 E](#scenario-e-keep-the-server-running-native-windows-service).
 
 ## Scenario D: Native Windows Source Build
 
-Use this when developing ai-memory itself on Windows or when you do not
+Use this when developing pitstop itself on Windows or when you do not
 want the Docker wrapper for CLI commands.
 
 ```powershell
-git clone https://github.com/akitaonrails/ai-memory .\ai-memory
-Set-Location .\ai-memory
+git clone https://github.com/akitaonrails/ai-memory .\pitstop
+Set-Location .\pitstop
 cargo build --workspace
 cargo test --workspace
 
-target\debug\ai-memory.exe init
-target\debug\ai-memory.exe serve --transport http --bind 127.0.0.1:49374
+target\debug\pitstop.exe init
+target\debug\pitstop.exe serve --transport http --bind 127.0.0.1:49374
 ```
 
 That last command holds the terminal. For a persistent server, see
@@ -381,27 +381,27 @@ with the Rust MSVC toolchain active:
 
 ```bash
 cargo test --workspace
-cargo build --locked --release -p ai-memory-cli
-./target/release/ai-memory.exe --version
+cargo build --locked --release -p pitstop-cli
+./target/release/pitstop.exe --version
 ```
 
 The version output should match the package version for the checkout.
 
 Normal builds use the vendored stylesheet and download nothing. Regenerating
-it (`TAILWIND_BUILD=1 cargo build -p ai-memory-web`) supports the pinned
+it (`TAILWIND_BUILD=1 cargo build -p pitstop-web`) supports the pinned
 `tailwindcss-windows-x64.exe` binary and falls back to PowerShell
 `Invoke-WebRequest` when `curl`/`wget` are unavailable.
 
 Keep Git for Windows' `git.exe` on `PATH` for native builds and hook runs. When
 libgit2 hits a Windows path-resolution error while opening a newly initialized
-wiki repository, ai-memory falls back to the Git CLI instead of treating that
+wiki repository, pitstop falls back to the Git CLI instead of treating that
 specific condition as fatal.
 
 From another PowerShell window in the repo:
 
 ```powershell
-target\debug\ai-memory.exe install-mcp --client claude-code --apply
-target\debug\ai-memory.exe install-hooks --agent claude-code --apply
+target\debug\pitstop.exe install-mcp --client claude-code --apply
+target\debug\pitstop.exe install-hooks --agent claude-code --apply
 ```
 
 Native Windows builds render agent-specific host-native lifecycle commands.
@@ -412,7 +412,7 @@ capture-policy v1; tests enforce one-to-one event/agent parity between them.
 
 ### Capture-policy support
 
-Native `ai-memory.exe hook` commands enforce the nearest-marker `[capture]
+Native `pitstop.exe hook` commands enforce the nearest-marker `[capture]
 ignore_paths` policy before spool or network delivery. The legacy `.ps1` and
 `.sh` paths do not. After upgrading, rerun `install-hooks --agent <agent>
 --apply` to refresh native hook entries; selected-install capability output says
@@ -420,19 +420,19 @@ whether enforcement is active. See [Capture exclusions](marker-file.md#capture-e
 
 ## Scenario E: Keep The Server Running (Native Windows Service)
 
-Scenarios C and D both end at `ai-memory serve` in a foreground terminal.
+Scenarios C and D both end at `pitstop serve` in a foreground terminal.
 That works for a trial but not for daily use: when you close the window,
 log off, or reboot, the server stops.
 
-### The logon entry `ai-memory setup` installs
+### The logon entry `pitstop setup` installs
 
-`ai-memory setup` keeps the server running for as long as you are signed in,
+`pitstop setup` keeps the server running for as long as you are signed in,
 with no administrator rights and no password stored anywhere:
 
-1. It writes an `ai-memory` value under
+1. It writes an `pitstop` value under
    `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, the per-user key
    Windows runs at every logon:
-   `"<path>\ai-memory.exe" --data-dir "<data dir>" --config "<config>" service-host`.
+   `"<path>\pitstop.exe" --data-dir "<data dir>" --config "<config>" service-host`.
 2. It starts that command once right away, so the server answers before your
    next logon.
 3. `service-host` starts a copy of itself detached from any console and exits,
@@ -444,13 +444,13 @@ with no administrator rights and no password stored anywhere:
    seconds, the way the Linux unit's `Restart=on-failure` does. After five
    failures within ten seconds of starting (another server already on the
    port, a broken config) it stops trying; run
-   `ai-memory serve --transport http` in a terminal to see the error.
+   `pitstop serve --transport http` in a terminal to see the error.
 
 The host records its own process id and the server's in
 `<data dir>\service-host.json`. A second `setup` leaves a current entry with a
 running host alone; a changed entry is rewritten and the host restarted.
-`ai-memory uninstall --apply` stops the host and deletes the value, but only
-when the value still has the shape `setup` writes (a quoted `ai-memory.exe`
+`pitstop uninstall --apply` stops the host and deletes the value, but only
+when the value still has the shape `setup` writes (a quoted `pitstop.exe`
 ending in `service-host`) and its `--data-dir` is the data dir being
 uninstalled; a value someone else put under the same name, or the entry of
 another install, is left in place.
@@ -467,7 +467,7 @@ four times a second, kills the server through the process handle it already
 holds, and exits. Only when the host has not exited after ten seconds (a host
 started by an older binary, or a hung one), or when the server outlived its
 host, do they fall back to `taskkill /T /F` on the recorded process ids,
-after checking that each id still belongs to the same ai-memory process.
+after checking that each id still belongs to the same pitstop process.
 The cooperative stop (`Child::kill`) terminates only the server process
 itself, not its process tree, so a subprocess the server started (a CLI-based
 LLM provider in the middle of a consolidation, for one) can linger until it
@@ -481,7 +481,7 @@ service through WinSW, below, and pass `--no-service` to `setup`.
 ### Antivirus / EDR
 
 Behaviour-based endpoint protection watches for programs that make
-themselves start at logon, and `ai-memory.exe` is unsigned. Bitdefender's
+themselves start at logon, and `pitstop.exe` is unsigned. Bitdefender's
 Advanced Threat Control has quarantined it after `setup` wrote the logon
 entry ([#1280](https://github.com/akitaonrails/ai-memory/issues/1280)).
 `setup` avoids the signals known to weigh in that decision:
@@ -497,38 +497,38 @@ entry ([#1280](https://github.com/akitaonrails/ai-memory/issues/1280)).
 That lowers the odds but guarantees nothing; a product can still flag an
 unsigned binary on its own rules.
 
-**How to tell.** A quarantine removes `ai-memory.exe` and leaves the `Run`
+**How to tell.** A quarantine removes `pitstop.exe` and leaves the `Run`
 value behind. The server then never starts at logon, and the hooks keep
-calling a path that is gone. `ai-memory doctor` and `ai-memory status` (from
+calling a path that is gone. `pitstop doctor` and `pitstop status` (from
 any copy of the binary that still exists) check the entry `setup` wrote for
 their data dir and warn with `logon_binary_missing` when the
-`ai-memory.exe` it names is no longer there. The warning is also in their
+`pitstop.exe` it names is no longer there. The warning is also in their
 `--json` output, and `status` prints it even when it cannot reach the
 server, which is the usual state once the binary is gone. Your antivirus
 console or quarantine list shows the detection itself.
 
 **What to do.** Restore the binary from quarantine, or put it back by
 reinstalling, and ask whoever runs the antivirus to allow it (on a managed
-machine that is an administrator change). Then re-run `ai-memory setup`,
+machine that is an administrator change). Then re-run `pitstop setup`,
 which points the entry at the binary you ran it from and starts the host.
-To stop using the logon entry instead, remove it: `ai-memory uninstall
---apply` removes it along with the rest of ai-memory's wiring, or delete
+To stop using the logon entry instead, remove it: `pitstop uninstall
+--apply` removes it along with the rest of pitstop's wiring, or delete
 only the value:
 
 ```powershell
-Remove-ItemProperty -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Run -Name ai-memory
+Remove-ItemProperty -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Run -Name pitstop
 ```
 
 `setup --no-service` skips writing the entry but does not remove one that
-already exists. Without the entry, run `ai-memory serve --transport http`
+already exists. Without the entry, run `pitstop serve --transport http`
 in a terminal or use the WinSW service below.
 
 ### A real Windows service
 
 A Windows service, unlike the logon entry, runs without anyone signed in. It
-needs a **service wrapper**, because ai-memory does not
+needs a **service wrapper**, because pitstop does not
 implement a Windows Service control-code dispatcher, so `sc create` or
-`New-Service` pointed straight at `ai-memory.exe` will not work: the SCM
+`New-Service` pointed straight at `pitstop.exe` will not work: the SCM
 starts the process, waits for it to report in, never hears from it, and
 kills it.
 
@@ -542,17 +542,17 @@ one.
 
 The broken shape is a task whose action is
 `powershell.exe -File start-server.ps1`, where the script calls
-`Start-Process` to launch `ai-memory.exe`:
+`Start-Process` to launch `pitstop.exe`:
 
 1. The task fires and `powershell.exe` runs the script.
-2. `Start-Process` launches `ai-memory.exe` and returns **immediately**;
+2. `Start-Process` launches `pitstop.exe` and returns **immediately**;
    it does not wait for the child.
 3. The script has nothing left to do, so `powershell.exe` exits. Task
    Scheduler records the instance as completed with return code 0
    (operational-log events 201/102).
 4. Task Scheduler runs each task instance inside a **job object**. When
    the action process exits, the job is torn down and every process
-   still assigned to it is terminated. `ai-memory.exe` was started as a
+   still assigned to it is terminated. `pitstop.exe` was started as a
    child of the task's PowerShell and never broke away from the job, so
    it dies with it, in the same second it started.
 
@@ -560,7 +560,7 @@ The server's log therefore contains exactly one line, its own startup
 line, and nothing after it.
 
 **If you specifically want Task Scheduler**, remove the wrapper: point
-the task action at `ai-memory.exe` directly, with `serve` in the
+the task action at `pitstop.exe` directly, with `serve` in the
 arguments, so the process Task Scheduler monitors *is* the server and
 stays in the job for as long as it runs. Then also:
 
@@ -585,25 +585,25 @@ WinSW derives its config filename from its own, so **rename the
 downloaded executable and give the XML the same base name**:
 
 ```powershell
-$Dest = "$env:LOCALAPPDATA\ai-memory"
+$Dest = "$env:LOCALAPPDATA\pitstop"
 # Download the WinSW release matching your runtime (.NET Framework 4.6.1+
 # or the self-contained .NET build) from https://github.com/winsw/winsw/releases
 # Pin a specific release tag rather than "latest", and keep a note of which
 # one you installed — it is a third-party binary running as a service.
-Move-Item .\WinSW-x64.exe "$Dest\ai-memory-service.exe"
+Move-Item .\WinSW-x64.exe "$Dest\pitstop-service.exe"
 ```
 
-`ai-memory-service.xml`, beside it. Substitute your own expanded `$Dest`
-for `C:\Users\you\AppData\Local\ai-memory`, and spell it out rather than
+`pitstop-service.xml`, beside it. Substitute your own expanded `$Dest`
+for `C:\Users\you\AppData\Local\pitstop`, and spell it out rather than
 leaving a variable in the file:
 
 ```xml
 <service>
-  <id>ai-memory</id>
-  <name>ai-memory MCP server</name>
+  <id>pitstop</id>
+  <name>pitstop MCP server</name>
   <description>Long-term memory server for AI coding agents.</description>
-  <executable>C:\Users\you\AppData\Local\ai-memory\ai-memory.exe</executable>
-  <arguments>--data-dir "C:\Users\you\AppData\Local\ai-memory" serve --transport http --bind 127.0.0.1:49374</arguments>
+  <executable>C:\Users\you\AppData\Local\pitstop\pitstop.exe</executable>
+  <arguments>--data-dir "C:\Users\you\AppData\Local\pitstop" serve --transport http --bind 127.0.0.1:49374</arguments>
   <startmode>Automatic</startmode>
   <onfailure action="restart" delay="5 sec"/>
   <log mode="roll"/>
@@ -624,13 +624,13 @@ the service runs as your user.
 Install and start it:
 
 ```powershell
-& "$Dest\ai-memory-service.exe" install
-& "$Dest\ai-memory-service.exe" start
-& "$Dest\ai-memory-service.exe" status
+& "$Dest\pitstop-service.exe" install
+& "$Dest\pitstop-service.exe" start
+& "$Dest\pitstop-service.exe" status
 
 # Verify the server is actually answering, not merely "Running".
-Get-Service ai-memory
-ai-memory status
+Get-Service pitstop
+pitstop status
 ```
 
 `stop`, `restart`, and `uninstall` are the remaining commands. Because
@@ -641,14 +641,14 @@ agents running as your user still reach `127.0.0.1:49374`.
 
 The absolute `--data-dir` above stops the *empty-directory* trap, but it
 does **not** make a `LocalSystem` service safe over a data directory that
-lives under your user profile (`C:\Users\you\AppData\Local\ai-memory`).
+lives under your user profile (`C:\Users\you\AppData\Local\pitstop`).
 The data directory is account-sensitive, and so is the **wiki's git
 repository inside it**. libgit2 enforces the same dubious-ownership guard
 as Git itself (CVE-2022-24765): when the process account is not the owner
 of the repository, every commit fails with `code=Owner (-36)`. The server
 still starts, capture still works, and search still answers, but the
 wiki git history silently stops advancing because a wiki commit failure
-is not fatal. As of ai-memory 2.4.x the server logs this at **ERROR** on
+is not fatal. As of pitstop 2.4.x the server logs this at **ERROR** on
 startup with the same remedy below; on older builds it was a WARN that was
 easy to miss.
 
@@ -678,13 +678,13 @@ the account recorded by the Service Control Manager rather than relying only
 on the wrapper's running state:
 
 ```powershell
-Get-CimInstance Win32_Service -Filter "Name='ai-memory'" |
+Get-CimInstance Win32_Service -Filter "Name='pitstop'" |
   Select-Object Name, StartName, State
 ```
 
 `StartName` must name the intended account, not `LocalSystem`. `LocalSystem`
 is only appropriate when the data directory is in a location that account
-owns outright (e.g. a dedicated `C:\ProgramData\ai-memory` created and owned
+owns outright (e.g. a dedicated `C:\ProgramData\pitstop` created and owned
 by the service account).
 
 > **WinSW error 1069 / stale password.** If `start` fails with *"The
@@ -702,20 +702,20 @@ Keep running `install-mcp` and `install-hooks` **as your own user**, not
 as the service. They write per-user agent config, and the rule at the
 top of this page still applies.
 
-> Verified from the WinSW project documentation and the ai-memory CLI
+> Verified from the WinSW project documentation and the pitstop CLI
 > surface, then run end to end on real hardware by the reporter of
 > [#530](https://github.com/akitaonrails/ai-memory/issues/530), who also
 > root-caused the job-object failure mode above from the Task Scheduler
 > event IDs.
 >
 > **Validated on** Windows 11 25H2 (build 26200.9168) with WinSW v2.12.0
-> (`WinSW-x64.exe`) and ai-memory v1.38.0, from an elevated PowerShell
+> (`WinSW-x64.exe`) and pitstop v1.38.0, from an elevated PowerShell
 > session, against a throwaway service id, port and data directory.
 > Confirmed: `install`; `start`; the service `Running` as `LocalSystem`
 > with `StartType Automatic`; an MCP `initialize` answered over the bound
 > port; the absolute `--data-dir` honoured, with no
-> `systemprofile\AppData\Local\ai-memory` created; crash recovery (the
-> wrapped `ai-memory.exe` was force-killed and a new process was answering
+> `systemprofile\AppData\Local\pitstop` created; crash recovery (the
+> wrapped `pitstop.exe` was force-killed and a new process was answering
 > 8s later), consistent with the 5-second `<onfailure>` delay plus startup;
 > and a clean `stop` + `uninstall`. The service was configured with
 > `StartType Automatic`; actual boot-time startup was not independently
@@ -727,14 +727,14 @@ top of this page still applies.
 ## Native Hook Command (Claude Code on Windows)
 
 By default on native Windows, Claude Code hooks are rendered using Claude's
-exec form: `command` is the real `ai-memory.exe` path and `args` is an argv
+exec form: `command` is the real `pitstop.exe` path and `args` is an argv
 array. This directly spawns the binary instead of sending one quoted string to a
 shell or using a `bash -c` wrapper around a `.sh` script:
 
 ```json
 {
   "type": "command",
-  "command": "C:\\Users\\you\\.cargo\\bin\\ai-memory.exe",
+  "command": "C:\\Users\\you\\.cargo\\bin\\pitstop.exe",
   "args": ["hook", "--event", "pre-tool-use", "--agent", "claude-code", "--server-url", "http://host:49374", "--auth-token", "..."]
 }
 ```
@@ -744,20 +744,20 @@ every tool call. Process spawning is expensive on Windows, so the native
 path is roughly 3-5× faster per hook (measured ~735 ms shell → ~150-205 ms
 native on an i7-6700HQ). Notes:
 
-- The binary path comes from the `ai-memory` that runs `install-hooks`, so
-  `cargo install --locked --path crates/ai-memory-cli` puts it on a stable
+- The binary path comes from the `pitstop` that runs `install-hooks`, so
+  `cargo install --locked --path crates/pitstop-cli` puts it on a stable
   `~/.cargo/bin` path.
 - Exec form requires a real executable path (`.exe`). It does not run `.cmd` or
   `.bat` shims through a shell. `install-hooks` uses the path of the running
-  `ai-memory.exe`, so release binaries and Cargo-built binaries work directly.
+  `pitstop.exe`, so release binaries and Cargo-built binaries work directly.
 - The `.sh`/`.ps1` scripts stay bundled as a fallback: the Docker /
   `setup-agent` flow (no local binary) keeps emitting the shell command.
   For outage parity with the native hooks, both script bundles spool an
   undeliverable event (connection failure, timeout, 5xx) to the same
-  `<data_dir>/hook-spool/` contract `ai-memory hook-drain` reads, and flush
+  `<data_dir>/hook-spool/` contract `pitstop hook-drain` reads, and flush
   the backlog after the next successful delivery; a terminal 4xx is not
   retried.
-- `AI_MEMORY_HOOK_PLATFORM` accepts five values:
+- `PITSTOP_HOOK_PLATFORM` accepts five values:
   - `windows-native`: Claude exec-form direct binary call (default on native Windows).
   - `windows`: PowerShell `-EncodedCommand` + staged `.ps1` script. This is the
     native Windows Docker-wrapper default because the helper container cannot install
@@ -781,7 +781,7 @@ native on an i7-6700HQ). Notes:
 Project auto-scope treats Windows backslashes and POSIX slashes as the same path
 separator when comparing hook `cwd`, stored `repo_path`, and the home-directory
 catch-all guard. Wrappers or tests that need a host home different from the
-process `HOME` can set `AI_MEMORY_HOME`; it is normalized through the same path
+process `HOME` can set `PITSTOP_HOME`; it is normalized through the same path
 boundary before startup healing or cwd-prefix matching.
 
 ### Tuning the spool timings (high-latency instances)
@@ -791,7 +791,7 @@ drain before fetching a handoff; session end starts a detached `hook-drain`
 helper so Claude Code and other agents are not kept open by a large backlog. The
 built-in timings stay short on agent-facing paths, but high-latency or
 large-backlog instances can raise them with whole-minute overrides. Unlike
-`AI_MEMORY_HOOK_PLATFORM`, these are read by the hook **at runtime**, so they
+`PITSTOP_HOOK_PLATFORM`, these are read by the hook **at runtime**, so they
 apply to the agent's environment (no re-`install-hooks` needed):
 
 Native hooks accept well-formed JSON with or without one leading UTF-8 BOM, as
@@ -804,12 +804,12 @@ includes payload contents.
 
 | Env var | Built-in default | Max override | What it caps |
 |---|---:|---:|---|
-| `AI_MEMORY_HOOK_DRAIN_TIMEOUT_MINUTES` | 3 seconds | 60 minutes | each event POST during a drain |
-| `AI_MEMORY_HOOK_HANDOFF_TIMEOUT_MINUTES` | 3 seconds | 60 minutes | the synchronous `session-start` handoff GET |
-| `AI_MEMORY_HOOK_START_BUDGET_MINUTES` | 3 seconds | 60 minutes | total time `session-start` may spend waiting for the drain lock and cleanup draining |
-| `AI_MEMORY_HOOK_BACKGROUND_DRAIN_BUDGET_MINUTES` | 5 minutes | 60 minutes | total time the detached `hook-drain` helper may spend after `session-end` |
-| `AI_MEMORY_HOOK_INCREMENTAL_THRESHOLD` | 32 events | positive integer | spool backlog size that triggers a 250 ms `post-tool-use` catch-up drain |
-| `AI_MEMORY_HOOK_SPOOL_MAX_ATTEMPTS` | 8 failed passes | non-negative integer | failed drain passes before dropping an event; `0` disables only attempt-count drops |
+| `PITSTOP_HOOK_DRAIN_TIMEOUT_MINUTES` | 3 seconds | 60 minutes | each event POST during a drain |
+| `PITSTOP_HOOK_HANDOFF_TIMEOUT_MINUTES` | 3 seconds | 60 minutes | the synchronous `session-start` handoff GET |
+| `PITSTOP_HOOK_START_BUDGET_MINUTES` | 3 seconds | 60 minutes | total time `session-start` may spend waiting for the drain lock and cleanup draining |
+| `PITSTOP_HOOK_BACKGROUND_DRAIN_BUDGET_MINUTES` | 5 minutes | 60 minutes | total time the detached `hook-drain` helper may spend after `session-end` |
+| `PITSTOP_HOOK_INCREMENTAL_THRESHOLD` | 32 events | positive integer | spool backlog size that triggers a 250 ms `post-tool-use` catch-up drain |
+| `PITSTOP_HOOK_SPOOL_MAX_ATTEMPTS` | 8 failed passes | non-negative integer | failed drain passes before dropping an event; `0` disables only attempt-count drops |
 
 The retry setting can also be written as `max_attempts` under `[hook_spool]` in
 `<data_dir>/config.toml`; the runtime environment wins when both are set. A zero
@@ -824,7 +824,7 @@ the agent waiting.
 
 On Windows, a contended drain lock can be reported as the native
 `ERROR_LOCK_VIOLATION` code instead of Rust's `WouldBlock` error kind.
-ai-memory treats both as normal lock-busy states, so concurrent drains wait,
+pitstop treats both as normal lock-busy states, so concurrent drains wait,
 skip, or expire according to the same spool timing rules instead of failing the
 hook.
 
@@ -840,8 +840,8 @@ from what the repository actually ships today.
 - **CI trigger coverage: done.** `.github/workflows/windows.yml` runs on a
   nightly `schedule`, on `workflow_dispatch`, and on pull requests. A pull
   request that touches platform-sensitive code (path handling, file locking,
-  git plumbing, the hook bundle: `crates/ai-memory-{wiki,store,hooks}/**`,
-  `crates/ai-memory-cli/src/commands/install_hooks.rs`, `hooks/**`,
+  git plumbing, the hook bundle: `crates/pitstop-{wiki,store,hooks}/**`,
+  `crates/pitstop-cli/src/commands/install_hooks.rs`, `hooks/**`,
   `tests/hooks/**`, and the workflow itself) now opts in automatically via the
   workflow's leading `changes` job (`dorny/paths-filter`, SHA-pinned); the
   `windows` label remains a manual override for PRs outside those paths, so
@@ -849,7 +849,7 @@ from what the repository actually ships today.
 
 - **Hook-bundle Windows job: done.** The `hooks` job in `windows.yml` runs
   `tests/hooks/test_lib.sh` on `windows-latest`. That suite drives
-  `hooks/lib/ai-memory-hook.ps1`, whose PowerShell branch only ever executes
+  `hooks/lib/pitstop-hook.ps1`, whose PowerShell branch only ever executes
   natively on Windows, so CI now exercises that PowerShell code on the platform
   it targets instead of leaving it to a contributor's machine.
 
@@ -868,15 +868,15 @@ from what the repository actually ships today.
   **App Control for Business** or **Smart App Control**, unsigned binaries run
   from user-writable directories are blocked. This is the `os error 4551`
   build failure documented in Scenario D, and it can equally block an unsigned
-  released `ai-memory.exe`. Signing needs a code-signing certificate and a
+  released `pitstop.exe`. Signing needs a code-signing certificate and a
   decision on how its private material is held as a CI secret (and rotated).
   Both are maintainer/policy calls, so this item is deferred until that
   decision is made; it is a blocker for a frictionless Supported experience on
   Application-Control-enforced fleets.
 
-- **Native `ai-memory upgrade` path: done.** `ai-memory upgrade` upgrades a
+- **Native `pitstop upgrade` path: done.** `pitstop upgrade` upgrades a
   writable native install in place (#801, #802): it verifies the
-  `ai-memory-windows-x86_64.zip` checksum, replaces `ai-memory.exe` by
+  `pitstop-windows-x86_64.zip` checksum, replaces `pitstop.exe` by
   rename-aside, refreshes a sibling `hooks/` tree, and re-stages installed
   hooks (see Scenario C). A non-writable prefix (for example under Program
   Files) still upgrades through the manual download/extract sequence.
@@ -891,25 +891,25 @@ accepted as out of scope for the tier).
 Windows hook support is new and needs real-world testing against native
 Windows agent builds.
 
-- There is no Windows Service dispatcher in `ai-memory.exe`; persistence
+- There is no Windows Service dispatcher in `pitstop.exe`; persistence
   comes from a wrapper ([Scenario
   E](#scenario-e-keep-the-server-running-native-windows-service)), the same
   way it comes from systemd on Linux.
 
 - Claude Code may be used natively on Windows or from inside WSL2. Native
   Claude Code invokes hooks as a direct binary call (no shell) by default;
-  `AI_MEMORY_HOOK_PLATFORM=windows-bash` restores the Git Bash `bash -c`
+  `PITSTOP_HOOK_PLATFORM=windows-bash` restores the Git Bash `bash -c`
   path. WSL2 Claude Code uses normal WSL `.sh` paths.
 - Codex, Command Code, Devin CLI, OpenCode, Cursor, Gemini CLI, Antigravity
   CLI, Grok Build CLI, Zero, Kimi Code, and OpenClaw may each choose different
-  Windows config locations or shell execution behavior. ai-memory uses
+  Windows config locations or shell execution behavior. pitstop uses
   the current best-known defaults, but they need validation on real
   installations.
 - MCP over HTTP should be less path-sensitive than hooks, but
   `install-mcp --apply` still writes to a client-specific config file;
   confirm the agent actually loads it.
-- OpenClaw, OpenCode (V1 `ai-memory.ts` or V2
-  `ai-memory-opencode2.ts`, selected from the resolved executable major), OMP /
+- OpenClaw, OpenCode (V1 `pitstop.ts` or V2
+  `pitstop-opencode2.ts`, selected from the resolved executable major), OMP /
   Oh My Pi, and Pi use generated TypeScript integrations rather than the shell
   hook bundle, so their Windows
   behavior depends on the host runtime loading those files correctly.
@@ -924,21 +924,21 @@ For WSL2:
 2. Confirm generated hook commands reference `.sh` files under WSL paths.
 3. Launch the agent from WSL2.
 4. Call `memory_status` from the agent.
-5. Record `ai-memory status`, send a prompt, then confirm its `sessions` or
+5. Record `pitstop status`, send a prompt, then confirm its `sessions` or
    `observations` count increased.
 
 For native Windows:
 
 1. Run all install commands from PowerShell or `cmd.exe` using
-   `ai-memory` / `ai-memory.ps1`.
+   `pitstop` / `pitstop.ps1`.
 2. Confirm generated hook commands match the agent: Claude Code should use
-   the native `"…ai-memory.exe" hook --event …` command (or `bash -c` + `.sh`
-   when `AI_MEMORY_HOOK_PLATFORM=windows-bash`); other script-hook agents
+   the native `"…pitstop.exe" hook --event …` command (or `bash -c` + `.sh`
+   when `PITSTOP_HOOK_PLATFORM=windows-bash`); other script-hook agents
    should use `powershell.exe ... -EncodedCommand <payload>` entries for the
    generated `.ps1` hooks under your Windows home directory.
 3. Launch the native Windows agent.
 4. Call `memory_status` from the agent.
-5. Record `ai-memory status`, send a prompt, then confirm its `sessions` or
+5. Record `pitstop status`, send a prompt, then confirm its `sessions` or
    `observations` count increased.
 
 Report which mode you tested, which agent and version you used, and

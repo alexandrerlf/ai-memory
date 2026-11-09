@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Sandboxed end-to-end test of the ai-memory Codex plugin (#1166).
+"""Sandboxed end-to-end test of the pitstop Codex plugin (#1166).
 
 Run with:
 
     uv run --no-project python tests/e2e/codex_plugin_smoke.py \
-      --ai-memory-bin /absolute/ai-memory --repo-root .
+      --pitstop-bin /absolute/pitstop --repo-root .
 
 It needs the `codex` CLI on PATH and no OpenAI credentials. Everything runs
 in a scratch HOME and CODEX_HOME; the model provider points at a closed
@@ -12,7 +12,7 @@ loopback port, so no request leaves the machine. Steps:
 
 1. publish `plugins/codex` and the Codex catalog into a throwaway git repo
    (the committed catalog pins a release tag that may not exist yet), then
-   `codex plugin marketplace add` it and `codex plugin add ai-memory@ai-memory`;
+   `codex plugin marketplace add` it and `codex plugin add pitstop@pitstop`;
 2. `codex app-server` reports the plugin's seven hooks, its skills and its
    MCP server, and every hook starts untrusted;
 3. after trusting the hooks, a thread and a turn fire the plugin's
@@ -61,7 +61,7 @@ class Sandbox:
         for directory in (self.codex_home, self.bin_dir, self.project):
             directory.mkdir(parents=True, exist_ok=True)
         # The plugin finds the binary on PATH, as for a real install.
-        (self.bin_dir / "ai-memory").symlink_to(binary)
+        (self.bin_dir / "pitstop").symlink_to(binary)
         codex = shutil.which("codex")
         if codex is None:
             raise SmokeFailure("the codex CLI is not on PATH")
@@ -74,9 +74,9 @@ class Sandbox:
             "HOME": str(self.home),
             "PATH": self.path,
             "CODEX_HOME": str(self.codex_home),
-            "AI_MEMORY_DATA_DIR": str(self.data),
+            "PITSTOP_DATA_DIR": str(self.data),
             # A closed port: events stay in the spool for inspection.
-            "AI_MEMORY_SERVER_URL": "http://127.0.0.1:9",
+            "PITSTOP_SERVER_URL": "http://127.0.0.1:9",
             "LANG": "C.UTF-8",
             "TERM": "dumb",
         }
@@ -220,7 +220,7 @@ class Sandbox:
         check(2 in replies, "hooks/list did not answer")
         data = replies[2]["result"]["data"][0]
         check(not data["errors"], f"hook errors: {data['errors']}")
-        return [hook for hook in data["hooks"] if hook.get("pluginId") == "ai-memory@ai-memory"]
+        return [hook for hook in data["hooks"] if hook.get("pluginId") == "pitstop@pitstop"]
 
     def spooled(self) -> list[str]:
         spool = self.data / "hook-spool"
@@ -231,15 +231,15 @@ class Sandbox:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--ai-memory-bin", required=True, type=Path)
+    parser.add_argument("--pitstop-bin", required=True, type=Path)
     parser.add_argument("--repo-root", required=True, type=Path)
     parser.add_argument("--artifacts-parent", type=Path)
     args = parser.parse_args()
     parent = args.artifacts_parent.resolve() if args.artifacts_parent else None
-    root = Path(tempfile.mkdtemp(prefix="ai-memory-codex-plugin-e2e-", dir=parent))
-    box = Sandbox(root, args.ai_memory_bin.resolve(), args.repo_root.resolve())
+    root = Path(tempfile.mkdtemp(prefix="pitstop-codex-plugin-e2e-", dir=parent))
+    box = Sandbox(root, args.pitstop_bin.resolve(), args.repo_root.resolve())
     try:
-        (box.project / ".ai-memory.toml").write_text(
+        (box.project / ".pitstop.toml").write_text(
             f'workspace = "{WORKSPACE}"\nproject = "{PROJECT}"\n', encoding="utf-8"
         )
         # No request may leave the machine: a model provider on a closed port.
@@ -250,7 +250,7 @@ def main() -> int:
         )
         box.publish_catalog()
         box.run("codex", "plugin", "marketplace", "add", str(box.catalog))
-        box.run("codex", "plugin", "add", "ai-memory@ai-memory")
+        box.run("codex", "plugin", "add", "pitstop@pitstop")
 
         hooks = box.hooks()
         check(len(hooks) == 7, f"expected 7 plugin hooks, saw {len(hooks)}")
@@ -262,15 +262,15 @@ def main() -> int:
                     "jsonrpc": "2.0",
                     "id": 2,
                     "method": "plugin/read",
-                    "params": {"marketplacePath": str(box.catalog / ".agents/plugins/marketplace.json"), "pluginName": "ai-memory"},
+                    "params": {"marketplacePath": str(box.catalog / ".agents/plugins/marketplace.json"), "pluginName": "pitstop"},
                 },
             ],
             until=2,
         )
         plugin = replies[2]["result"]["plugin"]
         check(len(plugin["skills"]) == 7, f"skills: {len(plugin['skills'])}")
-        check(plugin["mcpServers"] == ["ai-memory"], f"mcp: {plugin['mcpServers']}")
-        print("ok: the Codex plugin installs with 7 untrusted hooks, 7 skills and the ai-memory MCP server")
+        check(plugin["mcpServers"] == ["pitstop"], f"mcp: {plugin['mcpServers']}")
+        print("ok: the Codex plugin installs with 7 untrusted hooks, 7 skills and the pitstop MCP server")
 
         trust = "".join(
             f'\n[hooks.state."{hook["key"]}"]\ntrusted_hash = "{hook["currentHash"]}"\n' for hook in hooks
@@ -289,7 +289,7 @@ def main() -> int:
 
         box.publish_catalog(version_suffix="-next")
         # A local marketplace is read in place: re-adding installs the bump.
-        added = box.run("codex", "plugin", "add", "ai-memory@ai-memory").stdout
+        added = box.run("codex", "plugin", "add", "pitstop@pitstop").stdout
         check("-next" in added, f"the bumped version was not installed: {added}")
         statuses = {hook["trustStatus"] for hook in box.hooks()}
         check(statuses == {"trusted"}, f"trust after a plugin upgrade: {statuses}")

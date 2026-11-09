@@ -1,7 +1,7 @@
 # Management console
 
 The optional console at `/manage` is server-rendered by askama in
-`ai-memory-web`, using the existing vendored Tailwind stylesheet. Ordinary
+`pitstop-web`, using the existing vendored Tailwind stylesheet. Ordinary
 Cargo builds require no Node, npm, bundler, or JavaScript framework. A small
 hash-authorized inline script enhances theme selection and password validation;
 login, account management, and session/key operations also work without JavaScript.
@@ -9,23 +9,23 @@ login, account management, and session/key operations also work without JavaScri
 ## Enable it
 
 ```bash
-cargo build --locked --release -p ai-memory-cli --features management-ui
-./target/release/ai-memory serve --transport http --enable-management-ui
+cargo build --locked --release -p pitstop-cli --features management-ui
+./target/release/pitstop serve --transport http --enable-management-ui
 ```
 
-The runtime setting is `AI_MEMORY_ENABLE_MANAGEMENT_UI=true`. Both build and
+The runtime setting is `PITSTOP_ENABLE_MANAGEMENT_UI=true`. Both build and
 runtime switches default to off. Without either, the console is absent. The UI
 build includes the independently reviewable `session-management` and
 `self-service-keys` features; enabling the UI also enables their HTTP routes.
 They can instead be built and enabled individually without a UI; see
 [session management](session-management.md) and [self-service keys](self-service-keys.md).
 
-With `AI_MEMORY_BASE_PATH=/memory`, open `/memory/manage`. No `--enable-web` or
+With `PITSTOP_BASE_PATH=/memory`, open `/memory/manage`. No `--enable-web` or
 `--enable-api` is required. If the wiki browser is also enabled, its `--web-slug`
 must differ from `/manage`.
 
-For Docker source builds, pass `--build-arg AI_MEMORY_FEATURES=management-ui` and
-set `AI_MEMORY_ENABLE_MANAGEMENT_UI=true` when running the image. The standard
+For Docker source builds, pass `--build-arg PITSTOP_FEATURES=management-ui` and
+set `PITSTOP_ENABLE_MANAGEMENT_UI=true` when running the image. The standard
 release image does not include the optional console.
 
 ## Authentication and deployment
@@ -51,7 +51,7 @@ Disabling an account removes browser access but leaves existing machine keys
 active until explicitly revoked, as with the existing CLI.
 
 Use the existing [HTTPS reverse-proxy setup](https-via-proxy.md), secure cookies,
-and `AI_MEMORY_ALLOWED_HOSTS`. A VPN is optional. Forward the original `Host`
+and `PITSTOP_ALLOWED_HOSTS`. A VPN is optional. Forward the original `Host`
 header: plain POST forms require an HTTP(S) Origin with the same authority and
 accept only `Sec-Fetch-Site: same-origin` or `none` when that browser metadata
 is present; `same-site`, `cross-site`, malformed, and mismatched-origin
@@ -98,11 +98,11 @@ delegates to engine routers. The normal wiki browser remains read-only. Session
 and event pagination uses the page size returned by the engine API.
 
 ```bash
-TAILWIND_BUILD=1 cargo build -p ai-memory-web --features management-ui
+TAILWIND_BUILD=1 cargo build -p pitstop-web --features management-ui
 cargo fmt --all -- --check
 git diff --check
-cargo clippy --workspace --all-targets --features ai-memory-cli/management-ui -- -D warnings
-cargo tf --features ai-memory-cli/management-ui
+cargo clippy --workspace --all-targets --features pitstop-cli/management-ui -- -D warnings
+cargo tf --features pitstop-cli/management-ui
 ```
 
 Commit regenerated `static/tailwind.css` when templates or styles change.

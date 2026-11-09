@@ -1,4 +1,4 @@
-//! Spawn and supervise a real `ai-memory serve` subprocess for the
+//! Spawn and supervise a real `pitstop serve` subprocess for the
 //! benchmark. The whole point of the harness is to measure the shipped
 //! stack, so nothing here reaches into crates directly: the server is
 //! the same binary a user runs, configured for deterministic zero-LLM
@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 
 /// Fixed bearer for the eval server (ephemeral data dir, loopback bind).
-pub const EVAL_AUTH_TOKEN: &str = "ai-memory-eval-token";
+pub const EVAL_AUTH_TOKEN: &str = "pitstop-eval-token";
 
 pub struct EvalServer {
     child: Child,
@@ -49,10 +49,10 @@ pub struct LaunchConfig<'a> {
     pub embeddings: EvalEmbeddings,
     /// When `embeddings == Local`, the models root to seed the server from.
     pub models_root: Option<&'a std::path::Path>,
-    /// Document-embedding cache root (`AI_MEMORY_EVAL_EMBEDDING_CACHE_DIR`),
+    /// Document-embedding cache root (`PITSTOP_EVAL_EMBEDDING_CACHE_DIR`),
     /// `None` for a cold run.
     pub embedding_cache: Option<&'a std::path::Path>,
-    /// Turn the post-RRF reranker on (`AI_MEMORY_RERANKER=llm`). Requires
+    /// Turn the post-RRF reranker on (`PITSTOP_RERANKER=llm`). Requires
     /// an LLM provider to be supplied through `env` — the harness does not
     /// configure one, so a bare `reranker=true` with no provider is a no-op
     /// the server logs and ignores.
@@ -73,7 +73,7 @@ impl EvalServer {
         let embeddings = config.embeddings;
         let models_root = config.models_root;
         let tmp = tempfile::Builder::new()
-            .prefix("ai-memory-eval-")
+            .prefix("pitstop-eval-")
             .tempdir()
             .context("creating eval data dir")?;
         let data_dir_path = tmp.path().to_path_buf();
@@ -107,14 +107,14 @@ impl EvalServer {
             "--data-dir",
         ])
         .arg(&data_dir_path)
-        .env("AI_MEMORY_AUTH_TOKEN", EVAL_AUTH_TOKEN)
-        .env("AI_MEMORY_CAPTURE_ASSISTANT", "true")
+        .env("PITSTOP_AUTH_TOKEN", EVAL_AUTH_TOKEN)
+        .env("PITSTOP_CAPTURE_ASSISTANT", "true")
         // Start from a hermetic baseline: no chat LLM, no reranker, no
         // inherited provider keys. The knob matrix below re-enables only
         // what the config asks for, so a run never picks up the
         // developer's ambient environment.
-        .env_remove("AI_MEMORY_LLM_PROVIDER")
-        .env_remove("AI_MEMORY_RERANKER")
+        .env_remove("PITSTOP_LLM_PROVIDER")
+        .env_remove("PITSTOP_RERANKER")
         .env_remove("OPENAI_API_KEY")
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("LLM_API_KEY");
@@ -123,22 +123,22 @@ impl EvalServer {
                 // Explicit: with 2.0's default-on local embeddings, an
                 // UNSET provider would start a background model download
                 // per spawned server. The baseline must be hermetic.
-                cmd.env("AI_MEMORY_EMBEDDING_PROVIDER", "none");
+                cmd.env("PITSTOP_EMBEDDING_PROVIDER", "none");
             }
             EvalEmbeddings::Local => {
-                cmd.env("AI_MEMORY_EMBEDDING_PROVIDER", "local");
+                cmd.env("PITSTOP_EMBEDDING_PROVIDER", "local");
             }
         }
         // Eval-only server hook: reuse haystack document vectors across runs.
         // An inherited value would silently warm a run meant to be cold.
         match config.embedding_cache {
-            Some(root) => cmd.env("AI_MEMORY_EVAL_EMBEDDING_CACHE_DIR", root),
-            None => cmd.env_remove("AI_MEMORY_EVAL_EMBEDDING_CACHE_DIR"),
+            Some(root) => cmd.env("PITSTOP_EVAL_EMBEDDING_CACHE_DIR", root),
+            None => cmd.env_remove("PITSTOP_EVAL_EMBEDDING_CACHE_DIR"),
         };
         if config.reranker {
             // Only `llm` is a supported reranker; it needs a provider,
             // which the config must supply via `env`.
-            cmd.env("AI_MEMORY_RERANKER", "llm");
+            cmd.env("PITSTOP_RERANKER", "llm");
         }
         // Config env overrides win over every default above.
         for (key, value) in config.env {

@@ -21,21 +21,21 @@ wall clock differs, because runs before October 2026 paid for the commits.
   runs, this one ran while several agent sessions shared the machine. The
   accuracy numbers are load-insensitive; the query latencies below are not,
   and the load context is stated with them.
-- commands, after building `ai-memory` and `ai-memory-eval` in release mode:
+- commands, after building `pitstop` and `pitstop-eval` in release mode:
 
   ```bash
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
 
-  ai-memory-eval retrieval \
-    --server-bin target/release/ai-memory \
+  pitstop-eval retrieval \
+    --server-bin target/release/pitstop \
     --concurrency 6 --http-timeout-secs 900 \
     --embeddings local \
-    --server-env AI_MEMORY_RETRIEVAL__OBSERVATION_STREAM=true \
-    --server-env AI_MEMORY_EVAL_SKIP_WIKI_CHECKPOINTS=1
+    --server-env PITSTOP_RETRIEVAL__OBSERVATION_STREAM=true \
+    --server-env PITSTOP_EVAL_SKIP_WIKI_CHECKPOINTS=1
   ```
 
 - run dirs: `evals/runs/2026-10-22T17-11-44-812925488Z-retrieval` (FTS)

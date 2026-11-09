@@ -1,11 +1,11 @@
 {
-  "name": "ai-memory",
+  "name": "pitstop",
   "interface": {
-    "displayName": "ai-memory"
+    "displayName": "pitstop"
   },
   "plugins": [
     {
-      "name": "ai-memory",
+      "name": "pitstop",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/akitaonrails/ai-memory.git",

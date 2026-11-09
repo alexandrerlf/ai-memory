@@ -13,29 +13,29 @@ Warp, Kilo Code, Goose and OpenHuman have no
 > is enabled. The MCP wire protocol expects the `/mcp` path suffix on the URL.
 
 > **Token kept in the data dir.** When this install's bearer comes from
-> `[auth].bearer_token_file` (every fresh `ai-memory init`, and
-> `ai-memory auth enable`), `install-mcp` never writes it into a client's
-> config. Claude Code gets the session-aware `ai-memory mcp-bridge` stdio
+> `[auth].bearer_token_file` (every fresh `pitstop init`, and
+> `pitstop auth enable`), `install-mcp` never writes it into a client's
+> config. Claude Code gets the session-aware `pitstop mcp-bridge` stdio
 > entry, and Muse Code always gets one (`mcp-bridge --agent muse`, which reads
 > the token file itself); Codex (`bearer_token_env_var`), Prime Agent (`bearerTokenEnvVar`) and
-> Factory Droid (`Bearer ${AI_MEMORY_AUTH_TOKEN}` in `headers`) name
-> `AI_MEMORY_AUTH_TOKEN`, which you export where you start them. Every
+> Factory Droid (`Bearer ${PITSTOP_AUTH_TOKEN}` in `headers`) name
+> `PITSTOP_AUTH_TOKEN`, which you export where you start them. Every
 > other client gets a local stdio entry, in its own format, that runs
-> `ai-memory mcp-bridge --no-session-id --server-url <url>`: the bridge reads
+> `pitstop mcp-bridge --no-session-id --server-url <url>`: the bridge reads
 > the token file at launch and forwards no session id, so the client passes
 > `workspace` and `project` like any static client. When a call names no
 > scope, the bridge fills in the project of the directory the client launched
 > it from, resolved the way the CLI resolves one (see
 > [`auto-scope.md`](auto-scope.md#the-session-less-bridges-launch-scope)). Stdio entries name the
-> `ai-memory` binary by its absolute path, so the client does not need it on
-> its `PATH`; the Docker wrapper keeps the bare `ai-memory`. When the install
-> was given a data dir (`--data-dir`, `AI_MEMORY_DATA_DIR` or `data_dir` in
+> `pitstop` binary by its absolute path, so the client does not need it on
+> its `PATH`; the Docker wrapper keeps the bare `pitstop`. When the install
+> was given a data dir (`--data-dir`, `PITSTOP_DATA_DIR` or `data_dir` in
 > the config), every bridge entry names it with `--data-dir`, as that
 > install's hooks do, so the bridge reads that install's config and token
 > rather than the default data dir's. ZCode keeps
 > HTTP entries only and is refused. Hermes Agent gets the bridge entry
 > whatever the token source, so its config never holds a token. Passing `--auth-token` explicitly (or
-> `AI_MEMORY_AUTH_TOKEN`) keeps the HTTP snippets below, header included.
+> `PITSTOP_AUTH_TOKEN`) keeps the HTTP snippets below, header included.
 > The two entries that run the bridge with an explicit key are the
 > exception: `install-mcp --apply --auth-token <key>` for Claude Code with
 > `--session-aware`, and for Muse, stores the key in `<data_dir>/auth-token`,
@@ -52,7 +52,7 @@ Warp, Kilo Code, Goose and OpenHuman have no
 > client does not relaunch an MCP server that exited, so `mcp-bridge` waits
 > up to 3 seconds for a server whose port refuses connections (a service
 > restarting after an upgrade or a reboot) before it gives up. When nothing
-> answers, it exits with `could not reach the ai-memory server at <url>` and
+> answers, it exits with `could not reach the pitstop server at <url>` and
 > says to check that the server is running and that the entry points at it.
 > Other connection failures, such as a host name that does not resolve, are
 > reported at once.
@@ -62,7 +62,7 @@ Warp, Kilo Code, Goose and OpenHuman have no
 > capability and push a count-only pending-mail notice when it changes.
 > Claude loads it only when started with
 > `claude --dangerously-load-development-channels server:<entry name>`, since
-> the ai-memory bridge is not on Claude's channel allowlist. See
+> the pitstop bridge is not on Claude's channel allowlist. See
 > [`agent-messaging.md`](agent-messaging.md#mid-session-notices-for-claude-code).
 
 > **Transport is stateless by default.** Since v0.1.2 the HTTP transport
@@ -73,13 +73,13 @@ Warp, Kilo Code, Goose and OpenHuman have no
 > needed for **Claude Desktop** specifically, because its config only
 > supports stdio servers; session state has nothing to do with it. If you run a
 > client that *requires* MCP session continuity or server-initiated SSE
-> streams, start the server with `ai-memory serve --transport http
+> streams, start the server with `pitstop serve --transport http
 > --http-stateful` to restore the legacy initialize-era session mode. Clients
 > that speak MCP 2026-07-28 use `server/discover` and per-request version
 > metadata, both served without a session; clients that send the older
 > `initialize` handshake keep working.
 
-This page documents how to register ai-memory as an MCP server with
+This page documents how to register pitstop as an MCP server with
 agent CLIs beyond the README quick start. For OpenCode, the generic
 `install-mcp --client opencode` command probes `opencode --version` and writes
 the matching V1 direct `mcp` or V2 nested `mcp.servers` entry. Strict semantic
@@ -100,12 +100,12 @@ Claude Code may use its supported Windows exec form; other agents use native
 single command strings according to their hook schema. PowerShell/Git Bash
 script bundles are compatibility fallbacks and do not enforce capture-policy
 v1. Grok and Zero capture lifecycle events, but both ignore
-SessionStart stdout, so ai-memory does not auto-inject handoffs for them.
+SessionStart stdout, so pitstop does not auto-inject handoffs for them.
 SessionStart handoff injection works only for clients that consume startup-hook
 stdout (or their equivalent context-injection result). Grok's first-turn rule
-(`$GROK_HOME/rules/ai-memory-handoff.md`, installed with the Grok hooks and
+(`$GROK_HOME/rules/pitstop-handoff.md`, installed with the Grok hooks and
 with global Grok skills) has the model call `memory_handoff_list` through
-`use_tool` with the qualified catalog key `ai-memory__memory_handoff_list`, so
+`use_tool` with the qualified catalog key `pitstop__memory_handoff_list`, so
 the first `PostToolUse` can claim the baton; Zero must call
 `memory_handoff_list` then
 `memory_handoff_accept` when resuming.
@@ -121,9 +121,9 @@ Reinstall/refresh an existing hook or plugin to gain it; see
 
 Claude Desktop's ordinary Chat surface, VS Code Copilot and Zed
 are **MCP-only** here:
-they expose long-term memory to their LLMs via ai-memory's MCP tools
+they expose long-term memory to their LLMs via pitstop's MCP tools
 (`memory_query`, `memory_recent`, `memory_handoff_accept`, etc.), but
-they do not auto-capture session events into ai-memory's `/hook`
+they do not auto-capture session events into pitstop's `/hook`
 endpoint. The trade-off:
 
 | | What you get | What you don't get |
@@ -138,28 +138,28 @@ For proactive tool use in MCP-capable clients that read project instructions,
 also install the managed routing package from
 [`docs/usage.md`](usage.md#install-the-routing-snippet-and-agent-skills). The
 slim instruction block stays in the agent rules file, while supported Agent
-Skills carry the detailed ai-memory tool-routing guidance.
+Skills carry the detailed pitstop tool-routing guidance.
 
 ## Custom lifecycle bridges
 
-Built-in integrations should use `ai-memory install-hooks` rather than
+Built-in integrations should use `pitstop install-hooks` rather than
 calling `/hook` directly. For a third-party bridge that has its own
 lifecycle vocabulary, keep the core `event` query param on one of
-ai-memory's canonical events when possible:
+pitstop's canonical events when possible:
 
 ### Hermes Agent
 
-ai-memory ships a first-party Hermes integration: lifecycle hooks and an MCP
+pitstop ships a first-party Hermes integration: lifecycle hooks and an MCP
 entry, both printed for you to merge into `~/.hermes/config.yaml`
-(`$HERMES_HOME/config.yaml`), which ai-memory never writes.
+(`$HERMES_HOME/config.yaml`), which pitstop never writes.
 
 ```bash
-ai-memory install-hooks --agent hermes --server-url "http://homelab:49374"
-ai-memory install-mcp --client hermes
-ai-memory install-skills --scope global --agent hermes
+pitstop install-hooks --agent hermes --server-url "http://homelab:49374"
+pitstop install-mcp --client hermes
+pitstop install-skills --scope global --agent hermes
 ```
 
-The hooks block runs the native `ai-memory hook` command in exec form, since
+The hooks block runs the native `pitstop hook` command in exec form, since
 Hermes splits each `command` with `shlex.split` and runs it with no shell. It
 wires the tool events and the session lifecycle: `on_session_start`,
 `pre_llm_call` (the prompt, plus any pending handoff as `{"context": ...}` on
@@ -173,24 +173,24 @@ multiplexing gateway's bots and the
 `finalize-session --agent hermes` step for idle gateway sessions.
 
 `install-mcp --client hermes` (alias `hermes-agent`) prints an entry for the
-`mcp_servers:` map that runs `ai-memory mcp-bridge --no-session-id` over stdio
+`mcp_servers:` map that runs `pitstop mcp-bridge --no-session-id` over stdio
 with the install's `--data-dir`. The file gets no token: the bridge sends the
 install's own, which matters because Hermes passes MCP servers a filtered
-environment without `AI_MEMORY_AUTH_TOKEN`. Hermes is a static client, so the
+environment without `PITSTOP_AUTH_TOKEN`. Hermes is a static client, so the
 model passes `workspace` and `project` on project-scoped calls. `--apply` is
 refused. Hermes does not read MCP server instructions, so the routing rules
 reach the model only through the skills in `~/.hermes/skills` and the handoff
 in the next primary-session turn.
 
 The community-maintained
-[`ai-memory-hermes-plugin`](https://github.com/MrLuciano/ai-memory-hermes-plugin)
+[`pitstop-hermes-plugin`](https://github.com/MrLuciano/pitstop-hermes-plugin)
 memory provider is an alternative for prompts, session ends, recall and the
 handoff. Treat it as a third-party bridge: verify its documented Hermes and
-ai-memory version matrix, install/update/uninstall behavior, platform coverage,
-and secret handling before enabling it on a live ai-memory server. Bearer tokens
+pitstop version matrix, install/update/uninstall behavior, platform coverage,
+and secret handling before enabling it on a live pitstop server. Bearer tokens
 and endpoint settings should stay in environment or local config references
 rather than generated plugin source files. Run only one lifecycle path: when the
-plugin is installed in `$HERMES_HOME/plugins/ai-memory`, `install-hooks --agent
+plugin is installed in `$HERMES_HOME/plugins/pitstop`, `install-hooks --agent
 hermes` prints only `pre_tool_call` and `post_tool_call`, so prompts are not
 captured twice and the handoff is not claimed twice. The check is the
 directory alone, as seen with the command's own `HERMES_HOME`; see
@@ -201,15 +201,15 @@ The hook router recognizes `agent=hermes` as a concrete session kind and
 accepts Hermes' shell-hook `tool_name` / `tool_input` envelope for tool-family
 metadata and capture-exclusion enforcement. A custom bridge should map
 `pre_llm_call`, `post_tool_call`, `on_session_end` and `on_session_finalize` to
-ai-memory's canonical `user-prompt`, `post-tool-use`, `stop` and `session-end`
+pitstop's canonical `user-prompt`, `post-tool-use`, `stop` and `session-end`
 events, sending the prompt text as `prompt` rather than Hermes' whole `extra`
 object, which carries the conversation history. This protocol recognition does
 not install or trust a third-party plugin.
 
 The same lifecycle guidance below applies to Hermes or any other external
-bridge: map known events onto ai-memory's canonical hook events where
+bridge: map known events onto pitstop's canonical hook events where
 possible, and use extension metadata for source-specific events instead of
-expanding ai-memory's stored event enum for one client.
+expanding pitstop's stored event enum for one client.
 
 ```bash
 curl -X POST \
@@ -219,7 +219,7 @@ curl -X POST \
 ```
 
 If the source event has no canonical equivalent, opt in to extension
-metadata instead of asking ai-memory to expand its stored event enum:
+metadata instead of asking pitstop to expand its stored event enum:
 
 ```bash
 curl -X POST \
@@ -229,7 +229,7 @@ curl -X POST \
 ```
 
 With `extension=<namespace>`, unknown events are still stored as the
-canonical `other` observation kind, but ai-memory also preserves the
+canonical `other` observation kind, but pitstop also preserves the
 validated source event. You may pass `source_event=<name>` explicitly;
 otherwise an unknown `event` value becomes the source event. Both tokens
 must be ASCII letters, digits, `.`, `_`, `-`, or `:`; namespaces are
@@ -240,7 +240,7 @@ metadata.
 > **One-shot tip:** every snippet below is also reachable from the
 > CLI:
 > ```bash
-> ai-memory install-mcp --client gemini-cli   # or cursor / claude-desktop / openclaw / omp / pi / antigravity-cli / grok / kimi-code / kiro-cli / command-code / swival / devin / zero / zcode / copilot-cli / vscode-copilot / zed / muse / dsh / cline / freebuff / prime-agent
+> pitstop install-mcp --client gemini-cli   # or cursor / claude-desktop / openclaw / omp / pi / antigravity-cli / grok / kimi-code / kiro-cli / command-code / swival / devin / zero / zcode / copilot-cli / vscode-copilot / zed / muse / dsh / cline / freebuff / prime-agent
 > ```
 
 ---
@@ -248,8 +248,8 @@ metadata.
 ## Cline CLI
 
 ```bash
-ai-memory install-mcp --client cline --apply
-ai-memory install-hooks --agent cline --apply
+pitstop install-mcp --client cline --apply
+pitstop install-hooks --agent cline --apply
 ```
 
 The MCP writer targets
@@ -269,15 +269,15 @@ separate hook directory and is not changed by this CLI integration.
 ## FreeBuff
 
 ```bash
-ai-memory install-mcp --client freebuff --apply
+pitstop install-mcp --client freebuff --apply
 ```
 
 FreeBuff reads `mcpServers` from `.agents/mcp.json` while walking from the
 current directory toward the home directory. The installer writes the home
-file and registers a local `ai-memory mcp-bridge --no-session-id` stdio
+file and registers a local `pitstop mcp-bridge --no-session-id` stdio
 process, which forwards to the configured server and reads a file-backed token
 without copying it into FreeBuff's config. An explicit `--auth-token` is stored
-in the stdio entry's `AI_MEMORY_AUTH_TOKEN` environment map, like a bearer
+in the stdio entry's `PITSTOP_AUTH_TOKEN` environment map, like a bearer
 header in an HTTP-only client. FreeBuff has no lifecycle-hook or
 managed-workstream integration; it already reads `AGENTS.md`.
 
@@ -291,22 +291,22 @@ bridge supported for concurrent sessions.
 The default registration remains a static HTTP entry:
 
 ```bash
-ai-memory install-mcp --client claude-code --apply
+pitstop install-mcp --client claude-code --apply
 ```
 
 Static HTTP config cannot attach the current lifecycle-hook session id, so
 `[auto_scope] mode = "per_session"` cannot isolate two concurrent Claude Code
-sessions through that entry. Opt into ai-memory's local stdio bridge instead:
+sessions through that entry. Opt into pitstop's local stdio bridge instead:
 
 ```bash
-ai-memory install-mcp --client claude-code --session-aware --apply
+pitstop install-mcp --client claude-code --session-aware --apply
 ```
 
-The generated entry runs `ai-memory mcp-bridge`, naming the binary by its
+The generated entry runs `pitstop mcp-bridge`, naming the binary by its
 absolute path, connects to the same configured
 local or remote `/mcp` endpoint, preserves bearer authentication, and adds
 `X-Memory-Actor-Session-Id: <CLAUDE_CODE_SESSION_ID>` to every upstream request.
-It supports ai-memory's default stateless HTTP mode and opt-in stateful mode.
+It supports pitstop's default stateless HTTP mode and opt-in stateful mode.
 The command fails closed if Claude did not supply a session id rather than
 silently falling back to the shared single slot.
 
@@ -328,16 +328,16 @@ or switch identities behind Claude Code.
 `--session-aware` is Claude-Code-only. Other clients keep their documented
 native HTTP or generated bridge paths.
 
-**Marketplace plugin.** The ai-memory Claude Code plugin
-(`claude plugin install ai-memory@ai-memory`, see
+**Marketplace plugin.** The pitstop Claude Code plugin
+(`claude plugin install pitstop@pitstop`, see
 [install.md](install.md#marketplace-plugins)) registers this same
-session-aware bridge for you, as server `plugin:ai-memory:ai-memory`, so its
-tools appear as `mcp__plugin_ai-memory_ai-memory__<tool>`. The plugin passes
+session-aware bridge for you, as server `plugin:pitstop:pitstop`, so its
+tools appear as `mcp__plugin_pitstop_pitstop__<tool>`. The plugin passes
 its `server_url` option to `mcp-bridge --server-url`; left empty (the
-default), the bridge uses the server in your ai-memory config. While the
-plugin is enabled, `ai-memory setup` does not also write an `ai-memory`
-entry to `~/.claude.json`, and `ai-memory doctor` flags one that is already
-there. The Codex plugin likewise registers `ai-memory mcp-bridge
+default), the bridge uses the server in your pitstop config. While the
+plugin is enabled, `pitstop setup` does not also write an `pitstop`
+entry to `~/.claude.json`, and `pitstop doctor` flags one that is already
+there. The Codex plugin likewise registers `pitstop mcp-bridge
 --no-session-id`.
 
 ---
@@ -345,7 +345,7 @@ there. The Codex plugin likewise registers `ai-memory mcp-bridge
 ## Cursor
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via
-`ai-memory install-hooks --agent cursor --apply`.
+`pitstop install-hooks --agent cursor --apply`.
 
 **Config file:**
 - Per-project: `.cursor/mcp.json` in the workspace root.
@@ -354,7 +354,7 @@ there. The Codex plugin likewise registers `ai-memory mcp-bridge
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "url": "http://127.0.0.1:49374/mcp"
     }
   }
@@ -365,7 +365,7 @@ there. The Codex plugin likewise registers `ai-memory mcp-bridge
 - Cursor uses the `url` key for HTTP/SSE transports. Stdio uses
   `command` + `args` instead.
 - Cursor hooks live in `~/.cursor/hooks.json` or `.cursor/hooks.json`.
-  ai-memory maps `sessionStart`, `sessionEnd`, `beforeSubmitPrompt`,
+  pitstop maps `sessionStart`, `sessionEnd`, `beforeSubmitPrompt`,
   `preToolUse`, `postToolUse`, `postToolUseFailure`, `preCompact`, and
   `stop` to the shared capture path. Cursor fires `postToolUseFailure`
   instead of `postToolUse` when a tool fails, times out or is denied. A
@@ -375,12 +375,12 @@ there. The Codex plugin likewise registers `ai-memory mcp-bridge
 - When the default data dir's path needs quoting, `install-hooks --agent
   cursor` leaves `--data-dir` out of each hook command and the hook finds that
   directory itself. This covers the macOS default
-  (`~/Library/Application Support/ai-memory`) and a Windows user folder with a
+  (`~/Library/Application Support/pitstop`) and a Windows user folder with a
   space. A space-free default, such as the usual Linux path, and any custom
   data dir are still passed, so a Cursor launched with a different
-  `XDG_DATA_HOME` writes to the same place. `ai-memory upgrade` rewrites
+  `XDG_DATA_HOME` writes to the same place. `pitstop upgrade` rewrites
   entries an older install wrote; so does running
-  `ai-memory install-hooks --agent cursor --apply` again (#1949).
+  `pitstop install-hooks --agent cursor --apply` again (#1949).
 - Cursor watches `hooks.json` on save. For MCP config changes, restart
   Cursor or toggle the server off+on in **Settings → MCP**.
 - Sources: <https://cursor.com/docs/mcp>, <https://cursor.com/docs/hooks.md>
@@ -390,19 +390,19 @@ there. The Codex plugin likewise registers `ai-memory mcp-bridge
 ## GitHub Copilot CLI
 
 **Status:** MCP and lifecycle hooks are supported, the `SessionStart` hook
-injects the pending handoff (see below), and `ai-memory run copilot` launches
+injects the pending handoff (see below), and `pitstop run copilot` launches
 Copilot CLI as a managed workstream harness (see
 [managed workstreams](managed-workstreams.md)).
 
 **Config files:** `$COPILOT_HOME/mcp-config.json` for MCP and
-`$COPILOT_HOME/hooks/ai-memory.json` for lifecycle hooks (`COPILOT_HOME`
+`$COPILOT_HOME/hooks/pitstop.json` for lifecycle hooks (`COPILOT_HOME`
 defaults to `~/.copilot`). Not to be confused with `--client vscode-copilot`
 (alias `copilot`), the VS Code agent-mode client below.
 
 ```bash
-ai-memory install-mcp --client copilot-cli --apply \
+pitstop install-mcp --client copilot-cli --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent copilot-cli --apply \
+pitstop install-hooks --agent copilot-cli --apply \
     --server-url "http://homelab:49374" --auth-token "$TOKEN"
 ```
 
@@ -413,7 +413,7 @@ entry):
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://homelab:49374/mcp",
       "headers": { "Authorization": "Bearer <token>" },
@@ -424,7 +424,7 @@ entry):
 ```
 
 The equivalent interactive registration is `copilot mcp add --transport http
-ai-memory http://homelab:49374/mcp` (add `--header "Authorization: Bearer
+pitstop http://homelab:49374/mcp` (add `--header "Authorization: Bearer
 <token>"` when bearer auth is on). Copilot also reads project-level
 `.mcp.json` and `.github/mcp.json` files; pass that path via `--config-file` to
 write one, keeping in mind that `.github/mcp.json` is meant to be committed,
@@ -455,9 +455,9 @@ No managed workstream.
 for lifecycle hooks.
 
 ```bash
-ai-memory install-mcp --client droid --apply \
+pitstop install-mcp --client droid --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent droid --apply \
+pitstop install-hooks --agent droid --apply \
     --server-url "http://homelab:49374" --auth-token "$TOKEN"
 ```
 
@@ -468,16 +468,16 @@ URL stays literal and the bearer is a variable reference, never the token:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://homelab:49374/mcp",
-      "headers": { "Authorization": "Bearer ${AI_MEMORY_AUTH_TOKEN}" }
+      "headers": { "Authorization": "Bearer ${PITSTOP_AUTH_TOKEN}" }
     }
   }
 }
 ```
 
-Export `AI_MEMORY_AUTH_TOKEN` where you launch droid; an unset variable makes
+Export `PITSTOP_AUTH_TOKEN` where you launch droid; an unset variable makes
 Droid fail the connection. Without a bearer the entry has no `headers`.
 `install-hooks --agent droid` run without `--server-url` reads the URL back
 from this entry (not the token, which is only a reference there). The hook
@@ -493,15 +493,15 @@ in [`install.md`](install.md#factory-droid).
 
 **Status:** ✅ MCP supported (workspace-default). ❌ No lifecycle hooks
 (Copilot's agent mode does not expose `PreToolUse` / `PostToolUse` /
-`SessionStart` yet, so ai-memory's automatic capture is not active in
+`SessionStart` yet, so pitstop's automatic capture is not active in
 VS Code; call `memory_query`, `memory_write_page`, etc. from chat).
 
 **Config file:**
 - Workspace (recommended): `.vscode/mcp.json` in the repo root. Matches
-  ai-memory's per-cwd auto-scoping.
+  pitstop's per-cwd auto-scoping.
 - User profile: run **MCP: Open User Configuration** in VS Code and use
   the `mcp.json` file it opens. The exact path is platform- and
-  profile-specific; pass it to `--config-file` if you want ai-memory to
+  profile-specific; pass it to `--config-file` if you want pitstop to
   write that file directly.
 
 **Schema (verified against VS Code's MCP reference):** top-level key is
@@ -511,7 +511,7 @@ VS Code; call `memory_query`, `memory_write_page`, etc. from chat).
 ```json
 {
   "servers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://127.0.0.1:49374/mcp"
     }
@@ -524,7 +524,7 @@ VS Code; call `memory_query`, `memory_write_page`, etc. from chat).
 ```json
 {
   "servers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://127.0.0.1:49374/mcp",
       "headers": {
@@ -539,13 +539,13 @@ VS Code; call `memory_query`, `memory_write_page`, etc. from chat).
 
 ```bash
 # Print the snippet:
-ai-memory install-mcp --client vscode-copilot
+pitstop install-mcp --client vscode-copilot
 
 # Or write .vscode/mcp.json in the current workspace directly:
-ai-memory install-mcp --client vscode-copilot --apply
+pitstop install-mcp --client vscode-copilot --apply
 
 # Or write the user-profile mcp.json opened by VS Code directly:
-ai-memory install-mcp --client vscode-copilot \
+pitstop install-mcp --client vscode-copilot \
   --config-file /path/to/vscode-profile/mcp.json --apply
 ```
 
@@ -591,7 +591,7 @@ The server map is the top-level `context_servers` key. Remote servers use a
 ```json
 {
   "context_servers": {
-    "ai-memory": {
+    "pitstop": {
       "url": "http://127.0.0.1:49374/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
@@ -604,17 +604,17 @@ The server map is the top-level `context_servers` key. Remote servers use a
 Print or apply the configuration with:
 
 ```bash
-ai-memory install-mcp --client zed
-ai-memory install-mcp --client zed --apply \
+pitstop install-mcp --client zed
+pitstop install-mcp --client zed --apply \
   --server-url "http://homelab:49374/mcp" \
   --auth-token "$TOKEN"
 ```
 
 `--apply` preserves JSONC comments, trailing commas, unrelated Zed settings,
-and other context servers. Zed can call ai-memory's MCP tools, but it does not
+and other context servers. Zed can call pitstop's MCP tools, but it does not
 expose compatible session or tool lifecycle hooks. Automatic capture,
 automatic handoff injection, and
-`ai-memory run` continuity are therefore not available; ask the agent to call
+`pitstop run` continuity are therefore not available; ask the agent to call
 `memory_handoff_begin` before leaving and `memory_handoff_accept` when
 resuming when you need manual continuity.
 
@@ -633,8 +633,8 @@ handoff, and Muse's `SessionEnd` closes the session. No managed workstream.
 file `install-hooks --agent muse` writes its hooks into.
 
 ```bash
-ai-memory install-mcp --client muse --apply
-ai-memory install-hooks --agent muse --apply
+pitstop install-mcp --client muse --apply
+pitstop install-hooks --agent muse --apply
 ```
 
 Muse gives its stdio MCP servers `MUSE_SESSION_ID`, while a streamable-HTTP
@@ -645,12 +645,12 @@ id as the actor session:
 {
   "schema_version": 1,
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "stdio",
-      "command": "/home/you/.local/bin/ai-memory",
+      "command": "/home/you/.local/bin/pitstop",
       "args": ["mcp-bridge", "--agent", "muse",
                "--server-url", "http://127.0.0.1:49374/mcp",
-               "--data-dir", "/home/you/.local/share/ai-memory"],
+               "--data-dir", "/home/you/.local/share/pitstop"],
       "mode": "optional"
     }
   }
@@ -660,7 +660,7 @@ id as the actor session:
 Muse starts stdio servers with a cleared environment, so the entry names the
 install's data dir and the bridge reads the server's token from there at
 launch. A token passed explicitly with `--auth-token` is written to the
-entry's `env` as `AI_MEMORY_AUTH_TOKEN`; treat the file as private then. The
+entry's `env` as `PITSTOP_AUTH_TOKEN`; treat the file as private then. The
 bridge reads only `MUSE_SESSION_ID` when started with `--agent muse` (and only
 `CLAUDE_CODE_SESSION_ID` for Claude Code), so an id inherited from another
 harness's terminal is never forwarded, and it refuses to start without its
@@ -677,9 +677,9 @@ Three details of Muse's schema are worth knowing before hand-editing the file:
   (`"transport": "stdio"`), and ignores every MCP server when both maps are
   present. `--apply` uses `mcp_servers` when the file already has it, else
   `mcpServers`, and refuses a file that already holds both;
-  `ai-memory doctor` reports that state.
+  `pitstop doctor` reports that state.
 - **`mode` defaults to `required`**, and a required server that fails to start
-  aborts the whole Muse run. ai-memory writes `"mode": "optional"`, so an
+  aborts the whole Muse run. pitstop writes `"mode": "optional"`, so an
   unreachable memory server only costs you recall and the session goes on.
 
 `install-hooks --agent muse` run without `--server-url` reads the URL back
@@ -688,8 +688,8 @@ from this entry. The hook installer and its events are described in
 
 **Skills:** no extra step is needed. Muse Code loads user skills from
 `$XDG_CONFIG_HOME/muse/skills` and `~/.agents/skills`, and
-`ai-memory install-skills` already writes the cross-client `~/.agents/skills`
-root, so the ai-memory routing skills are visible to Muse. Confirm with
+`pitstop install-skills` already writes the cross-client `~/.agents/skills`
+root, so the pitstop routing skills are visible to Muse. Confirm with
 `muse skills list`.
 
 Sources: <https://dev.meta.ai/docs/muse-code/configuration>,
@@ -708,7 +708,7 @@ DSH has no fixed JSON/TOML MCP config: the MCP client is a Cordis plugin entry
 `--apply`:
 
 ```bash
-ai-memory install-mcp --client dsh
+pitstop install-mcp --client dsh
 ```
 
 Merge the printed `- insert:` item into
@@ -719,15 +719,15 @@ when `--auth-token` (or a configured server token) is present.
 
 Lifecycle capture runs through DSH's official Claude Code hooks bridge
 (`@deepseek-ai/dsh-hooks-claude-code`), which consumes a Claude Code
-`hooks.json`. ai-memory ships a DSH hook bundle and a first-party installer:
+`hooks.json`. pitstop ships a DSH hook bundle and a first-party installer:
 
 ```bash
-ai-memory install-hooks --agent dsh --apply \
-    --server-url "$AI_MEMORY_SERVER" --auth-token "$TOKEN"
+pitstop install-hooks --agent dsh --apply \
+    --server-url "$PITSTOP_SERVER" --auth-token "$TOKEN"
 ```
 
 `--apply` stages the `hooks/dsh` scripts under the data dir and writes a
-generated Claude Code `hooks.json` next to them (native `ai-memory hook`
+generated Claude Code `hooks.json` next to them (native `pitstop hook`
 commands by default, so capture enforces capture exclusions and keeps the
 local spool). It then prints the bridge patch fragment — a `- insert:` item
 mounted under the DSH profile patch — which you merge into
@@ -737,7 +737,7 @@ dsh` refuses to write it):
 
 ```yaml
 - insert:
-    - id: ai-memory-hooks
+    - id: pitstop-hooks
       name: '@deepseek-ai/dsh-hooks-claude-code'
       config:
         configPath: '<data-dir>/hooks/dsh/hooks.json'
@@ -753,7 +753,7 @@ Two bridge constraints shape DSH capture:
 - The bridge delivers only seven Claude Code events (`SessionStart`,
   `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStart`,
   `SubagentStop`). `PreCompact` and `SessionEnd` are not delivered, so a
-  finished session stays open until `ai-memory finalize-session --agent dsh`
+  finished session stays open until `pitstop finalize-session --agent dsh`
   closes it (the same close path as Command Code, Kiro CLI and Antigravity).
 - `SessionStart` runs detached, so its stdout cannot reliably deliver a
   fetched handoff; the DSH hook bundle therefore never claims one. Recover a
@@ -776,47 +776,47 @@ overrides it; pass that path with `--config-file`.
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://127.0.0.1:49374/mcp",
-      "bearerTokenEnvVar": "AI_MEMORY_AUTH_TOKEN"
+      "bearerTokenEnvVar": "PITSTOP_AUTH_TOKEN"
     }
   }
 }
 ```
 
 ```bash
-ai-memory install-mcp --client prime-agent --apply \
+pitstop install-mcp --client prime-agent --apply \
   --server-url "http://homelab:49374/mcp" \
   --auth-token "$TOKEN"
-export AI_MEMORY_AUTH_TOKEN="$TOKEN"   # in the shell you launch prime-agent from
+export PITSTOP_AUTH_TOKEN="$TOKEN"   # in the shell you launch prime-agent from
 ```
 
 How Prime Agent 0.10 treats the entry shapes the generated one:
 
 - **The token is referenced, not written.** Prime Agent counts a user HTTP
   server as connected, and names it in the model's prompt
-  (`Enabled generic MCP servers: ai-memory`), only when the variable in
+  (`Enabled generic MCP servers: pitstop`), only when the variable in
   `bearerTokenEnvVar` is set or an OAuth grant exists. A literal
   `headers.Authorization` still reaches the server but leaves it unlisted, so
-  `install-mcp` writes `"bearerTokenEnvVar": "AI_MEMORY_AUTH_TOKEN"` and the
+  `install-mcp` writes `"bearerTokenEnvVar": "PITSTOP_AUTH_TOKEN"` and the
   token stays out of `settings.json`. If the variable is unset, Prime Agent
   shows the server as disconnected and calls fail.
 - **Without a token** the entry is just `type` + `url`. Calls through
-  `mcp.call_tool("ai-memory", ...)` still work, but the server is not listed in
+  `mcp.call_tool("pitstop", ...)` still work, but the server is not listed in
   the prompt or shown as connected in `/mcp`. Run the server with
-  `AI_MEMORY_AUTH_TOKEN` and pass `--auth-token` to get it listed.
+  `PITSTOP_AUTH_TOKEN` and pass `--auth-token` to get it listed.
 - **Use the camelCase key.** Prime Agent 0.10.0's own
   `prime-agent mcp add --bearer-token-env-var` writes `bearer_token_env_var`,
   which its settings loader ignores. Use `install-mcp` or edit the file.
 
 Prime Agent does not expose MCP tools as native tools. The model calls them
 from its persistent Python REPL:
-`await mcp.list_tools("ai-memory")`, then
-`await mcp.call_tool("ai-memory", "memory_query", {...})`. Requests carry no
+`await mcp.list_tools("pitstop")`, then
+`await mcp.call_tool("pitstop", "memory_query", {...})`. Requests carry no
 session id or working directory, so Prime Agent is a static client: pass
 `workspace` and `project` on project-scoped calls (the routing snippet from
-`ai-memory install-instructions --target AGENTS.md` says so, and Prime Agent
+`pitstop install-instructions --target AGENTS.md` says so, and Prime Agent
 loads `AGENTS.md`).
 
 Prime Agent 0.10 is a Rust rewrite: the TypeScript extensions of its 0.9
@@ -854,14 +854,14 @@ are captured by the [Claude Code](#claude-code) hooks.
   it there (`$XDG_CONFIG_HOME/Claude/` when that is set).
 
 **Important:** Claude Desktop's JSON config supports stdio MCP
-servers only. To talk to ai-memory's HTTP endpoint, bridge through
+servers only. To talk to pitstop's HTTP endpoint, bridge through
 the community [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)
 stdio shim. Requires Node.js installed on the same machine.
 
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "http://127.0.0.1:49374/mcp"]
     }
@@ -874,7 +874,7 @@ stdio shim. Requires Node.js installed on the same machine.
   Desktop. "Check for Updates…" is not enough.
 - Claude Desktop also has account-level remote custom connectors and
   `.mcpb` desktop extensions, which Anthropic now presents as the main way
-  to install local MCP servers. The ai-memory CLI manages the local
+  to install local MCP servers. The pitstop CLI manages the local
   JSON-config path because it works with localhost/LAN servers and does
   not require publishing an HTTPS connector.
 - Servers in `claude_desktop_config.json` also reach the Code tab's local
@@ -882,7 +882,7 @@ stdio shim. Requires Node.js installed on the same machine.
   server with the same name, the Code tab uses the
   `claude_desktop_config.json` entry.
 - Claude Desktop's ordinary Chat surface exposes MCP tools but does not run
-  lifecycle hooks, so ai-memory cannot automatically capture its
+  lifecycle hooks, so pitstop cannot automatically capture its
   prompts/tools or inject session-boundary handoffs.
 - The Code tab reads the same `~/.claude/settings.json` as the CLI, so
   `install-hooks --agent claude-code` already captures its local sessions
@@ -890,7 +890,7 @@ stdio shim. Requires Node.js installed on the same machine.
   in a scratch directory under
   `~/.config/Claude/scratch-workspaces/`, so each one lands in its own
   auto-named project.
-- Cowork is a distinct surface whose capture ai-memory does not claim. On
+- Cowork is a distinct surface whose capture pitstop does not claim. On
   Linux, Anthropic runs Cowork tasks inside a QEMU/KVM virtual machine;
   whether your host hooks reach it has not been verified.
 - If the MCP indicator doesn't appear after restart, check the logs:
@@ -904,7 +904,7 @@ stdio shim. Requires Node.js installed on the same machine.
   `AppData\Local\Packages\Claude_<id>\LocalCache\Roaming\` tree that an
   unpackaged process such as this CLI must address directly.
   `install-mcp --client claude-desktop --apply` detects this and writes
-  to the packaged location automatically. On an older ai-memory build,
+  to the packaged location automatically. On an older pitstop build,
   pass `--config-file` pointed at the `LocalCache` path directly.
 - Sources: <https://code.claude.com/docs/en/desktop-linux>,
   <https://code.claude.com/docs/en/desktop#shared-configuration>,
@@ -918,7 +918,7 @@ stdio shim. Requires Node.js installed on the same machine.
 ## Gemini CLI
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via
-`ai-memory install-hooks --agent gemini-cli --apply`.
+`pitstop install-hooks --agent gemini-cli --apply`.
 
 **Config file:**
 - User: `~/.gemini/settings.json`
@@ -930,7 +930,7 @@ endpoints. The `timeout` is in milliseconds.
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "httpUrl": "http://127.0.0.1:49374/mcp",
       "timeout": 5000
     }
@@ -941,12 +941,12 @@ endpoints. The `timeout` is in milliseconds.
 **Hooks:**
 
 ```bash
-ai-memory install-hooks --agent gemini-cli --apply
+pitstop install-hooks --agent gemini-cli --apply
 ```
 
 Gemini CLI's lifecycle event names differ from Claude Code's, so use
 `install-hooks --agent gemini-cli` rather than copying another agent's
-settings. ai-memory maps Gemini's `SessionStart`, `SessionEnd`,
+settings. pitstop maps Gemini's `SessionStart`, `SessionEnd`,
 `BeforeTool`, `AfterTool`, and `PreCompress` events to the shared hook
 capture path; `SessionStart` also fetches pending handoffs.
 
@@ -970,9 +970,9 @@ when wanted. MCP servers live under the root `mcpServers` map; hooks live
 under the root `hooks` object of the same file.
 
 ```bash
-ai-memory install-mcp --client qwen-code --apply \
+pitstop install-mcp --client qwen-code --apply \
     --server-url "https://memory.example/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent qwen-code --apply \
+pitstop install-hooks --agent qwen-code --apply \
     --server-url "https://memory.example" --auth-token "$TOKEN"
 ```
 
@@ -982,7 +982,7 @@ in milliseconds. The plain `url` key is the legacy SSE transport; do not mix
 them in one entry. Qwen expands `$NAME` and `${NAME}` in every string of
 `settings.json`. Existing servers, settings and third-party hooks are
 preserved, and applying either command again is a no-op. A token-file
-install (every fresh `init`) writes a stdio `ai-memory mcp-bridge
+install (every fresh `init`) writes a stdio `pitstop mcp-bridge
 --no-session-id` entry instead of embedding the bearer, so Qwen is a static
 client: project-scoped calls still need `workspace` and `project`.
 
@@ -992,7 +992,7 @@ The hook installer registers ten events: `SessionStart`, `UserPromptSubmit`,
 `matcher`, which Qwen treats as match-all. Each command receives Qwen's
 Claude-shaped JSON on stdin (`session_id`, `cwd`, `tool_name`, `tool_input`,
 `tool_use_id`) and enforces capture exclusions over Qwen's Gemini-like
-tools. For `UserPromptSubmit`, ai-memory captures only Qwen's optional
+tools. For `UserPromptSubmit`, pitstop captures only Qwen's optional
 `submitted_prompt`, which identifies an actual user submission; it does not
 fall back to the generic `prompt` field used by continuation and retry paths.
 A pending handoff is printed as `hookSpecificOutput.additionalContext` on
@@ -1001,9 +1001,9 @@ silent so `{}` is never injected into the model context. When the payload has
 no `cwd`, the hook uses `QWEN_PROJECT_DIR`.
 
 Qwen fires a real `SessionEnd`, so finished sessions close without
-`finalize-session`. There is no `ai-memory run qwen` adapter: Qwen does not
+`finalize-session`. There is no `pitstop run qwen` adapter: Qwen does not
 document a stable transcript-store schema and path. Qwen reads `AGENTS.md`
-and `QWEN.md`, so the normal ai-memory routing snippet and Agent Skills need
+and `QWEN.md`, so the normal pitstop routing snippet and Agent Skills need
 no Qwen-specific instruction file. Restart the CLI session after changing
 `~/.qwen/settings.json` so both MCP servers and hooks are reloaded.
 
@@ -1023,19 +1023,19 @@ transcript backfill are not claimed.
 `mcpServers`; hooks live under `hooks` in the same document.
 
 ```bash
-ai-memory install-mcp --client qoder --apply \
+pitstop install-mcp --client qoder --apply \
     --server-url "https://memory.example/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent qoder --apply \
+pitstop install-hooks --agent qoder --apply \
     --server-url "https://memory.example" --auth-token "$TOKEN"
 ```
 
-Qoder's MCP configuration accepts stdio `command`, `args`, and `env`. ai-memory
+Qoder's MCP configuration accepts stdio `command`, `args`, and `env`. pitstop
 always writes a sessionless `mcp-bridge` entry, so it can use the configured
 remote server without a second server process contending for the data-dir lock.
 The bridge has no lifecycle identity; pass explicit `workspace` and `project`
-on every project-scoped MCP call. Applied token installs use ai-memory's
+on every project-scoped MCP call. Applied token installs use pitstop's
 owner-only token file when possible; printed configuration carries the token in
-the entry's `AI_MEMORY_AUTH_TOKEN` environment.
+the entry's `PITSTOP_AUTH_TOKEN` environment.
 
 The hook installer registers the eight documented events that carry useful
 memory state: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
@@ -1048,7 +1048,7 @@ SessionStart delivers a pending handoff through
 
 Qoder reads `AGENTS.md` and shared `~/.agents/skills`, so the normal routing
 snippet and installed Agent Skills need no Qoder-specific copy. There is no
-`ai-memory run qoder` adapter or native transcript backfill because no stable
+`pitstop run qoder` adapter or native transcript backfill because no stable
 native transcript-store contract is documented.
 
 Sources: [Qoder hooks](https://docs.qoder.com/cli/hooks) and
@@ -1059,7 +1059,7 @@ Sources: [Qoder hooks](https://docs.qoder.com/cli/hooks) and
 ## Antigravity CLI (`agy`)
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via
-`ai-memory install-hooks --agent antigravity-cli --apply`.
+`pitstop install-hooks --agent antigravity-cli --apply`.
 
 **Config file (MCP):** `~/.gemini/config/mcp_config.json`
 
@@ -1070,7 +1070,7 @@ parallel subagent support. It uses a separate `mcp_config.json`
 
 ```bash
 # Merge the MCP entry into the Antigravity config:
-ai-memory install-mcp --client antigravity-cli --apply
+pitstop install-mcp --client antigravity-cli --apply
 ```
 
 The rendered snippet writes to `mcp_config.json` under `mcpServers`:
@@ -1078,7 +1078,7 @@ The rendered snippet writes to `mcp_config.json` under `mcpServers`:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "serverUrl": "http://127.0.0.1:49374/mcp",
       "timeout": 5000
     }
@@ -1095,24 +1095,24 @@ lifecycle events (`SessionStart`, `PreInvocation`, `Stop`) use flat shape.
 
 ```bash
 # One-shot via CLI:
-ai-memory install-hooks --agent antigravity-cli --apply
+pitstop install-hooks --agent antigravity-cli --apply
 ```
 
 The rendered hooks config looks like:
 
 ```json
 {
-  "ai-memory": {
+  "pitstop": {
     "SessionStart": [
       {
         "type": "command",
-        "command": "AI_MEMORY_HOOK_URL=http://127.0.0.1:49374 /path/to/session-start.sh"
+        "command": "PITSTOP_HOOK_URL=http://127.0.0.1:49374 /path/to/session-start.sh"
       }
     ],
     "PreInvocation": [
       {
         "type": "command",
-        "command": "AI_MEMORY_HOOK_URL=http://127.0.0.1:49374 /path/to/pre-invocation.sh"
+        "command": "PITSTOP_HOOK_URL=http://127.0.0.1:49374 /path/to/pre-invocation.sh"
       }
     ],
     "PreToolUse": [
@@ -1121,7 +1121,7 @@ The rendered hooks config looks like:
         "hooks": [
           {
             "type": "command",
-            "command": "AI_MEMORY_HOOK_URL=http://127.0.0.1:49374 /path/to/pre-tool-use.sh"
+            "command": "PITSTOP_HOOK_URL=http://127.0.0.1:49374 /path/to/pre-tool-use.sh"
           }
         ]
       }
@@ -1132,7 +1132,7 @@ The rendered hooks config looks like:
         "hooks": [
           {
             "type": "command",
-            "command": "AI_MEMORY_HOOK_URL=http://127.0.0.1:49374 /path/to/post-tool-use.sh"
+            "command": "PITSTOP_HOOK_URL=http://127.0.0.1:49374 /path/to/post-tool-use.sh"
           }
         ]
       }
@@ -1140,7 +1140,7 @@ The rendered hooks config looks like:
     "Stop": [
       {
         "type": "command",
-        "command": "AI_MEMORY_HOOK_URL=http://127.0.0.1:49374 /path/to/stop.sh"
+        "command": "PITSTOP_HOOK_URL=http://127.0.0.1:49374 /path/to/stop.sh"
       }
     ]
   }
@@ -1153,7 +1153,7 @@ The rendered hooks config looks like:
 - MCP and hooks use separate files: MCP belongs in
   `~/.gemini/config/mcp_config.json`, while hooks belong in
   `~/.gemini/config/hooks.json`.
-- Hook scripts are staged under `~/.local/share/ai-memory/hooks/antigravity-cli/`.
+- Hook scripts are staged under `~/.local/share/pitstop/hooks/antigravity-cli/`.
 - Native Windows Docker-wrapper installs render hook entries as
   `powershell.exe ... -EncodedCommand <payload>` so Antigravity's outer command
   runner cannot expand the inner `$env:` setup. The child also forces text
@@ -1172,10 +1172,10 @@ The rendered hooks config looks like:
   with nothing left running writes a turn checkpoint (summary page and one
   refreshed handoff, conversation left open), which a new session in the
   project receives once the conversation has been quiet for 10 minutes. Run
-  `ai-memory finalize-session --agent antigravity-cli` to close the session at
+  `pitstop finalize-session --agent antigravity-cli` to close the session at
   once and queue opt-in SessionEnd consolidation. If the conversation
   continues after that first finalize, re-close it with
-  `ai-memory finalize-session --agent antigravity-cli --reopen --session-id <uuid>`
+  `pitstop finalize-session --agent antigravity-cli --reopen --session-id <uuid>`
   so the session-end path re-runs over the new observations (re-running with
   nothing new is a harmless no-op). See
   [`docs/install.md`](install.md#antigravity-lifecycle-hooks) for the
@@ -1192,7 +1192,7 @@ The rendered hooks config looks like:
   session itself must end and produce an attributed automatic handoff.
 - The built-in `/web` route displays compiled wiki pages, not raw session or
   observation rows. To verify hook capture, compare the `sessions` and
-  `observations` counts from `ai-memory status` before and after a prompt.
+  `observations` counts from `pitstop status` before and after a prompt.
 - Source: <https://antigravity.google/docs/hooks>
 
 ---
@@ -1204,7 +1204,7 @@ Zero manages MCP servers in `~/.config/zero/config.json`
 `mcp.servers` map, with native HTTP transport + bearer headers:
 
 ```bash
-ai-memory install-mcp --client zero --apply \
+pitstop install-mcp --client zero --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
 ```
 
@@ -1214,7 +1214,7 @@ which merges:
 {
   "mcp": {
     "servers": {
-      "ai-memory": {
+      "pitstop": {
         "type": "http",
         "url": "http://homelab:49374/mcp",
         "headers": { "Authorization": "Bearer <token>" }
@@ -1224,12 +1224,12 @@ which merges:
 }
 ```
 
-Lifecycle capture is separate and script-free: `ai-memory install-hooks
---agent zero --apply` merges exec-form entries (the native `ai-memory hook`
+Lifecycle capture is separate and script-free: `pitstop install-hooks
+--agent zero --apply` merges exec-form entries (the native `pitstop hook`
 command + args, JSON payload on stdin, no shell) into
 `~/.config/zero/hooks.json`, covering `sessionStart`/`sessionEnd`/
 `beforeTool`/`afterTool` plus `specialistStart`/`specialistStop` (mapped to
-ai-memory's subagent events). Zero discards `sessionStart` hook stdout, so
+pitstop's subagent events). Zero discards `sessionStart` hook stdout, so
 capture and session-end handoff *creation* work, but handoff *injection*
 does not. Ask Zero to call `memory_handoff_accept` at the start of a
 resumed session.
@@ -1241,12 +1241,12 @@ to the workspace and temp, and kills a hook's detached children when the
 hook exits. Hooks therefore cannot reach `server_url`: events land in
 `<data_dir>/hook-spool/` and stay there. Zero only lets the user's global
 `~/.config/zero/config.json` relax this (a project config can only tighten
-it), and ai-memory does not edit that file. Either add
+it), and pitstop does not edit that file. Either add
 
 ```json
 "sandbox": {
   "network": "allow",
-  "additionalWriteRoots": ["<ai-memory data dir>"]
+  "additionalWriteRoots": ["<pitstop data dir>"]
 }
 ```
 
@@ -1254,14 +1254,14 @@ it), and ai-memory does not edit that file. Either add
 runs, not only hooks), or set `"sandbox": {"enabled": false}`. With network
 allowed, `sessionEnd` delivers the spool from the hook process itself within a
 fixed 10-second budget, because the sandbox would kill the detached drainer
-other agents use; whatever does not make it stays spooled. Without either, run `ai-memory hook-drain` from a normal shell to deliver the
+other agents use; whatever does not make it stays spooled. Without either, run `pitstop hook-drain` from a normal shell to deliver the
 spooled events. A leftover empty `hook-spool/.drain.lock` does not block
 that drain: the lock is an OS file lock released when its holder exits.
 
 ## ZCode (z.ai)
 
 **Status:** MCP supported. Lifecycle hooks are installed separately with
-`ai-memory install-hooks --agent zcode --apply` (see the
+`pitstop install-hooks --agent zcode --apply` (see the
 [support matrix](support-matrix.md)). On a token-file install (every fresh
 `init`) `install-mcp --client zcode` is refused, because ZCode keeps only a
 literal header; add the entry by hand with the header read from
@@ -1274,7 +1274,7 @@ literal header; add the entry by hand with the header read from
 `--config-file` to target one of them explicitly.
 
 ```bash
-ai-memory install-mcp --client zcode --apply \
+pitstop install-mcp --client zcode --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
 ```
 
@@ -1284,7 +1284,7 @@ which merges:
 {
   "mcp": {
     "servers": {
-      "ai-memory": {
+      "pitstop": {
         "type": "http",
         "url": "http://homelab:49374/mcp",
         "headers": { "Authorization": "Bearer <token>" }
@@ -1313,7 +1313,7 @@ ancestor, matching Swival's own project-root discovery. Pass `--config-file`
 only to target a different MCP JSON file.
 
 ```bash
-ai-memory install-mcp --client swival --apply \
+pitstop install-mcp --client swival --apply \
   --server-url "http://homelab:49374/mcp" \
   --auth-token "$TOKEN"
 ```
@@ -1323,7 +1323,7 @@ which merges into `.swival/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://homelab:49374/mcp",
       "headers": { "Authorization": "Bearer <token>" }
@@ -1332,21 +1332,21 @@ which merges into `.swival/mcp.json`:
 }
 ```
 
-`uninstall --only mcp --apply --yes` removes the matching ai-memory entry from
+`uninstall --only mcp --apply --yes` removes the matching pitstop entry from
 that file and preserves all unrelated MCP servers.
 
 ## Grok Build CLI
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via
-`ai-memory install-hooks --agent grok --apply`. Handoff injection is the
+`pitstop install-hooks --agent grok --apply`. Handoff injection is the
 first `PostToolUse` (`additionalContext` after the tool result). Grok
 ignores `SessionStart` stdout and discards an allowing `UserPromptSubmit`,
 so those events do not accept the handoff. `--apply` also writes
-`$GROK_HOME/rules/ai-memory-handoff.md` (default `~/.grok/rules/ai-memory-handoff.md`)
+`$GROK_HOME/rules/pitstop-handoff.md` (default `~/.grok/rules/pitstop-handoff.md`)
 so the first turn calls `memory_handoff_list` through `use_tool` with the
-qualified catalog key `ai-memory__memory_handoff_list` (Grok exposes MCP tools
+qualified catalog key `pitstop__memory_handoff_list` (Grok exposes MCP tools
 only through that meta-tool), before any file read, and corrects the scope from
-`./.ai-memory.toml` only when that list is empty or a scope error; PostToolUse then claims the
+`./.pitstop.toml` only when that list is empty or a scope error; PostToolUse then claims the
 row.
 
 **Config file:** `install-mcp --client grok --apply` writes the user config at
@@ -1356,18 +1356,18 @@ infer a project config location. Provide the MCP URL and token explicitly for
 that lane, and remove a custom config entry manually when uninstalling.
 
 ```bash
-ai-memory install-mcp --client grok --apply \
+pitstop install-mcp --client grok --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
 ```
 
 which merges:
 
 ```toml
-[mcp_servers.ai-memory]
+[mcp_servers.pitstop]
 url = "http://homelab:49374/mcp"
 enabled = true
 
-[mcp_servers.ai-memory.headers]
+[mcp_servers.pitstop.headers]
 Authorization = "Bearer <token>"
 ```
 
@@ -1375,19 +1375,19 @@ Authorization = "Bearer <token>"
 - Grok uses `[mcp_servers.<name>.headers]`; Codex uses `http_headers`.
 - `enabled = true` is the documented per-server toggle.
 - String fields support `${VAR}` expansion, so you can write
-  `Authorization = "Bearer ${AI_MEMORY_AUTH_TOKEN}"` instead of embedding
+  `Authorization = "Bearer ${PITSTOP_AUTH_TOKEN}"` instead of embedding
   the token.
-- CLI alternative: `grok mcp add --transport http ai-memory <url>` (plus
+- CLI alternative: `grok mcp add --transport http pitstop <url>` (plus
   `--header` for bearer auth).
 
-Lifecycle capture is separate: `ai-memory install-hooks --agent grok
---apply` writes `$GROK_HOME/hooks/ai-memory.json` (default
-`~/.grok/hooks/ai-memory.json`; Grok discovers every
+Lifecycle capture is separate: `pitstop install-hooks --agent grok
+--apply` writes `$GROK_HOME/hooks/pitstop.json` (default
+`~/.grok/hooks/pitstop.json`; Grok discovers every
 `$GROK_HOME/hooks/*.json`, so third-party hook files stay untouched). Events
 mirror Claude Code's vocabulary (`SessionStart`, `UserPromptSubmit`,
 `PreToolUse`, `PostToolUse`, `PreCompact`, `Stop`, `SessionEnd`,
 `SubagentStart`, `SubagentStop`) with a Grok-specific script bundle /
-native `ai-memory hook --event … --agent grok` commands. Session-end
+native `pitstop hook --event … --agent grok` commands. Session-end
 handoff *creation* works. Injection is the first `PostToolUse`: JSON
 `additionalContext` with the pending handoff and an opted-in `[briefing]`.
 A subagent runs in a Grok session of its own whose events carry
@@ -1408,7 +1408,7 @@ the supported path for uninstall isolation and hooks URL inference.
 Devin manages MCP servers in `~/.devin/config.json` under `mcpServers`:
 
 ```bash
-ai-memory install-mcp --client devin --apply \
+pitstop install-mcp --client devin --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
 ```
 
@@ -1417,7 +1417,7 @@ which merges:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "url": "http://homelab:49374/mcp",
       "transport": "http",
       "headers": { "Authorization": "Bearer <token>" }
@@ -1429,13 +1429,13 @@ which merges:
 Lifecycle capture is separate:
 
 ```bash
-ai-memory install-hooks --agent devin --apply \
+pitstop install-hooks --agent devin --apply \
     --server-url "http://homelab:49374" --auth-token "$TOKEN"
 ```
 
 By default this writes `~/.devin/hooks.v1.json`, whose root object is the
 event map. If you want the hook entries inside `~/.devin/config.json` instead,
-pass that path with `--config-file`; ai-memory then merges them under the
+pass that path with `--config-file`; pitstop then merges them under the
 `hooks` key.
 
 Devin's supported lifecycle events are `SessionStart`, `UserPromptSubmit`,
@@ -1457,7 +1457,7 @@ fill both in:
 - **session id**: when the payload has none, the hook mints one at
   `SessionStart`, stores it in a single per-host slot
   (`<data-dir>/hook-state/devin-session-id`), reuses it for every later
-  event, and clears it at `SessionEnd`. Set `AI_MEMORY_SESSION_ID` in the
+  event, and clears it at `SessionEnd`. Set `PITSTOP_SESSION_ID` in the
   hook environment to pin an externally managed run id instead. Because the
   slot is per host+agent, two Devin sessions running *concurrently* on the
   same machine share it: the newest `SessionStart` wins and earlier
@@ -1468,7 +1468,7 @@ fill both in:
 ## Kimi Code
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via
-`ai-memory install-hooks --agent kimi-code --apply`.
+`pitstop install-hooks --agent kimi-code --apply`.
 
 **Config file (MCP):** `~/.kimi-code/mcp.json`
 (`$KIMI_CODE_HOME/mcp.json` when `KIMI_CODE_HOME` is set).
@@ -1478,7 +1478,7 @@ Kimi Code treats any `mcpServers` entry with a `url` field and no
 transport key:
 
 ```bash
-ai-memory install-mcp --client kimi-code --apply \
+pitstop install-mcp --client kimi-code --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
 ```
 
@@ -1487,7 +1487,7 @@ which merges:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "url": "http://homelab:49374/mcp?flavor=moonshot",
       "headers": { "Authorization": "Bearer <token>" }
     }
@@ -1500,25 +1500,25 @@ re-runs don't duplicate it). The Moonshot API validates tool parameter
 schemas against a restricted dialect ("moonshot flavored json schema") that
 rejects root-level `anyOf`/`oneOf`/`allOf` combinators (including the
 `anyOf` on `memory_read_page`) and fails the whole session with a 400 at
-`tools/list`. The ai-memory server answers requests carrying this flavor
+`tools/list`. The pitstop server answers requests carrying this flavor
 with flat schemas; every other client keeps receiving the upstream schemas
 unchanged.
 
-> **Do not register ai-memory with Kimi's own `mcp add`.** Kimi Code's
+> **Do not register pitstop with Kimi's own `mcp add`.** Kimi Code's
 > documented command,
 >
 > ```bash
-> kimi mcp add --transport http ai-memory http://127.0.0.1:49374/mcp
+> kimi mcp add --transport http pitstop http://127.0.0.1:49374/mcp
 > ```
 >
 > writes the plain URL, with no `?flavor=moonshot`. The server then serves
 > the upstream schemas, Moonshot rejects `memory_read_page`'s root-level
 > `anyOf`, and **every model turn fails with a 400**, including turns that
 > use no tools at all, because tool schemas ship with each request. Use
-> `ai-memory install-mcp --client kimi-code --apply` instead, which writes
+> `pitstop install-mcp --client kimi-code --apply` instead, which writes
 > the flavored URL for you.
 >
-> The failure is unusually hard to attribute: `kimi mcp test ai-memory`
+> The failure is unusually hard to attribute: `kimi mcp test pitstop`
 > **passes**, because it only lists tools and never sends them upstream. The
 > server looks healthy while every real turn dies.
 >
@@ -1526,7 +1526,7 @@ unchanged.
 > the server-side floor and leave the client entry alone:
 >
 > ```bash
-> AI_MEMORY_STRIP_ROOT_COMBINATORS=true   # or `strip_root_combinators = true`
+> PITSTOP_STRIP_ROOT_COMBINATORS=true   # or `strip_root_combinators = true`
 > ```
 >
 > That serves the restricted dialect on every `tools/list` regardless of the
@@ -1537,10 +1537,10 @@ unchanged.
 **Config file (hooks):** `~/.kimi-code/config.toml` (same `$KIMI_CODE_HOME`
 base). Kimi Code stores hooks as `[[hooks]]` array entries in the same TOML
 file that holds its provider/model settings; `install-hooks` merges
-ai-memory's entries and preserves everything else:
+pitstop's entries and preserves everything else:
 
 ```bash
-ai-memory install-hooks --agent kimi-code --apply \
+pitstop install-hooks --agent kimi-code --apply \
     --server-url "http://homelab:49374" --auth-token "$TOKEN"
 ```
 
@@ -1549,9 +1549,9 @@ The installed entries cover 10 events (`SessionStart`, `SessionEnd`,
 (Kimi Code fires `PostToolUse` on successful calls only), `Stop`,
 `SubagentStart`, `SubagentStop`, and `PreCompact`) with a Kimi Code-specific
 script bundle /
-native `ai-memory hook --event … --agent kimi-code` commands (native is the
+native `pitstop hook --event … --agent kimi-code` commands (native is the
 default for local installs; the staged scripts under
-`~/.local/share/ai-memory/hooks/kimi-code/` are the compatibility fallback).
+`~/.local/share/pitstop/hooks/kimi-code/` are the compatibility fallback).
 Capture is fire-and-forget; a pending handoff is injected at
 `UserPromptSubmit` via the hook's stdout (Kimi Code discards `SessionStart`
 stdout but prepends successful user-prompt hook output to the turn).
@@ -1580,9 +1580,9 @@ workstreams are supported. Experimental Mods are not installed.
 `~/.commandcode/settings.json` for lifecycle hooks.
 
 ```bash
-ai-memory install-mcp --client command-code --apply \
+pitstop install-mcp --client command-code --apply \
     --server-url "http://homelab:49374/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent command-code --apply \
+pitstop install-hooks --agent command-code --apply \
     --server-url "http://homelab:49374" --auth-token "$TOKEN"
 ```
 
@@ -1591,7 +1591,7 @@ The MCP installer writes the documented user-scope remote shape:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "transport": "http",
       "enabled": true,
       "url": "http://homelab:49374/mcp",
@@ -1609,14 +1609,14 @@ spool events locally, enforce capture exclusions for the documented tool
 envelope, and inject pending handoffs with
 `hookSpecificOutput.additionalContext` at `SessionStart`.
 
-`Stop` is only a turn boundary. Run `ai-memory finalize-session --agent
+`Stop` is only a turn boundary. Run `pitstop finalize-session --agent
 command-code` after the final turn (or add `--session-id <uuid>` when several
-sessions share the project). A managed `ai-memory run command-code` launch
+sessions share the project). A managed `pitstop run command-code` launch
 finalizes automatically on normal exit when it can tie the native session to
 the run. Its read-only adapter validates the observed v3 header, UUID filename,
 and canonical checkout before importing visible events, and resumes with the
 exact native `--session <uuid>` selector. Unknown transcript versions fail
-closed. ai-memory does not generate a Mod: that API is experimental and
+closed. pitstop does not generate a Mod: that API is experimental and
 unsandboxed.
 
 Sources: <https://commandcode.ai/docs/mcp>,
@@ -1635,9 +1635,9 @@ Shell. Managed workstreams and transcript backfill are not claimed.
 project-level `.bob/mcp.json`; pass that path with `--config-file` when wanted.
 
 ```bash
-ai-memory install-mcp --client ibm-bob --apply \
+pitstop install-mcp --client ibm-bob --apply \
     --server-url "https://memory.example/mcp" --auth-token "$TOKEN"
-ai-memory install-hooks --agent ibm-bob --apply \
+pitstop install-hooks --agent ibm-bob --apply \
     --server-url "https://memory.example" --auth-token "$TOKEN"
 ```
 
@@ -1645,7 +1645,7 @@ The alias `bob` is accepted by both commands. The MCP entry uses Bob's native
 `streamable-http` transport with `protocolNegotiation: "legacy"`. Bob's
 automatic negotiation first sends a non-standard `server/discover` request;
 the documented legacy setting skips that probe and starts with the standard
-MCP initialization ai-memory implements. Existing servers and settings are
+MCP initialization pitstop implements. Existing servers and settings are
 preserved, and applying either command again is a no-op.
 
 The hook installer registers the five events shared by Bob IDE and Bob Shell:
@@ -1660,13 +1660,13 @@ Bob does not expose a true `SessionEnd`; `Stop` is a turn boundary. After the
 last turn, finalize explicitly when an immediate summary and handoff matter:
 
 ```bash
-ai-memory finalize-session --agent ibm-bob
+pitstop finalize-session --agent ibm-bob
 ```
 
-There is no `ai-memory run ibm-bob` adapter. Bob Shell documents resume
+There is no `pitstop run ibm-bob` adapter. Bob Shell documents resume
 selectors but not a stable transcript-store schema and path, so claiming
 cross-harness transcript import would be unsafe without fixtures and a logged-in
-acceptance test. Bob reads `AGENTS.md`, so the normal ai-memory routing snippet
+acceptance test. Bob reads `AGENTS.md`, so the normal pitstop routing snippet
 and Agent Skills need no Bob-specific instruction file.
 
 Sources: [Bob MCP configuration](https://bob.ibm.com/docs/ide/configuration/mcp/mcp-in-bob),
@@ -1685,7 +1685,7 @@ their own documented, fixture-tested payload and store contracts.
 you intentionally want Kiro's lower-scope project configuration instead.
 
 ```bash
-ai-memory install-mcp --client kiro-cli --apply \
+pitstop install-mcp --client kiro-cli --apply \
     --server-url "https://memory.example/mcp" --auth-token "$TOKEN"
 ```
 
@@ -1695,7 +1695,7 @@ servers, and merges this entry idempotently:
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "url": "https://memory.example/mcp?flavor=bedrock",
       "headers": { "Authorization": "Bearer <token>" }
     }
@@ -1714,23 +1714,23 @@ Kiro permits remote MCP URLs over HTTPS. Plain HTTP is accepted only for
 non-loopback HTTP URL before writing the config. See
 [HTTPS via reverse proxy](https-via-proxy.md) for a homelab deployment.
 
-ai-memory supports both documented Kiro hook registration formats through
+pitstop supports both documented Kiro hook registration formats through
 explicit engine targets:
 
 ```bash
 # v2: update every existing global agent definition.
-ai-memory install-hooks --agent kiro-cli --apply
+pitstop install-hooks --agent kiro-cli --apply
 
 # v2 project-local agent: target the active definition explicitly.
-ai-memory install-hooks --agent kiro-cli --apply \
+pitstop install-hooks --agent kiro-cli --apply \
     --config-file .kiro/agents/<agent-name>.json
 
 # v3: standalone global registration.
-ai-memory install-hooks --agent kiro-cli-v3 --apply
+pitstop install-hooks --agent kiro-cli-v3 --apply
 
 # v3 project-local registration.
-ai-memory install-hooks --agent kiro-cli-v3 --apply \
-    --config-file .kiro/hooks/ai-memory.json
+pitstop install-hooks --agent kiro-cli-v3 --apply \
+    --config-file .kiro/hooks/pitstop.json
 ```
 
 The standalone format was acceptance-tested with an interactive Kiro CLI
@@ -1743,10 +1743,10 @@ agents, so `--config-file` is required when the active definition lives under
 through `agentSpawn` stdout, and honors `$KIRO_HOME`. The v3 installer writes
 the standalone `v1` file with PascalCase triggers, preserves third-party
 entries, and shares the same fail-open sanitizer and capture-exclusion
-boundary. `ai-memory run kiro` (alias `kiro-cli`) manages the default v2
+boundary. `pitstop run kiro` (alias `kiro-cli`) manages the default v2
 engine; add `--v3`, `--mode`, or `--agent-engine v3` for the incompatible v3
 store. Once linked, later plain Kiro launches recover that engine
-transparently, and bare `ai-memory run` considers checkout-local sessions from
+transparently, and bare `pitstop run` considers checkout-local sessions from
 both engines without cross-resuming them.
 
 Sources: <https://kiro.dev/docs/mcp/configuration/>,
@@ -1758,19 +1758,19 @@ Sources: <https://kiro.dev/docs/mcp/configuration/>,
 ## OpenClaw
 
 **Status:** ✅ MCP supported. ✅ Lifecycle hooks supported via a native
-OpenClaw plugin generated by `ai-memory install-hooks --agent openclaw --apply`.
+OpenClaw plugin generated by `pitstop install-hooks --agent openclaw --apply`.
 
 **Config file:** `~/.openclaw/config.json` (the OpenClaw docs reference
 this path indirectly; verify with your `openclaw config show`).
 
 OpenClaw distinguishes transports explicitly. Use
-`"transport": "streamable-http"` for ai-memory's HTTP endpoint.
+`"transport": "streamable-http"` for pitstop's HTTP endpoint.
 
 ```json
 {
   "mcp": {
     "servers": {
-      "ai-memory": {
+      "pitstop": {
         "url": "http://127.0.0.1:49374/mcp",
         "transport": "streamable-http"
       }
@@ -1781,7 +1781,7 @@ OpenClaw distinguishes transports explicitly. Use
 
 **Gotchas:**
 - `install-hooks --agent openclaw --apply` writes a local plugin package
-  under ai-memory's data dir, then runs `openclaw plugins install --link
+  under pitstop's data dir, then runs `openclaw plugins install --link
   <dir> --force` when the `openclaw` CLI is on `PATH`. If the CLI is not
   available, it prints the exact install command.
 - The plugin registers OpenClaw `session_start`, `session_end`,
@@ -1800,7 +1800,7 @@ OpenClaw distinguishes transports explicitly. Use
 
 **Status:** ✅ MCP supported via `install-mcp --client omp` (or
 `--client oh-my-pi`). ✅ Lifecycle capture supported via
-`ai-memory install-hooks --agent omp --apply` (or `--agent oh-my-pi`).
+`pitstop install-hooks --agent omp --apply` (or `--agent oh-my-pi`).
 
 **Config file:**
 - User: `mcp.json` in OMP's agent dir: `~/.omp/agent/mcp.json` by default,
@@ -1820,7 +1820,7 @@ real `pi` is recognized separately and uses the generated bridge extension below
 ```json
 {
   "mcpServers": {
-    "ai-memory": {
+    "pitstop": {
       "type": "http",
       "url": "http://127.0.0.1:49374/mcp",
       "enabled": true
@@ -1832,11 +1832,11 @@ real `pi` is recognized separately and uses the generated bridge extension below
 **Lifecycle extension:**
 
 ```bash
-ai-memory install-hooks --agent omp --apply
-# or: ai-memory install-hooks --agent oh-my-pi --apply
+pitstop install-hooks --agent omp --apply
+# or: pitstop install-hooks --agent oh-my-pi --apply
 ```
 
-This writes `~/.omp/agent/extensions/ai-memory-omp.ts`, which OMP discovers
+This writes `~/.omp/agent/extensions/pitstop-omp.ts`, which OMP discovers
 as a direct TypeScript extension on startup. Restart `omp` after
 installing or changing the file. `--profile <name>` (or `OMP_PROFILE`)
 targets `~/.omp/profiles/<name>/agent/extensions/`. Named profiles ignore
@@ -1848,7 +1848,7 @@ Pi and OMP honour the *same* `PI_CODING_AGENT_DIR`, and each agent loads
 every direct `*.ts` in its extensions directory. Pointing both at one
 directory therefore makes each load both extensions and capture every
 event twice, once under each agent identity. `install-hooks` and the
-`ai-memory run` auto-wire warn when they detect this; give the two agents
+`pitstop run` auto-wire warn when they detect this; give the two agents
 separate homes, or put OMP on a named profile, which leaves
 `PI_CODING_AGENT_DIR` to Pi.
 
@@ -1856,22 +1856,22 @@ separate homes, or put OMP on a named profile, which leaves
 - OMP extensions are TypeScript modules, not shell hooks; stdout is not
   used for context injection.
 - The extension uses OMP lifecycle events for prompt/tool capture and
-  `before_agent_start` to inject pending ai-memory handoffs.
+  `before_agent_start` to inject pending pitstop handoffs.
 
 ## Pi
 
 **Status:** ✅ MCP and lifecycle capture supported via generated bridge
 extension. Pi has no native `mcp.json`; use `install-hooks --agent pi --apply`
-to write `~/.pi/agent/extensions/ai-memory-pi.ts`. When `PI_CODING_AGENT_DIR`
+to write `~/.pi/agent/extensions/pitstop-pi.ts`. When `PI_CODING_AGENT_DIR`
 is set (it relocates Pi's whole `~/.pi/agent` home), the extension is
-written to `$PI_CODING_AGENT_DIR/extensions/ai-memory-pi.ts` instead.
+written to `$PI_CODING_AGENT_DIR/extensions/pitstop-pi.ts` instead.
 
 ```bash
-ai-memory install-hooks --agent pi --apply
+pitstop install-hooks --agent pi --apply
 ```
 
 The generated extension posts lifecycle events to `/hook`, fetches pending
-handoffs in `before_agent_start`, initializes ai-memory's HTTP `/mcp` endpoint,
+handoffs in `before_agent_start`, initializes pitstop's HTTP `/mcp` endpoint,
 lists tools, and registers each one with `pi.registerTool`. `install-mcp
 --client pi` intentionally prints this bridge guidance instead of writing an
 ignored `~/.pi/agent/mcp.json`.
@@ -1884,7 +1884,7 @@ OMP / Oh My Pi remains separate: use `--client omp` / `--agent omp` (or
 ## Schema dialects for strict upstreams
 
 Some model APIs validate MCP tool parameter schemas against a narrower dialect
-than JSON Schema and reject the whole `tools/list` with a 400. ai-memory can
+than JSON Schema and reject the whole `tools/list` with a 400. pitstop can
 serve a relaxed dialect per request, via a `?flavor=` query on the MCP URL, or
 server-wide via config for clients that cannot carry one. Runtime argument
 validation is identical in every dialect; only the advertised schema changes.
@@ -1907,7 +1907,7 @@ though it is not Kimi Code. `?flavor=bedrock` and `?flavor=gemini` keep
 fixed. For any other client, pass the dialect explicitly:
 
 ```bash
-ai-memory install-mcp --client command-code --flavor gemini --apply
+pitstop install-mcp --client command-code --flavor gemini --apply
 ```
 
 This is an operator choice rather than another per-client default because a
@@ -1934,7 +1934,7 @@ that forwards this untouched produces `any_of` with `description` next to it and
 Vertex refuses the request:
 
 ```
-Unable to submit request because `ai-memory_memory_auto_improve` functionDeclaration
+Unable to submit request because `pitstop_memory_auto_improve` functionDeclaration
 `parameters.max_proposals` schema specified other fields alongside any_of.
 When using any_of, it must be the only field set.
 ```
@@ -1949,7 +1949,7 @@ provider-agnostic, so the right lever there is the server-side key.
 
 ```bash
 # server-wide, for clients that cannot carry a query marker
-AI_MEMORY_GEMINI_SAFE_SCHEMAS=true ai-memory serve
+PITSTOP_GEMINI_SAFE_SCHEMAS=true pitstop serve
 # or `gemini_safe_schemas = true` in config.toml
 
 # or per client, by hand in its MCP config
@@ -1977,7 +1977,7 @@ same: ask the model to list its available MCP tools, or to call
 
 ```
 You: List the MCP tools you can call. Use one of them to check
-     ai-memory's status.
+     pitstop's status.
 
 Model (any client): I can call: memory_query, memory_recent,
      memory_status, memory_briefing, memory_explore,
@@ -2005,18 +2005,18 @@ isn't being picked up. Check:
 
 1. **Is the server running?** `curl http://127.0.0.1:49374/mcp` should
    return a JSON-RPC error (not a connection refused). If refused,
-   start ai-memory: `docker start ai-memory` or
-   `ai-memory serve --transport http`.
+   start pitstop: `docker start pitstop` or
+   `pitstop serve --transport http`.
 2. **Did the client reload the config?** Claude Desktop and OMP need a
    restart. Cursor watches hooks but usually needs MCP reload/toggle.
    OpenClaw plugin changes need a Gateway restart unless it auto-restarted.
-3. **Are you on the right port?** ai-memory's default is **49374**
+3. **Are you on the right port?** pitstop's default is **49374**
    (`0xC0DE` in hex). If you remapped, update the URL in every
    client's config.
 
 If the model sees the tools but they all error, the server is
 probably running in a different data dir than expected. Check
-`docker logs ai-memory` or `ai-memory status --json` for the data
+`docker logs pitstop` or `pitstop status --json` for the data
 dir on disk.
 
 ---
@@ -2025,11 +2025,11 @@ dir on disk.
 
 The cross-agent handoff feature (the "headline" pitch in the README)
 requires both sides - the agent that *ends* a session, and the agent
-that *starts* the next one - to play nicely with ai-memory:
+that *starts* the next one - to play nicely with pitstop:
 
 | Side | What's needed | Covered by |
 |---|---|---|
-| **Ending side** | The agent must create a handoff through a true session-end hook, the manual finalizer, or `memory_handoff_begin`. | Built-in automatically for Claude Code, Codex (native `SessionEnd`, Codex CLI 0.145.0+), Devin CLI, Cursor, Gemini CLI, Grok Build CLI, Zero, Kimi Code, OpenClaw, OpenCode, and OMP. Antigravity CLI, both Kiro CLI engines, and Command Code have no reliable true session-end event; run `ai-memory finalize-session` with the corresponding `--agent` after the final turn (also the fallback on Codex older than 0.145.0). MCP-only clients such as Swival must call `memory_handoff_begin` explicitly. |
+| **Ending side** | The agent must create a handoff through a true session-end hook, the manual finalizer, or `memory_handoff_begin`. | Built-in automatically for Claude Code, Codex (native `SessionEnd`, Codex CLI 0.145.0+), Devin CLI, Cursor, Gemini CLI, Grok Build CLI, Zero, Kimi Code, OpenClaw, OpenCode, and OMP. Antigravity CLI, both Kiro CLI engines, and Command Code have no reliable true session-end event; run `pitstop finalize-session` with the corresponding `--agent` after the final turn (also the fallback on Codex older than 0.145.0). MCP-only clients such as Swival must call `memory_handoff_begin` explicitly. |
 | **Starting side** | Either (a) the session-start/plugin path injects the handoff via `/handoff`, OR (b) the model inspects with `memory_handoff_list` then claims with `memory_handoff_accept` (`handoff_id` from the list). | (a) is built-in for Claude Code / Codex / Devin CLI / Cursor / Gemini CLI / Antigravity CLI / Kimi Code / Grok Build CLI / both Kiro CLI engines / Command Code / OpenClaw / OpenCode / OMP. Grok's (a) is the first `PostToolUse` `additionalContext`, not SessionStart; `install-hooks --agent grok --apply` also installs a first-turn `memory_handoff_list` user rule so that tool exists. Zero discards SessionStart stdout; Swival is MCP-only. Use (b) for those. (b) works for any MCP-capable client if you nudge the model - see [the managed routing package](usage.md#install-the-routing-snippet-and-agent-skills). |
 
 OpenCode uses its official `session.deleted` plugin event for true session-end
@@ -2042,7 +2042,7 @@ primary close path.
 
 Codex and Antigravity `Stop` events are not session ends. Codex's hook install
 registers native `SessionEnd` for CLI 0.145.0 and later; Antigravity still needs
-explicit finalization. `ai-memory finalize-session` defaults to Codex for older
+explicit finalization. `pitstop finalize-session` defaults to Codex for older
 clients or a missed native end, while `--agent antigravity-cli` selects
 Antigravity. The command finds the latest matching open session for the current
 workspace/project and posts a synthetic `session-end` event through the same
@@ -2058,5 +2058,5 @@ So a typical mixed workflow looks like:
 - **Claude Desktop → Claude Code.** Claude Desktop doesn't write a
   handoff (no hooks). To resume in Claude Code, you'd have had to
   call `memory_handoff_begin` manually in Claude Desktop before
-  quitting. ai-memory's wiki content via `memory_query` is still
+  quitting. pitstop's wiki content via `memory_query` is still
   available either way.

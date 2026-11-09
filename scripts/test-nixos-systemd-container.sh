@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Privileged NixOS systemd-in-container smoke for services.ai-memory.
+# Privileged NixOS systemd-in-container smoke for services.pitstop.
 #
-# Builds (or reuses) packages.x86_64-linux.nixos-ai-memory-docker — a rootfs
+# Builds (or reuses) packages.x86_64-linux.nixos-pitstop-docker — a rootfs
 # tarball derived from one NixOS system.build.toplevel — imports it into
 # Docker/Podman, starts systemd as PID 1, and checks:
-#   - systemctl is-active ai-memory
+#   - systemctl is-active pitstop
 #   - curl /healthz inside the container (module default bind is loopback;
 #     Docker published ports hit eth0 and cannot reach 127.0.0.1)
-#   - a marker under /var/lib/ai-memory survives systemctl restart
+#   - a marker under /var/lib/pitstop survives systemctl restart
 #   - optional: the same marker survives a recreate with a named volume
 #
 # Boot race: right after /init, /run/current-system/sw/bin is not linked yet.
@@ -24,16 +24,16 @@
 
 set -euo pipefail
 
-IMAGE_NAME="${AI_MEMORY_NIXOS_TEST_IMAGE:-ai-memory-nixos-test}"
-CONTAINER_NAME="${AI_MEMORY_NIXOS_TEST_CONTAINER:-ai-memory-nixos-systemd-test}"
-VOLUME_NAME="${AI_MEMORY_NIXOS_TEST_VOLUME_NAME:-ai-memory-nixos-test-data}"
-KEEP="${AI_MEMORY_NIXOS_TEST_KEEP:-0}"
+IMAGE_NAME="${PITSTOP_NIXOS_TEST_IMAGE:-pitstop-nixos-test}"
+CONTAINER_NAME="${PITSTOP_NIXOS_TEST_CONTAINER:-pitstop-nixos-systemd-test}"
+VOLUME_NAME="${PITSTOP_NIXOS_TEST_VOLUME_NAME:-pitstop-nixos-test-data}"
+KEEP="${PITSTOP_NIXOS_TEST_KEEP:-0}"
 # Default on: one volume remount persistence pass. Set 0 to skip.
-TEST_VOLUME="${AI_MEMORY_NIXOS_TEST_VOLUME:-1}"
+TEST_VOLUME="${PITSTOP_NIXOS_TEST_VOLUME:-1}"
 # Probed via docker exec against the unit's loopback bind (not host-mapped).
 HEALTH_URL="http://127.0.0.1:49374/healthz"
-DATA_DIR="/var/lib/ai-memory"
-MARKER_PATH="${DATA_DIR}/.ai-memory-nixos-ci-marker"
+DATA_DIR="/var/lib/pitstop"
+MARKER_PATH="${DATA_DIR}/.pitstop-nixos-ci-marker"
 MARKER_VALUE="nixos-container-smoke"
 
 ENGINE=""
@@ -68,8 +68,8 @@ repo_root() {
 }
 
 detect_engine() {
-  if [ -n "${AI_MEMORY_DOCKER:-}" ]; then
-    ENGINE="${AI_MEMORY_DOCKER}"
+  if [ -n "${PITSTOP_DOCKER:-}" ]; then
+    ENGINE="${PITSTOP_DOCKER}"
     return 0
   fi
   if command -v docker >/dev/null 2>&1; then
@@ -80,12 +80,12 @@ detect_engine() {
     ENGINE=podman
     return 0
   fi
-  fail "need docker or podman on PATH (or set AI_MEMORY_DOCKER)"
+  fail "need docker or podman on PATH (or set PITSTOP_DOCKER)"
 }
 
 cleanup() {
   if [ "${KEEP}" = "1" ]; then
-    log "Keeping container ${CONTAINER_NAME} (AI_MEMORY_NIXOS_TEST_KEEP=1)"
+    log "Keeping container ${CONTAINER_NAME} (PITSTOP_NIXOS_TEST_KEEP=1)"
     return 0
   fi
   if [ -n "${ENGINE}" ]; then
@@ -123,21 +123,21 @@ wait_for_http() {
     fi
     sleep 0.5
   done
-  ctr_exec journalctl -u ai-memory --no-pager -n 120 >&2 || true
+  ctr_exec journalctl -u pitstop --no-pager -n 120 >&2 || true
   fail "timed out waiting for in-container ${url}"
 }
 
 wait_for_active() {
   local i
   for i in $(seq 1 120); do
-    if ctr_exec systemctl is-active --quiet ai-memory; then
+    if ctr_exec systemctl is-active --quiet pitstop; then
       return 0
     fi
     sleep 0.5
   done
-  ctr_exec systemctl status ai-memory --no-pager >&2 || true
-  ctr_exec journalctl -u ai-memory --no-pager -n 120 >&2 || true
-  fail "timed out waiting for systemctl is-active ai-memory"
+  ctr_exec systemctl status pitstop --no-pager >&2 || true
+  ctr_exec journalctl -u pitstop --no-pager -n 120 >&2 || true
+  fail "timed out waiting for systemctl is-active pitstop"
 }
 
 run_container() {
@@ -156,7 +156,7 @@ run_container() {
 write_marker() {
   # PATH is injected so chown/coreutils resolve after activation.
   ctr_exec_root /bin/sh -c \
-    "printf '%s\n' '${MARKER_VALUE}' > '${MARKER_PATH}' && chown ai-memory:ai-memory '${MARKER_PATH}'"
+    "printf '%s\n' '${MARKER_VALUE}' > '${MARKER_PATH}' && chown pitstop:pitstop '${MARKER_PATH}'"
 }
 
 assert_marker() {
@@ -170,17 +170,17 @@ assert_marker() {
 smoke_once() {
   wait_for_exec_ready
 
-  log "Waiting for ai-memory unit"
+  log "Waiting for pitstop unit"
   wait_for_active
-  ctr_exec systemctl is-active ai-memory
+  ctr_exec systemctl is-active pitstop
 
   log "Waiting for in-container ${HEALTH_URL}"
   wait_for_http "${HEALTH_URL}"
   ctr_exec curl -fsS "${HEALTH_URL}" >/dev/null
 
-  log "Writing marker and restarting ai-memory"
+  log "Writing marker and restarting pitstop"
   write_marker
-  ctr_exec systemctl restart ai-memory
+  ctr_exec systemctl restart pitstop
   wait_for_active
   wait_for_http "${HEALTH_URL}"
   assert_marker
@@ -202,8 +202,8 @@ main() {
       ;;
   esac
 
-  log "Building packages.x86_64-linux.nixos-ai-memory-docker"
-  nix build --print-build-logs '.#packages.x86_64-linux.nixos-ai-memory-docker'
+  log "Building packages.x86_64-linux.nixos-pitstop-docker"
+  nix build --print-build-logs '.#packages.x86_64-linux.nixos-pitstop-docker'
   ROOTFS="$(pwd)/result/rootfs.tar.xz"
   if [ ! -e "${ROOTFS}" ]; then
     fail "missing rootfs tarball at ${ROOTFS}"
